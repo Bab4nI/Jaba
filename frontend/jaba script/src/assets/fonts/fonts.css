@@ -1,11 +1,11 @@
 @font-face {
     font-family: 'Helvetica';
-    src: url('Helvetica.eot');
+    src: url('@/assets/fonts/Helvetica.eot');
     src: local('Helvetica'),
-        url('Helvetica.eot?#iefix') format('embedded-opentype'),
-        url('Helvetica.woff2') format('woff2'),
-        url('Helvetica.woff') format('woff'),
-        url('Helvetica.ttf') format('truetype');
+        url('@/assets/fonts/Helvetica.eot?#iefix') format('embedded-opentype'),
+        url('@/assets/fonts/Helvetica.woff2') format('woff2'),
+        url('@/assets/fonts/Helvetica.woff') format('woff'),
+        url('@/assets/fonts/Helvetica.ttf') format('truetype');
     font-weight: normal;
     font-style: normal;
     font-display: swap;
@@ -13,12 +13,12 @@
 
 @font-face {
     font-family: 'Helvetica';
-    src: url('Helvetica-Oblique.eot');
+    src: url('@/assets/fonts/Helvetica-Oblique.eot');
     src: local('Helvetica Oblique'), local('Helvetica-Oblique'),
-        url('Helvetica-Oblique.eot?#iefix') format('embedded-opentype'),
-        url('Helvetica-Oblique.woff2') format('woff2'),
-        url('Helvetica-Oblique.woff') format('woff'),
-        url('Helvetica-Oblique.ttf') format('truetype');
+        url('@/assets/fonts/Helvetica-Oblique.eot?#iefix') format('embedded-opentype'),
+        url('@/assets/fonts/Helvetica-Oblique.woff2') format('woff2'),
+        url('@/assets/fonts/Helvetica-Oblique.woff') format('woff'),
+        url('@/assets/fonts/Helvetica-Oblique.ttf') format('truetype');
     font-weight: normal;
     font-style: italic;
     font-display: swap;
@@ -26,12 +26,12 @@
 
 @font-face {
     font-family: 'Helvetica';
-    src: url('Helvetica-BoldOblique.eot');
+    src: url('@/assets/fonts/Helvetica-BoldOblique.eot');
     src: local('Helvetica Bold Oblique'), local('Helvetica-BoldOblique'),
-        url('Helvetica-BoldOblique.eot?#iefix') format('embedded-opentype'),
-        url('Helvetica-BoldOblique.woff2') format('woff2'),
-        url('Helvetica-BoldOblique.woff') format('woff'),
-        url('Helvetica-BoldOblique.ttf') format('truetype');
+        url('@/assets/fonts/Helvetica-BoldOblique.eot?#iefix') format('embedded-opentype'),
+        url('@/assets/fonts/Helvetica-BoldOblique.woff2') format('woff2'),
+        url('@/assets/fonts/Helvetica-BoldOblique.woff') format('woff'),
+        url('@/assets/fonts/Helvetica-BoldOblique.ttf') format('truetype');
     font-weight: bold;
     font-style: italic;
     font-display: swap;
@@ -39,12 +39,12 @@
 
 @font-face {
     font-family: 'Helvetica';
-    src: url('Helvetica-Light.eot');
+    src: url('@/assets/fonts/Helvetica-Light.eot');
     src: local('Helvetica Light'), local('Helvetica-Light'),
-        url('Helvetica-Light.eot?#iefix') format('embedded-opentype'),
-        url('Helvetica-Light.woff2') format('woff2'),
-        url('Helvetica-Light.woff') format('woff'),
-        url('Helvetica-Light.ttf') format('truetype');
+        url('@/assets/fonts/Helvetica-Light.eot?#iefix') format('embedded-opentype'),
+        url('@/assets/fonts/Helvetica-Light.woff2') format('woff2'),
+        url('@/assets/fonts/Helvetica-Light.woff') format('woff'),
+        url('@/assets/fonts/Helvetica-Light.ttf') format('truetype');
     font-weight: 300;
     font-style: normal;
     font-display: swap;
@@ -52,12 +52,12 @@
 
 @font-face {
     font-family: 'Helvetica';
-    src: url('Helvetica-Bold.eot');
+    src: url('@/assets/fonts/Helvetica-Bold.eot');
     src: local('Helvetica Bold'), local('Helvetica-Bold'),
-        url('Helvetica-Bold.eot?#iefix') format('embedded-opentype'),
-        url('Helvetica-Bold.woff2') format('woff2'),
-        url('Helvetica-Bold.woff') format('woff'),
-        url('Helvetica-Bold.ttf') format('truetype');
+        url('@/assets/fonts/Helvetica-Bold.eot?#iefix') format('embedded-opentype'),
+        url('@/assets/fonts/Helvetica-Bold.woff2') format('woff2'),
+        url('@/assets/fonts/Helvetica-Bold.woff') format('woff'),
+        url('@/assets/fonts/Helvetica-Bold.ttf') format('truetype');
     font-weight: bold;
     font-style: normal;
     font-display: swap;
@@ -65,14 +65,139 @@
 
 @font-face {
     font-family: 'Helvetica';
-    src: url('Helvetica-LightOblique.eot');
+    src: url('@/assets/fonts/Helvetica-LightOblique.eot');
     src: local('Helvetica Light Oblique'), local('Helvetica-LightOblique'),
-        url('Helvetica-LightOblique.eot?#iefix') format('embedded-opentype'),
-        url('Helvetica-LightOblique.woff2') format('woff2'),
-        url('Helvetica-LightOblique.woff') format('woff'),
-        url('Helvetica-LightOblique.ttf') format('truetype');
+        url('@/assets/fonts/Helvetica-LightOblique.eot?#iefix') format('embedded-opentype'),
+        url('@/assets/fonts/Helvetica-LightOblique.woff2') format('woff2'),
+        url('@/assets/fonts/Helvetica-LightOblique.woff') format('woff'),
+        url('@/assets/fonts/Helvetica-LightOblique.ttf') format('truetype');
     font-weight: 300;
     font-style: italic;
     font-display: swap;
 }
 
+@font-face {
+    font-family: 'Raleway';
+    src: url('@/assets/fonts/static/Raleway-Regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Raleway';
+    src: url('@/assets/fonts/static/Raleway-Italic.ttf') format('truetype');
+    font-weight: normal;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'Raleway';
+    src: url('@/assets/fonts/static/Raleway-Thin.ttf') format('truetype');
+    font-weight: 100;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Raleway';
+    src: url('@/assets/fonts/static/Raleway-ThinItalic.ttf') format('truetype');
+    font-weight: 100;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'Raleway';
+    src: url('@/assets/fonts/static/Raleway-ExtraLight.ttf') format('truetype');
+    font-weight: 200;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Raleway';
+    src: url('@/assets/fonts/static/Raleway-ExtraLightItalic.ttf') format('truetype');
+    font-weight: 200;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'Raleway';
+    src: url('@/assets/fonts/static/Raleway-Light.ttf') format('truetype');
+    font-weight: 300;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Raleway';
+    src: url('@/assets/fonts/static/Raleway-LightItalic.ttf') format('truetype');
+    font-weight: 300;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'Raleway';
+    src: url('@/assets/fonts/static/Raleway-Medium.ttf') format('truetype');
+    font-weight: 500;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Raleway';
+    src: url('@/assets/fonts/static/Raleway-MediumItalic.ttf') format('truetype');
+    font-weight: 500;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'Raleway';
+    src: url('@/assets/fonts/static/Raleway-SemiBold.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Raleway';
+    src: url('@/assets/fonts/static/Raleway-SemiBoldItalic.ttf') format('truetype');
+    font-weight: 600;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'Raleway';
+    src: url('@/assets/fonts/static/Raleway-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Raleway';
+    src: url('@/assets/fonts/static/Raleway-BoldItalic.ttf') format('truetype');
+    font-weight: 700;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'Raleway';
+    src: url('@/assets/fonts/static/Raleway-ExtraBold.ttf') format('truetype');
+    font-weight: 800;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Raleway';
+    src: url('@/assets/fonts/static/Raleway-ExtraBoldItalic.ttf') format('truetype');
+    font-weight: 800;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'Raleway';
+    src: url('@/assets/fonts/static/Raleway-Black.ttf') format('truetype');
+    font-weight: 900;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Raleway';
+    src: url('@/assets/fonts/static/Raleway-BlackItalic.ttf') format('truetype');
+    font-weight: 900;
+    font-style: italic;
+}
