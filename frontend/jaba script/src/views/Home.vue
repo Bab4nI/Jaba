@@ -123,7 +123,7 @@
                       <span class="line-height-reset"><br /></span>
 
                       <span class="contact-info-style">Телефон: </span>
-                      <a href="tel:+1234567890" class="contact-info-link">+7-(938)-100-16-77</a>
+                      <a href="tel:+1234567890" class="contact-info-link">+7(938)-100-16-77</a>
                       <span class="line-height-reset"><br /></span>
 
                       <span class="contact-info-style">Адрес: </span>
@@ -157,33 +157,19 @@
     <script setup>
     import { ref, reactive } from 'vue';
     import { useRouter } from 'vue-router';
-    
+    import { header } from '@/config/header.js';
     
     const router = useRouter();
     const goToSignin = () => {
       router.push('header.login.link');
     };
     
-    const header = 
-    {
-        home: {title: 'Главная', link: '/'},
-        course: {title: 'Курс', link: '/StudentAccount'},
-        login: {title: 'Вход', link: '/SignUp'},
-    }
     </script>
     
     
     
     <!-- css -->
     <style scoped>
-    *{
-        margin: 0px;
-    }
-    
-    a {
-        all: unset;
-        cursor: pointer;
-    }
     
     .netlab-ai-landing-page {
         box-sizing: border-box;

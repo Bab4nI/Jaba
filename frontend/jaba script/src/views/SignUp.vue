@@ -6,12 +6,18 @@
             <p class="main-title-text-style">NetLab AI</p>
             <div class="header-nav-container1">
               <div class="header-nav-container">
-                <p class="main-heading-text-style">Главная</p>
+                <p class="primary-text-content-style">
+                    <router-link :to="header.home.link">{{ header.home.title }}</router-link>
+                </p>
                 <div class="vertical-divider"></div>
-                <p class="main-heading-text-style">Курс</p>
+                <p class="primary-text-content-style">
+                    <router-link :to="header.course.link">{{ header.course.title }}</router-link>
+                </p>
                 <div class="vertical-divider"></div>
                 <div class="vertical-menu-nav-item">
-                  <p class="login-heading-text-style">Вход</p>
+                <p class="primary-text-content-style">
+                    <router-link :to="header.login.link">{{ header.login.title }}</router-link>
+                </p>
                 </div>
               </div>
               <img src="@/assets/images/moon_5370735.png" class="main-nav-icon" />
@@ -46,21 +52,23 @@
                 </div>
                 <div class="password-input-section">
                     <div class="password-input-container">
-                    <input :type="passwordFieldType" placeholder="Придумайте пароль" class="input-style" />
-                    <img 
-                      src="@/assets/images/psswd_open.png" 
-                      class="password-input-icon" 
-                      @click="togglePasswordVisibility" 
-                    />
-                  </div>
-                  <div class="password-input-container">
-                    <input :type="passwordFieldType" placeholder="Повторите пароль" class="input-style" />
-                    <img 
-                      src="@/assets/images/psswd_open.png" 
-                      class="password-input-icon" 
-                      @click="togglePasswordVisibility" 
-                    />
-                </div>
+                      <input :type="passwordFieldType" placeholder="Придумайте пароль" class="input-style" />
+                      <img 
+                        :src="eyeIcon" 
+                        class="password-input-icon" 
+                        @click="togglePasswordVisibility" 
+                        alt="Toggle Password Visibility"
+                      />
+                    </div>
+                    <div class="password-input-container">
+                      <input :type="passwordFieldType" placeholder="Придумайте пароль" class="input-style" />
+                      <img 
+                        :src="eyeIcon" 
+                        class="password-input-icon" 
+                        @click="togglePasswordVisibility" 
+                        alt="Toggle Password Visibility"
+                      />
+                    </div>
                 </div>
                 <div class="account-creation-button-container">
                   <button class="account-creation-button">Создать учётную запись</button>
@@ -75,16 +83,42 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
+import { header } from '@/config/header.js';
+// Состояние видимости пароля
+const isPasswordVisible = ref(false);
 
-const passwordFieldType = ref('password');
+// Тип поля ввода (password/text)
+const passwordFieldType = computed(() => (isPasswordVisible.value ? 'text' : 'password'));
 
+// Иконка глаза (зависит от состояния видимости пароля)
+import eyeOpen from '@/assets/images/psswd_open.png';
+import eyeClosed from '@/assets/images/psswd_close.png';
+
+const eyeIcon = computed(() => 
+  isPasswordVisible.value ? eyeOpen : eyeClosed
+);
+// Функция для переключения видимости пароля
 const togglePasswordVisibility = () => {
-  passwordFieldType.value = passwordFieldType.value === 'password' ? 'text' : 'password';
+  isPasswordVisible.value = !isPasswordVisible.value;
 };
 </script>
 
 <style scoped>
+
+.primary-text-content-style {
+    flex: 0 0 auto;
+    padding: 0;
+    margin: 0;
+    font: 400 20px Raleway, sans-serif;
+    color: #24222f;
+}
+.primary-text-content-style:hover {
+    text-decoration: underline;
+    text-underline-offset: 5px;
+}
+
+
 .main-content-container {
     box-sizing: border-box;
     display: flex;
@@ -136,13 +170,7 @@ const togglePasswordVisibility = () => {
   align-items: center;
   justify-content: flex-start;
 }
-.main-heading-text-style {
-  flex: 0 0 auto;
-  padding: 0;
-  margin: 0;
-  font: 400 20px Raleway, sans-serif;
-  color: #24222f;
-}
+
 .vertical-divider {
   box-sizing: border-box;
   flex: 0 0 auto;
@@ -150,6 +178,7 @@ const togglePasswordVisibility = () => {
   height: 29px;
   border-left: 1px solid #24222f;
 }
+
 .vertical-menu-nav-item {
   box-sizing: border-box;
   display: flex;
@@ -160,13 +189,10 @@ const togglePasswordVisibility = () => {
   width: 54px;
   padding-top: 3.5px;
 }
-.login-heading-text-style {
-  flex: 0 0 auto;
-  align-self: center;
-  padding: 0;
-  margin: 0;
-  font: 400 20px Raleway, sans-serif;
-  color: #24222f;
+
+.login-heading-text-style:hover {
+    text-decoration: underline;
+    text-underline-offset: 5px;
 }
 
 .main-nav-icon {

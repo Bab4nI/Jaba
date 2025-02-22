@@ -11,4 +11,12 @@ export default {
 </script>
 
 <style>
+*{
+    margin: 0px;
+}
+    
+a {
+    all: unset;
+    cursor: pointer;
+}
 </style>
