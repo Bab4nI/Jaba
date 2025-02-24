@@ -462,6 +462,11 @@ try {
   border: none;
   cursor: pointer;
 }
+
+.account-creation-button-container:hover {
+  background: #7c54ca;
+  transition: 0.5s ease;
+}
 .account-creation-image {
   box-sizing: border-box;
   display: block;

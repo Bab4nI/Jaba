@@ -19,14 +19,13 @@ To get started with this project, follow these steps:
 1. **Clone the repository:**
 
    ```sh
-   git clone https://github.com/your-username/your-repo-name.git
-   cd your-repo-name
+   git clone https://github.com/Bab4nI/Jaba.git -b kirill
    ```
 
 2. **Set up the backend (Django):**
 
    ```sh
-   cd backend
+   cd backend/main
    pip install -r requirements.txt
    python manage.py migrate
    python manage.py runserver
@@ -35,8 +34,8 @@ To get started with this project, follow these steps:
 3. **Set up the frontend (Vue.js):**
 
    ```sh
-   cd frontend
-   npm install
+   cd frontend/"jaba script"
+   npm i
    npm run dev
    ```
 
@@ -58,7 +57,7 @@ Make sure to disable Vetur if you have it installed, as it may conflict with Vol
 To start the development server with hot-reloading, run:
 
 ```sh
-cd frontend
+cd frontend/"jaba script"
 npm run dev
 ```
 
@@ -69,7 +68,7 @@ This will start the Vue.js development server on `http://localhost:3000`.
 For Django backend development, run:
 
 ```sh
-cd backend
+cd backend/main
 python manage.py runserver
 ```
 
@@ -82,7 +81,7 @@ This will start the Django development server on `http://localhost:8000`.
 To build the Vue.js frontend for production, run:
 
 ```sh
-cd frontend
+cd frontend/"jaba script"
 npm run build
 ```
 
