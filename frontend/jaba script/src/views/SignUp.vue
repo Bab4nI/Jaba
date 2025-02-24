@@ -1,106 +1,219 @@
 <template>
-    <div style="display: inline-block; width: 1505px" data-ignore="used only for top most containter width">
-      <div class="main-content-container">
-        <div class="center-column-flex-box">
-          <div class="header-section">
-            <p class="main-title-text-style">NetLab AI</p>
-            <div class="header-nav-container1">
-              <div class="header-nav-container">
-                <p class="primary-text-content-style">
-                    <router-link :to="header.home.link">{{ header.home.title }}</router-link>
-                </p>
-                <div class="vertical-divider"></div>
-                <p class="primary-text-content-style">
-                    <router-link :to="header.course.link">{{ header.course.title }}</router-link>
-                </p>
-                <div class="vertical-divider"></div>
-                <div class="vertical-menu-nav-item">
-                <p class="primary-text-content-style">
-                    <router-link :to="header.login.link">{{ header.login.title }}</router-link>
-                </p>
-                </div>
+  <div style="display: inline-block; width: 1505px" data-ignore="used only for top most containter width">
+    <div class="main-content-container">
+      <div class="center-column-flex-box">
+        <div class="header-section">
+          <p class="main-title-text-style">NetLab AI</p>
+          <div class="header-nav-container1">
+            <div class="header-nav-container">
+              <p class="primary-text-content-style">
+                  <router-link :to="header.home.link">{{ header.home.title }}</router-link>
+              </p>
+              <div class="vertical-divider"></div>
+              <p class="primary-text-content-style">
+                  <router-link :to="header.course.link">{{ header.course.title }}</router-link>
+              </p>
+              <div class="vertical-divider"></div>
+              <div class="vertical-menu-nav-item">
+              <p class="primary-text-content-style">
+                  <router-link :to="header.login.link">{{ header.login.title }}</router-link>
+              </p>
               </div>
-              <img src="@/assets/images/moon_5370735.png" class="main-nav-icon" />
             </div>
+            <img src="@/assets/images/moon_5370735.png" class="main-nav-icon" />
           </div>
         </div>
-        <div class="account-creation-form-container">
-          <div class="registration-form-container">
-            <div class="account-creation-section">
-              <div class="account-creation-form">
-                <div class="welcome-message-container">
-                  <p class="welcome-message-style">Welcome!</p>
-                  <p class="welcome-message-text-style">Создайте аккаунт, чтобы продолжить</p>
-                </div>
-                <div class="input-section">
-                  <div class="input-row">
-                    <div class="input-container">
-                      <input type="text" placeholder="Фамилия" class="input-style" />
-                    </div>
-                    <div class="input-container">
-                      <input type="text" placeholder="Имя" class="input-style" />
-                    </div>
+      </div>
+      <div class="account-creation-form-container">
+        <div class="registration-form-container">
+          <div class="account-creation-section">
+            <div class="account-creation-form">
+              <div class="welcome-message-container">
+                <p class="welcome-message-style">Welcome!</p>
+                <p class="welcome-message-text-style">Создайте аккаунт, чтобы продолжить</p>
+              </div>
+              <form @submit.prevent="handleSubmit">
+              <div class="input-section">
+                <div class="input-row">
+                  <div class="input-container">
+                    <input 
+                      type="text" 
+                      placeholder="Фамилия" 
+                      class="input-style" 
+                      v-model="form.lastName"
+                      readonly
+                    />
                   </div>
-                  <div class="input-row">
-                    <div class="input-container">
-                      <input type="email" placeholder="E-mail" class="input-style" />
-                    </div>
-                    <div class="input-container">
-                      <input type="text" placeholder="Группа" class="input-style" />
-                    </div>
+                  <div class="input-container">
+                    <input 
+                      type="text" 
+                      placeholder="Имя" 
+                      class="input-style"
+                      v-model="form.firstName"
+                      readonly
+                    />
                   </div>
                 </div>
-                <div class="password-input-section">
-                    <div class="password-input-container">
-                      <input :type="passwordFieldType" placeholder="Придумайте пароль" class="input-style" />
-                      <img 
-                        :src="eyeIcon" 
-                        class="password-input-icon" 
-                        @click="togglePasswordVisibility" 
-                        alt="Toggle Password Visibility"
-                      />
-                    </div>
-                    <div class="password-input-container">
-                      <input :type="passwordFieldType" placeholder="Придумайте пароль" class="input-style" />
-                      <img 
-                        :src="eyeIcon" 
-                        class="password-input-icon" 
-                        @click="togglePasswordVisibility" 
-                        alt="Toggle Password Visibility"
-                      />
-                    </div>
-                </div>
-                <div class="account-creation-button-container">
-                  <button class="account-creation-button">Создать учётную запись</button>
+                <div class="input-row">
+                  <div class="input-container">
+                    <input 
+                      type="email" 
+                      placeholder="E-mail" 
+                      class="input-style"
+                      v-model="form.email"
+                      readonly
+                    />
+                  </div>
+                  <div class="input-container">
+                    <input 
+                      type="text" 
+                      placeholder="Группа" 
+                      class="input-style"
+                      v-model="form.group"
+                      readonly
+                    />
+                  </div>
                 </div>
               </div>
-              <img src="@/assets/images/login_day1.jpg" class="account-creation-image" />
+              <div class="password-input-section">
+                  <div class="password-input-container">
+                    <input 
+                      :type="passwordFieldType" 
+                      placeholder="Придумайте пароль" 
+                      class="input-style"
+                      v-model="form.password"
+                    />
+                    <img 
+                      :src="eyeIcon" 
+                      class="password-input-icon" 
+                      @click="togglePasswordVisibility" 
+                      alt="Toggle Password Visibility"
+                    />
+                  </div>
+                  <div class="password-input-container">
+                    <input 
+                      :type="passwordFieldType" 
+                      placeholder="Подтвердите пароль" 
+                      class="input-style"
+                      v-model="form.confirmPassword"
+                    />
+                    <img 
+                      :src="eyeIcon" 
+                      class="password-input-icon" 
+                      @click="togglePasswordVisibility" 
+                      alt="Toggle Password Visibility"
+                    />
+                  </div>
+              </div>
+              <div class="account-creation-button-container">
+                <button type="submit" class="account-creation-button">Создать учётную запись</button>
+              </div>
+              </form>
             </div>
+            <img src="@/assets/images/login_day1.jpg" class="account-creation-image" />
           </div>
         </div>
       </div>
     </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { header } from '@/config/header.js';
-// Состояние видимости пароля
-const isPasswordVisible = ref(false);
 
-// Тип поля ввода (password/text)
-const passwordFieldType = computed(() => (isPasswordVisible.value ? 'text' : 'password'));
-
-// Иконка глаза (зависит от состояния видимости пароля)
+// Иконки для пароля
 import eyeOpen from '@/assets/images/psswd_open.png';
 import eyeClosed from '@/assets/images/psswd_close.png';
 
-const eyeIcon = computed(() => 
-  isPasswordVisible.value ? eyeOpen : eyeClosed
+// Состояния
+const route = useRoute();
+const router = useRouter();
+const isPasswordVisible = ref(false);
+const form = ref({
+lastName: '',
+firstName: '',
+email: '',
+group: '',
+password: '',
+confirmPassword: ''
+});
+
+// Заполнение полей из query параметров
+onMounted(() => {
+form.value = {
+  lastName: route.query.last_name || '',
+  firstName: route.query.first_name || '',
+  email: route.query.email || '',
+  group: route.query.group || '',
+  password: '',
+  confirmPassword: ''
+}
+});
+
+// Логика пароля
+const passwordFieldType = computed(() => 
+isPasswordVisible.value ? 'text' : 'password'
 );
-// Функция для переключения видимости пароля
+
+const eyeIcon = computed(() => 
+isPasswordVisible.value ? eyeOpen : eyeClosed
+);
+
 const togglePasswordVisibility = () => {
-  isPasswordVisible.value = !isPasswordVisible.value;
+isPasswordVisible.value = !isPasswordVisible.value;
+};
+
+// Валидация формы
+const validateForm = () => {
+if (!form.value.password) {
+  alert('Пароль обязателен для заполнения');
+  return false;
+}
+
+if (form.value.password !== form.value.confirmPassword) {
+  alert('Пароли не совпадают');
+  return false;
+}
+
+if (form.value.password.length < 8) {
+  alert('Пароль должен содержать минимум 8 символов');
+  return false;
+}
+
+return true;
+};
+
+// Отправка формы
+const handleSubmit = async () => {
+if (!validateForm()) return;
+
+try {
+  const response = await fetch('http://your-django-api/api/register/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      last_name: form.value.lastName,
+      first_name: form.value.firstName,
+      email: form.value.email,
+      group: form.value.group,
+      password: form.value.password
+    })
+  });
+
+  if (!response.ok) throw new Error('Ошибка регистрации');
+
+  const data = await response.json();
+  alert('Регистрация успешно завершена!');
+  router.push('/login');
+  
+} catch (error) {
+  console.error('Registration error:', error);
+  alert(error.message || 'Произошла ошибка при регистрации');
+}
 };
 </script>
 
