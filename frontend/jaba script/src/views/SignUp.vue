@@ -190,7 +190,7 @@ const handleSubmit = async () => {
 if (!validateForm()) return;
 
 try {
-  const response = await fetch('http://your-django-api/api/register/', {
+  const response = await fetch('http://127.0.0.1:8000/api/user/', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

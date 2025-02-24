@@ -1,6 +1,8 @@
 from django.urls import path
-from .views import send_registration_link
+from .views import send_registration_link, user_list, user_detail
 
 urlpatterns = [
-    path('api/send-registration-link/', send_registration_link, name='send-registration-link'),
+    path('send-registration-link/', send_registration_link, name='send-registration-link'),
+    path('user/', user_list, name='user-list'),
+    path('user/<int:pk>/', user_detail, name='user-detail'),
 ]
