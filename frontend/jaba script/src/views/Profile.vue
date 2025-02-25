@@ -1,147 +1,56 @@
 <template>
-    <div style="display: inline-block; width: 1505px" data-ignore="used only for top most containter width">
-      <div class="main-content-container1">
-        <div class="profile-card-container">
-          <div class="main-content-container">
-            <div class="profile-card-container1">
-              <div class="sidebar-container">
-                <div class="course-progress-stats-container">
-                  <div class="course-progress-container">
-                    <div class="course-progress-container">
-                      
-                      <!-- PLACEHOLDER - Input Component detected here. Go to "React Code" via right click menu to see code generated -->
-                    </div>
-                    <div class="course-progress-tracker">
-                      <p class="progress-tracker-text-style">Прогресс прохождения курса</p>
+  <div style="display: inline-block; width: 1505px" data-ignore="used only for top most containter width">
+    <div class="main-content-container1">
+      <div class="profile-card-container">
+        <div class="main-content-container">
+          <div class="profile-card-container1">
+            <Sidebar />
+            <div class="vertical-divider1"></div>
+            <div class="profile-card-container2">
+              <p class="profile-heading">Мой профиль</p>
+              <div class="student-profile-container">
+                <div class="profile-card">
+                  <img src="@/assets/images/image_756d8ce5.jpeg" class="profile-image-container" />
+                  <div class="student-info-card1">
+                    <p class="main-title-text-style">Фамилия Имя Отчество</p>
+                    <div class="student-info-container">
+                      <p class="student-role-text-style">Студент</p>
+                      <p class="student-info-text-style">ИТА ЮФУ, ИКТИБ</p>
                     </div>
                   </div>
-                  <p class="course-progress-statistics">Статистика</p>
                 </div>
-                <p class="progress-indicator-text-style">Выйти из аккаунта</p>
-              </div>
-              <div class="vertical-divider1"></div>
-              <!-- profile container -->
-              <div class="profile-card-container2">
-                <p class="profile-heading">Мой профиль</p>
-                <div class="student-profile-container">
-                  <div class="profile-card">
-                    <img src="@/assets/images/image_756d8ce5.jpeg" class="profile-image-container" />
-                    <div class="student-info-card1">
-                      <p class="main-title-text-style">Фамилия Имя Отчество</p>
-                      <div class="student-info-container">
-                        <p class="student-role-text-style">Студент</p>
-                        <p class="student-info-text-style">ИТА ЮФУ, ИКТИБ</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="profile-card1">
-                    <div class="student-profile-card">
-                      <div class="student-info-card">
-                        <p class="email-label-text-style">Адрес электронной почты</p>
-                        <a href="mailto:smth@sfedu.ru" class="email-link-text-style">smth@sfedu.ru</a>
+                <div class="profile-card1">
+                  <div class="student-profile-card">
+                    <div class="student-info-card">
+                      <p class="email-label-text-style">Адрес электронной почты</p>
+                      <a href="mailto:smth@sfedu.ru" class="email-link-text-style">smth@sfedu.ru</a>
+                      <div class="vertical-section-divider">
+                        <div class="course-progress-container">
+                          <p class="email-label-text-style">Уровень обучения</p>
+                          <p class="education-details-text-style">Специалист</p>
+                        </div>
+                        <div class="group-info-block">
+                          <p class="email-label-text-style">Группа</p>
+                          <p class="education-details-text-style">КТсо2-4</p>
+                        </div>
+                        <div class="group-info-block">
+                          <p class="email-label-text-style">Направление обучения</p>
+                          <p class="education-details-text-style">10.05.03</p>
+                        </div>
                         <div class="vertical-section-divider">
-                          <div class="course-progress-container">
-                            <p class="email-label-text-style">Уровень обучения</p>
-                            <p class="education-details-text-style">Специалист</p>
-                          </div>
-                          <div class="group-info-block">
-                            <p class="email-label-text-style">Группа</p>
-                            <p class="education-details-text-style">КТсо2-4</p>
-                          </div>
-                          <div class="group-info-block">
-                            <p class="email-label-text-style">Направление обучения</p>
-                            <p class="education-details-text-style">10.05.03</p>
-                          </div>
-                          <div class="vertical-section-divider">
-                            <p class="email-label-text-style">Кафедра</p>
-                            <p class="education-details-text-style">БИТ им. О. Б. Макаревича</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="edit-section-container">
-                        <div class="edit-button-container">
-                          <p class="edit-button-text-style">Редактировать</p>
-                          <img src="@/assets/images/edit.png" class="edit-icon" />
+                          <p class="email-label-text-style">Кафедра</p>
+                          <p class="education-details-text-style">БИТ им. О. Б. Макаревича</p>
                         </div>
                       </div>
                     </div>
-                    <div class="schedule-container">
-                      <div class="calendar-container2">
-                        <div class="calendar-container1">
-                          <div class="center-aligned-flex-container">
-                            <div class="vertical-center-text-box">
-                              <p class="majestic-heading">Январь</p>
-                            </div>
-                            <p class="month-year-display-style">2025</p>
-                          </div>
-                          <div class="horizontal-flex-container">
-                            <div class="svg-container">
-                              <svg viewBox="0 0 6.5 13" x="0" y="0" fill="none" xmlns="http://www.w3.org/2000/svg"><path id="Vector 2" d="M6,0.5l-5.5,6l5.5,6" stroke="#24222F" xmlns="http://www.w3.org/2000/svg" /></svg>
-                            </div>
-                            <div class="svg-container">
-                              <svg viewBox="0 0 6.5 13" x="0" y="0" fill="none" xmlns="http://www.w3.org/2000/svg"><path id="Vector 1" d="M0.5,0.5l5.5,6l-5.5,6" stroke="#24222F" xmlns="http://www.w3.org/2000/svg" /></svg>
-                            </div>
-                          </div>
-                        </div>
-                        <div class="calendar-container">
-                          <div class="flex-calendar-row">
-                            <p class="schedule-item">Mon</p>
-                            <p class="schedule-item">Tue</p>
-                            <p class="schedule-item">Wed</p>
-                            <p class="schedule-item">Thu</p>
-                            <p class="day-of-week-label">Fri</p>
-                            <p class="day-of-week-badge">Sat</p>
-                            <p class="highlighted-day-of-week">Sun</p>
-                          </div>
-                          <div class="flex-calendar-row">
-                            <p class="number-highlighted">30</p>
-                            <p class="number-highlighted-text">31</p>
-                            <p class="text-block">1</p>
-                            <p class="text-block">2</p>
-                            <p class="text-block">3</p>
-                            <p class="numeric-highlighted-text">4</p>
-                            <p class="numeric-highlighted-text">5</p>
-                          </div>
-                          <div class="flex-calendar-row">
-                            <p class="text-block">6</p>
-                            <p class="text-block">7</p>
-                            <p class="text-block">8</p>
-                            <p class="text-block">9</p>
-                            <p class="text-block">10</p>
-                            <p class="numeric-highlighted-text">11</p>
-                            <p class="numeric-highlighted-text">12</p>
-                          </div>
-                          <div class="flex-calendar-row">
-                            <p class="text-block">13</p>
-                            <p class="text-block">14</p>
-                            <p class="text-block">15</p>
-                            <p class="text-block">16</p>
-                            <p class="text-block">17</p>
-                            <p class="numeric-highlighted-text">18</p>
-                            <p class="numeric-highlighted-text">19</p>
-                          </div>
-                          <div class="flex-calendar-row">
-                            <p class="number-highlighted-text1">20</p>
-                            <p class="text-block">21</p>
-                            <p class="text-block">22</p>
-                            <p class="text-block">23</p>
-                            <p class="number-highlighted-text1">24</p>
-                            <p class="numeric-highlighted-text">25</p>
-                            <p class="numeric-highlighted-text">26</p>
-                          </div>
-                          <div class="flex-calendar-row">
-                            <p class="text-block">27</p>
-                            <p class="text-block">28</p>
-                            <p class="text-block">29</p>
-                            <p class="number-highlighted-text1">30</p>
-                            <p class="text-block">31</p>
-                            <p class="numeric-highlighted-text">1</p>
-                            <p class="numeric-highlighted-text">2</p>
-                          </div>
-                        </div>
+                    <div class="edit-section-container">
+                      <div class="edit-button-container">
+                        <p class="edit-button-text-style">Редактировать</p>
+                        <img src="@/assets/images/edit.png" class="edit-icon" />
                       </div>
                     </div>
                   </div>
+                  <Calendar />
                 </div>
               </div>
             </div>
@@ -149,13 +58,24 @@
         </div>
       </div>
     </div>
+  </div>
 </template>
 
 <script setup>
+import { ref } from 'vue';
+import Sidebar from '@/components/Sidebar.vue';
+import Calendar from '@/components/Calendar.vue';
+import StudentProfile from '@/components/StudentProfile.vue';
+const activeTab = ref('Мой профиль');
 
+const setActiveTab = (tab) => {
+  activeTab.value = tab;
+};
 </script>
 
 <style scoped>
+
+
 .main-content-container1 {
   box-sizing: border-box;
   display: flex;
@@ -705,5 +625,62 @@
   margin: 0;
   font: 400 20px Montserrat, sans-serif;
   color: #24222f;
-}    
+}
+
+.main-content-container1 {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  min-width: 1480px;
+  background: #ebefef;
+}
+
+.sidebar-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 20px;
+  background: #f5f9f8;
+  border-radius: 15px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: auto; /* Ширина кнопки по размеру текста */
+  min-width: 150px; /* Минимальная ширина кнопки */
+  height: 47px;
+  padding: 0 20px;
+  margin: 10px 0;
+  font: 400 20px Raleway, sans-serif;
+  color: #24222f;
+  background: #f5f9f8;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  text-align: left;
+  white-space: nowrap; /* Запрет переноса текста */
+}
+
+.sidebar-button:hover {
+  background-color: #e0e4e8;
+}
+
+.sidebar-button.active {
+  background-color: #a094b8;
+  color: #f5f9f8;
+  border-color: #a094b8; /* Обводка активной кнопки */
+}
+
+.progress-indicator-text-style {
+  margin-top: 20px;
+  font: 400 16px Raleway, sans-serif;
+  color: #da1f38;
+  cursor: pointer;
+}
 </style>
