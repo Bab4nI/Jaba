@@ -1,30 +1,6 @@
 <template>
   <div style="display: inline-block; width: 1505px" data-ignore="used only for top most containter width">
     <div class="main-content-container">
-      <div class="center-aligned-flex-container">
-        <div class="header-section">
-          <p class="main-title-text-style">NetLab AI</p>
-          <div class="horizontal-flex-container">
-            <div class="header-nav">
-              <p class="primary-text-content-style">
-                <router-link :to="header.home.link">{{ header.home.title }}</router-link>
-              </p>
-              <div class="vertical-divider"></div>
-              <p class="primary-text-content-style">
-                <router-link :to="header.course.link">{{ header.course.title }}</router-link>
-              </p>
-              <div class="vertical-divider"></div>
-              <div class="vertical-menu-container">
-                  <p class="primary-text-content-style">
-                      <router-link :to="header.login.link">{{ header.login.title }}</router-link>
-                  </p>
-                <div class="login-divider"></div>
-              </div>  
-            </div>
-            <img src="@/assets/images/moon_5370735.png" class="main-navigation-icon" />
-          </div>
-        </div>
-      </div>
       <div class="login-container1">
         <div class="welcome-message-container">
           <div class="welcome-login-container">
@@ -41,7 +17,7 @@
                         v-model="form.email"
                         type="email"
                         class="transparent-input"
-                        placeholder="email"
+                        placeholder="Введите почту"
                       />
                     </div>
                   </div>
@@ -74,8 +50,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, reactive} from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import axios from 'axios';
 import { header } from '@/config/header.js';
 // Иконки для пароля
 import eyeOpen from '@/assets/images/psswd_open.png';
@@ -96,6 +73,9 @@ onMounted(() => {
     email: route.query.email || '',
     password: '',
   };
+
+  // Проверка cookies при загрузке компонента
+  checkAuth();
 });
 
 // Логика пароля
@@ -121,9 +101,35 @@ const validateForm = () => {
     alert('Пароль обязателен для заполнения');
     return false;
   }
-  // Здесь можно добавить логику для отправки данных на сервер
-  alert('Форма успешно отправлена');
+  login();
   return true;
+};
+
+// Проверка авторизации через cookies
+const checkAuth = () => {
+  const userId = document.cookie.replace(/(?:(?:^|.*;\s*)user_id\s*=\s*([^;]*).*$)|^.*$/, "$1");
+  if (userId) {
+    window.location.href = 'http://localhost:5173/profile';
+  }
+};
+
+const login = async () => {
+  try {
+    const response = await axios.post('http://localhost:8000/api/login/', {
+      email: form.value.email,
+      password: form.value.password,
+    });
+
+    if (response.data.exists) {
+      // Перенаправление на страницу профиля
+      window.location.href = 'http://localhost:5173/profile';
+    } else {
+      alert('Пользователь не найден');
+    }
+  } catch (error) {
+    console.error('Ошибка при входе:', error);
+    alert('Ошибка при входе');
+  }
 };
 </script>
 

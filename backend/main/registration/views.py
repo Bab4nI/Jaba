@@ -24,8 +24,8 @@ ERROR_RESPONSES = {
 
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
-def send_registration_link(request):
-    if request.method == 'GET':
+def send_registration_link(request):  # Функция для отправки email
+    if request.method == 'GET':       # логика для get
         response_data = {
             "message": "Это GET-запрос. Используйте POST для отправки данных.",
             "example_request": {
@@ -40,7 +40,7 @@ def send_registration_link(request):
         }
         return JsonResponse(response_data)
 
-    elif request.method == 'POST':
+    elif request.method == 'POST':  #логика для post
         try:
             data = json.loads(request.body)
             
@@ -88,7 +88,7 @@ def send_registration_link(request):
             error_response["details"] = error_response["details"].format(str(e))
             return JsonResponse(error_response, status=500)
 
-@api_view(['GET', 'POST'])
+@api_view(['GET', 'POST'])  # api/users
 def user_list(request):
     if request.method == 'GET':
         users = User.objects.all()
@@ -106,7 +106,7 @@ def user_list(request):
         )
 
 @api_view(['GET', 'PUT', 'DELETE'])
-def user_detail(request, pk):
+def user_detail(request, pk):  # api/users/{pk}
     try:
         user = User.objects.get(pk=pk)
     except User.DoesNotExist:
@@ -131,3 +131,17 @@ def user_detail(request, pk):
     elif request.method == 'DELETE':
         user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+@csrf_exempt
+def login(request):
+    if request.method == 'POST':
+        import json
+        data = json.loads(request.body)
+        email = data.get('email')
+        password = data.get('password')
+
+        try:
+            user = User.objects.get(email=email, password=password)
+            return JsonResponse({'exists': True})
+        except User.DoesNotExist:
+            return JsonResponse({'exists': False}, status=404)

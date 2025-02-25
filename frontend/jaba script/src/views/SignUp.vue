@@ -1,29 +1,6 @@
 <template>
   <div style="display: inline-block; width: 1505px" data-ignore="used only for top most containter width">
     <div class="main-content-container">
-      <div class="center-column-flex-box">
-        <div class="header-section">
-          <p class="main-title-text-style">NetLab AI</p>
-          <div class="header-nav-container1">
-            <div class="header-nav-container">
-              <p class="primary-text-content-style">
-                  <router-link :to="header.home.link">{{ header.home.title }}</router-link>
-              </p>
-              <div class="vertical-divider"></div>
-              <p class="primary-text-content-style">
-                  <router-link :to="header.course.link">{{ header.course.title }}</router-link>
-              </p>
-              <div class="vertical-divider"></div>
-              <div class="vertical-menu-nav-item">
-              <p class="primary-text-content-style">
-                  <router-link :to="header.login.link">{{ header.login.title }}</router-link>
-              </p>
-              </div>
-            </div>
-            <img src="@/assets/images/moon_5370735.png" class="main-nav-icon" />
-          </div>
-        </div>
-      </div>
       <div class="account-creation-form-container">
         <div class="registration-form-container">
           <div class="account-creation-section">

@@ -1,14 +1,14 @@
 <template>
   <div id="app">
+    <Header />
     <router-view></router-view>
   </div>
 </template>
 
-<script>
-export default {
-  name: 'App',
-};
+<script setup>
+import Header from '@/components/Header.vue'; // Импортируем компонент Header
 </script>
+
 
 <style>
 *{

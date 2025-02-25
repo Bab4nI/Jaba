@@ -1,122 +1,112 @@
-# Django + Vue.js Project 🚀
+Вот перевод README на русский язык:
 
-Welcome to the Django + Vue.js project! This template will help you get started with a full-stack application using Django as the backend and Vue.js as the frontend. Let's build something amazing! 🎉
+# Django + Vue.js Проект 🚀
 
-## Table of Contents 📚
+Добро пожаловать в проект Django + Vue.js! Этот шаблон поможет вам начать создание полнофункционального приложения с Django на бэкенде и Vue.js на фронтенде. Давайте создадим что-то потрясающее! 🎉
 
-- [Project Setup](#project-setup-)
-- [Recommended IDE Setup](#recommended-ide-setup-)
-- [Development](#development-)
-- [Production](#production-)
-- [Customize Configuration](#customize-configuration-)
-- [Contributing](#contributing-)
-- [License](#license-)
+## Содержание 📚
+- [Настройка проекта](#настройка-проекта-)
+- [Рекомендуемая настройка IDE](#рекомендуемая-настройка-ide-)
+- [Разработка](#разработка-)
+- [Продакшн](#продакшн-)
+- [Настройка конфигурации](#настройка-конфигурации-)
+- [Участие в проекте](#участие-в-проекте-)
+- [Лицензия](#лицензия-)
 
-## Project Setup 🛠️
+## Настройка проекта 🛠️
 
-To get started with this project, follow these steps:
+Чтобы начать работу с проектом, выполните следующие шаги:
 
-1. **Clone the repository:**
+1. **Клонируйте репозиторий:**
+    ```sh
+    git clone https://github.com/Bab4nI/Jaba.git -b kirill
+    ```
 
-   ```sh
-   git clone https://github.com/Bab4nI/Jaba.git -b kirill
-   ```
+2. **Настройте бэкенд (Django):**
+    ```sh
+    cd backend/main
+    pip install -r requirements.txt
+    python manage.py migrate
+    python manage.py runserver
+    ```
 
-2. **Set up the backend (Django):**
+3. **Настройте фронтенд (Vue.js):**
+    ```sh
+    cd frontend/"jaba script"
+    npm i
+    npm run dev
+    ```
 
-   ```sh
-   cd backend/main
-   pip install -r requirements.txt
-   python manage.py migrate
-   python manage.py runserver
-   ```
+4. **Готово!** 🎉 Бэкенд Django должен работать на `http://localhost:8000`, а фронтенд Vue.js на `http://localhost:5173`.
 
-3. **Set up the frontend (Vue.js):**
+## Рекомендуемая настройка IDE 💻
 
-   ```sh
-   cd frontend/"jaba script"
-   npm i
-   npm run dev
-   ```
+Для лучшего опыта разработки рекомендуем использовать [VSCode](https://code.visualstudio.com/) с следующими расширениями:
+- [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (для поддержки Vue.js)
+- [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) (для поддержки Django)
 
-4. **You're all set!** 🎉 The Django backend should be running on `http://localhost:8000` and the Vue.js frontend on `http://localhost:5173`.
+Не забудьте отключить Vetur, если оно у вас установлено, так как оно может конфликтовать с Volar.
 
-## Recommended IDE Setup 💻
+## Разработка 🚀
 
-For the best development experience, we recommend using [VSCode](https://code.visualstudio.com/) with the following extensions:
+### Компиляция и горячая перезагрузка для разработки
 
-- [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (for Vue.js support)
-- [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) (for Django support)
-
-Make sure to disable Vetur if you have it installed, as it may conflict with Volar.
-
-## Development 🚀
-
-### Compile and Hot-Reload for Development
-
-To start the development server with hot-reloading, run:
-
+Чтобы запустить сервер разработки с горячей перезагрузкой, выполните:
 ```sh
 cd frontend/"jaba script"
 npm run dev
 ```
+Это запустит сервер разработки Vue.js на `http://localhost:3000`.
 
-This will start the Vue.js development server on `http://localhost:3000`.
+### Разработка бэкенда
 
-### Backend Development
-
-For Django backend development, run:
-
+Для разработки бэкенда на Django выполните:
 ```sh
 cd backend/main
 python manage.py runserver
 ```
+Это запустит сервер разработки Django на `http://localhost:8000`.
 
-This will start the Django development server on `http://localhost:8000`.
+## Продакшн 🏗️
 
-## Production 🏗️
+### Компиляция и минимизация для продакшн
 
-### Compile and Minify for Production
-
-To build the Vue.js frontend for production, run:
-
+Чтобы собрать фронтенд Vue.js для продакшн, выполните:
 ```sh
 cd frontend/"jaba script"
 npm run build
 ```
+Это создаст папку `dist` с оптимизированной сборкой для продакшн.
 
-This will create a `dist` folder with the optimized production build.
+### Развертывание Django
 
-### Deploying Django
+Чтобы развернуть бэкенд Django, следуйте официальному [руководству по развертыванию Django](https://docs.djangoproject.com/en/4.0/howto/deployment/).
 
-To deploy the Django backend, follow the official [Django deployment guide](https://docs.djangoproject.com/en/4.0/howto/deployment/).
+## Настройка конфигурации ⚙️
 
-## Customize Configuration ⚙️
+### Конфигурация Vite
 
-### Vite Configuration
+Для настройки фронтенда Vue.js обратитесь к [документации по настройке Vite](https://vite.dev/config/).
 
-For customizing the Vue.js frontend, refer to the [Vite Configuration Reference](https://vite.dev/config/).
+### Настройки Django
 
-### Django Settings
+Для настройки бэкенда Django отредактируйте файл `settings.py` в директории `backend`.
 
-For customizing the Django backend, modify the `settings.py` file in the `backend` directory.
+## Участие в проекте 🤝
 
-## Contributing 🤝
+Мы рады принимать участие! Пожалуйста, выполните следующие шаги:
 
-We welcome contributions! Please follow these steps:
+1. Форкните репозиторий.
+2. Создайте новую ветку (`git checkout -b feature/AmazingFeature`).
+3. Зафиксируйте изменения (`git commit -m 'Добавить AmazingFeature'`).
+4. Отправьте изменения в ветку (`git push origin feature/AmazingFeature`).
+5. Откройте Pull Request.
 
-1. Fork the repository.
-2. Create a new branch (`git checkout -b feature/AmazingFeature`).
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-4. Push to the branch (`git push origin feature/AmazingFeature`).
-5. Open a Pull Request.
+## Лицензия 📄
 
-## License 📄
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Этот проект лицензирован по лицензии MIT — смотрите файл [LICENSE](LICENSE) для подробностей.
 
 ---
 
-Happy coding! 🎉👨‍💻👩‍💻
-
-![Happy Coding](https://media.giphy.com/media/3o7abAHdYvZdBNnGZq/giphy.gif)
+Счастливого кодинга! 🎉👨‍💻👩‍💻  
+![Счастливый кодинг](https://media.giphy.com/media/fCSxHT0lQJV1C/giphy.gif?cid=790b7611q6pqcnrh821gy937th717ugwmtz8y89nrjy2qi0y&ep=v1_gifs_search&rid=giphy.gif&ct=g)

@@ -3,30 +3,7 @@
     <div style="display: inline-block; width: 1505px" data-ignore="used only for top most containter width">
       <router-view></router-view>
           <div class="netlab-ai-landing-page">
-            <div class="center-column-flex-box">
-              <div class="header-section">
-                <p class="main-title-text-style">NetLab AI</p>
-                <div class="header-nav-container">
-                  <div class="navigation-bar">
-                    <div class="main-nav-container">
-                      <p class="main-heading-text-style">
-                        <router-link :to="header.home.link">{{ header.home.title }}</router-link>
-                      </p>
-                      <div class="main-section-border"></div>
-                    </div>
-                    <div class="vertical-divider"></div>
-                    <p class="primary-text-content-style">
-                      <router-link :to="header.course.link">{{ header.course.title }}</router-link>
-                    </p>
-                    <div class="vertical-divider"></div>
-                    <p class="primary-text-content-style">
-                      <router-link :to="header.login.link">{{ header.login.title }}</router-link>
-                    </p>
-                  </div>
-                  <img src="@/assets/images/moon_5370735.png" class="main-logo" />
-                </div>
-              </div>
-            </div>
+            <!-- конец header -->
             <div class="course-details-container">
               <div class="course-details-section">
                 <div class="course-details-section1">
