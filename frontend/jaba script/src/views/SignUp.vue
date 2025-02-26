@@ -167,7 +167,7 @@ const handleSubmit = async () => {
 if (!validateForm()) return;
 
 try {
-  const response = await fetch('http://127.0.0.1:8000/api/user/', {
+  const response = await fetch('http://127.0.0.1:8000/api/register/', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -185,7 +185,7 @@ try {
 
   const data = await response.json();
   alert('Регистрация успешно завершена!');
-  router.push('/login');
+  router.push('/SignIn');
   
 } catch (error) {
   console.error('Registration error:', error);

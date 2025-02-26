@@ -9,6 +9,11 @@ from rest_framework.decorators import api_view
 from rest_framework import status
 from .serializers import UserSerializer
 from .models import User
+from rest_framework.views import APIView
+from django.contrib.auth import authenticate
+from rest_framework_simplejwt.tokens import RefreshToken
+
+
 
 # Словарь с текстами ошибок
 ERROR_RESPONSES = {
@@ -24,7 +29,7 @@ ERROR_RESPONSES = {
 
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
-def send_registration_link(request):  # Функция для отправки email
+def send_registration_link(request):  # /api/send-registration-link
     if request.method == 'GET':       # логика для get
         response_data = {
             "message": "Это GET-запрос. Используйте POST для отправки данных.",
@@ -88,23 +93,13 @@ def send_registration_link(request):  # Функция для отправки e
             error_response["details"] = error_response["details"].format(str(e))
             return JsonResponse(error_response, status=500)
 
-@api_view(['GET', 'POST'])  # api/users
+@api_view(['GET'])  # api/user_list
 def user_list(request):
     if request.method == 'GET':
         users = User.objects.all()
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data)
-
-    elif request.method == 'POST':
-        serializer = UserSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(
-            {"error": ERROR_RESPONSES["invalid_data"]["error"], "details": serializer.errors},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
+    
 @api_view(['GET', 'PUT', 'DELETE'])
 def user_detail(request, pk):  # api/users/{pk}
     try:
@@ -132,16 +127,28 @@ def user_detail(request, pk):  # api/users/{pk}
         user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
     
-@csrf_exempt
-def login(request):
-    if request.method == 'POST':
-        import json
-        data = json.loads(request.body)
-        email = data.get('email')
-        password = data.get('password')
+class RegisterView(APIView):
+    def post(self, request):
+        serializer = UserSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class LoginView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        password = request.data.get('password')
 
         try:
-            user = User.objects.get(email=email, password=password)
-            return JsonResponse({'exists': True})
+            user = User.objects.get(email=email)
+            if user.check_password(password):  # Проверяем пароль
+                refresh = RefreshToken.for_user(user)
+                return Response({
+                    'refresh': str(refresh),
+                    'access': str(refresh.access_token),
+                })
+            else:
+                return Response({'error': 'Invalid Credentials'}, status=status.HTTP_401_UNAUTHORIZED)
         except User.DoesNotExist:
-            return JsonResponse({'exists': False}, status=404)
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)

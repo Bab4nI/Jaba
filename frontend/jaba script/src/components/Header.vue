@@ -1,36 +1,44 @@
-<!-- components/Header.vue -->
 <template>
-    <div class="header-section">
-      <router-link :to="header.home.link">
-        <p class="main-title-text-style">NetLab AI</p>
-      </router-link>
-      <div class="header-nav-container">
-        <div class="navigation-bar">
-          <div class="main-nav-container">
-            <p class="primary-text-content-style">
-              <router-link :to="header.home.link">{{ header.home.title }}</router-link>
-            </p>
-            <div class="main-section-border"></div>
-          </div>
-          <div class="vertical-divider"></div>
+  <div class="header-section">
+    <router-link :to="header.home.link">
+      <p class="main-title-text-style">NetLab AI</p>
+    </router-link>
+    <div class="header-nav-container">
+      <div class="navigation-bar">
+        <div class="main-nav-container">
           <p class="primary-text-content-style">
-            <router-link :to="header.course.link">{{ header.course.title }}</router-link>
+            <router-link :to="header.home.link">{{ header.home.title }}</router-link>
           </p>
-          <div class="vertical-divider"></div>
-          <p class="primary-text-content-style">
-            <router-link :to="header.login.link">{{ header.login.title }}</router-link>
-          </p>
+          <div class="main-section-border"></div>
         </div>
-        <img src="@/assets/images/moon_5370735.png" class="main-logo" />
+        <div class="vertical-divider"></div>
+        <p class="primary-text-content-style">
+          <router-link :to="header.course.link">{{ header.course.title }}</router-link>
+        </p>
+        <div class="vertical-divider"></div>
+        <p class="primary-text-content-style">
+          <router-link :to="authLink.link">{{ authLink.title }}</router-link>
+        </p>
       </div>
+      <img src="@/assets/images/moon_5370735.png" class="main-logo" />
     </div>
-  </template>
-  
-  <script setup>
-  import { header } from '@/config/header.js';
-  </script>
+  </div>
+</template>
 
-  <style scoped>
+<script setup>
+import { computed, ref } from 'vue';
+import { header } from '@/config/header.js';
+
+const isAuthenticated = ref(!!localStorage.getItem('access_token'));
+
+const authLink = computed(() => {
+  return isAuthenticated.value
+    ? { title: 'Профиль', link: '/profile' }
+    : { title: 'Войти', link: '/SignIn' };
+});
+</script>
+
+<style scoped>
 .header-section {
       box-sizing: border-box;
       display: flex;

@@ -50,10 +50,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, reactive} from 'vue';
+import { ref, computed, onMounted, reactive } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
-import { header } from '@/config/header.js';
+
 // Иконки для пароля
 import eyeOpen from '@/assets/images/psswd_open.png';
 import eyeClosed from '@/assets/images/psswd_close.png';
@@ -74,7 +74,7 @@ onMounted(() => {
     password: '',
   };
 
-  // Проверка cookies при загрузке компонента
+  // Проверка авторизации при загрузке компонента
   checkAuth();
 });
 
@@ -105,14 +105,15 @@ const validateForm = () => {
   return true;
 };
 
-// Проверка авторизации через cookies
+// Проверка авторизации через JWT
 const checkAuth = () => {
-  const userId = document.cookie.replace(/(?:(?:^|.*;\s*)user_id\s*=\s*([^;]*).*$)|^.*$/, "$1");
-  if (userId) {
+  const accessToken = localStorage.getItem('access_token');
+  if (accessToken) {
     window.location.href = 'http://localhost:5173/profile';
   }
 };
 
+// Логин с JWT
 const login = async () => {
   try {
     const response = await axios.post('http://localhost:8000/api/login/', {
@@ -120,15 +121,42 @@ const login = async () => {
       password: form.value.password,
     });
 
-    if (response.data.exists) {
-      // Перенаправление на страницу профиля
-      window.location.href = 'http://localhost:5173/profile';
-    } else {
-      alert('Пользователь не найден');
-    }
+    // Сохраняем токены в localStorage
+    localStorage.setItem('access_token', response.data.access);
+    localStorage.setItem('refresh_token', response.data.refresh);
+
+    // Перенаправление на страницу профиля
+    window.location.href = 'http://localhost:5173/profile';
   } catch (error) {
     console.error('Ошибка при входе:', error);
-    alert('Ошибка при входе');
+    alert('Неверный email или пароль');
+  }
+};
+
+
+// Получение заголовка с токеном
+const getAuthHeader = () => {
+  const accessToken = localStorage.getItem('access_token');
+  return {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  };
+};
+
+// Обновление токена
+const refreshToken = async () => {
+  try {
+    const refreshToken = localStorage.getItem('refresh_token');
+    const response = await axios.post('http://localhost:8000/api/token/refresh/', {
+      refresh: refreshToken,
+    });
+
+    // Сохраняем новый access токен
+    localStorage.setItem('access_token', response.data.access);
+  } catch (error) {
+    console.error('Ошибка при обновлении токена:', error);
+    logout();
   }
 };
 </script>
