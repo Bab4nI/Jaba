@@ -42,8 +42,9 @@ const setActiveTab = (tab) => {
 const logout = () => {
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
-  router.push('/');
-  window.location.reload(); // Принудительно обновляем страницу
+  router.push('/').then(() => {
+    window.location.reload(); // Перезагружаем страницу после перехода
+  });
 };
 </script>
   

@@ -6,54 +6,7 @@
           <div class="profile-card-container1">
             <Sidebar />
             <div class="vertical-divider1"></div>
-            <div class="profile-card-container2">
-              <p class="profile-heading">Мой профиль</p>
-              <div class="student-profile-container">
-                <div class="profile-card">
-                  <img src="@/assets/images/image_756d8ce5.jpeg" class="profile-image-container" />
-                  <div class="student-info-card1">
-                    <p class="main-title-text-style">Фамилия Имя Отчество</p>
-                    <div class="student-info-container">
-                      <p class="student-role-text-style">Студент</p>
-                      <p class="student-info-text-style">ИТА ЮФУ, ИКТИБ</p>
-                    </div>
-                  </div>
-                </div>
-                <div class="profile-card1">
-                  <div class="student-profile-card">
-                    <div class="student-info-card">
-                      <p class="email-label-text-style">Адрес электронной почты</p>
-                      <a href="mailto:smth@sfedu.ru" class="email-link-text-style">smth@sfedu.ru</a>
-                      <div class="vertical-section-divider">
-                        <div class="course-progress-container">
-                          <p class="email-label-text-style">Уровень обучения</p>
-                          <p class="education-details-text-style">Специалист</p>
-                        </div>
-                        <div class="group-info-block">
-                          <p class="email-label-text-style">Группа</p>
-                          <p class="education-details-text-style">КТсо2-4</p>
-                        </div>
-                        <div class="group-info-block">
-                          <p class="email-label-text-style">Направление обучения</p>
-                          <p class="education-details-text-style">10.05.03</p>
-                        </div>
-                        <div class="vertical-section-divider">
-                          <p class="email-label-text-style">Кафедра</p>
-                          <p class="education-details-text-style">БИТ им. О. Б. Макаревича</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="edit-section-container">
-                      <div class="edit-button-container">
-                        <p class="edit-button-text-style">Редактировать</p>
-                        <img src="@/assets/images/edit.png" class="edit-icon" />
-                      </div>
-                    </div>
-                  </div>
-                  <Calendar />
-                </div>
-              </div>
-            </div>
+            <StudentProfile />
           </div>
         </div>
       </div>

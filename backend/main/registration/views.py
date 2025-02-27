@@ -1,19 +1,23 @@
 import json
+from urllib.parse import urlencode
+
 from django.http import JsonResponse
 from django.core.mail import send_mail
 from django.views.decorators.csrf import csrf_exempt
-from urllib.parse import urlencode
 from django.views.decorators.http import require_http_methods
-from rest_framework.response import Response
-from rest_framework.decorators import api_view
-from rest_framework import status
-from .serializers import UserSerializer
-from .models import User
-from rest_framework.views import APIView
 from django.contrib.auth import authenticate
+from django.contrib.auth.decorators import login_required
+
+from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework import status
+from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.views import TokenObtainPairView
 
-
+from .serializers import CustomTokenObtainPairSerializer, UserSerializer
+from .models import User
 
 # Словарь с текстами ошибок
 ERROR_RESPONSES = {
@@ -26,6 +30,9 @@ ERROR_RESPONSES = {
     "user_not_found": {"error": "Пользователь не найден", "details": "Пользователь с ID {} не существует."},
     "invalid_data": {"error": "Некорректные данные", "details": "Проверьте предоставленные данные."},
 }
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
 
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
@@ -93,62 +100,32 @@ def send_registration_link(request):  # /api/send-registration-link
             error_response["details"] = error_response["details"].format(str(e))
             return JsonResponse(error_response, status=500)
 
-@api_view(['GET'])  # api/user_list
+@api_view(['GET'])
 def user_list(request):
     if request.method == 'GET':
         users = User.objects.all()
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data)
     
-@api_view(['GET', 'PUT', 'DELETE'])
-def user_detail(request, pk):  # api/users/{pk}
-    try:
-        user = User.objects.get(pk=pk)
-    except User.DoesNotExist:
-        error_response = ERROR_RESPONSES["user_not_found"]
-        error_response["details"] = error_response["details"].format(pk)
-        return Response(error_response, status=status.HTTP_404_NOT_FOUND)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_profile(request):
+    user = request.user
+    data = {
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'email': user.email,
+        'group': user.group,
+        'level': user.level,
+        'course': user.course,
+        'department': user.department,
+    }
+    return Response(data)
 
-    if request.method == 'GET':
-        serializer = UserSerializer(user)
-        return Response(serializer.data)
-
-    elif request.method == 'PUT':
-        serializer = UserSerializer(user, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(
-            {"error": ERROR_RESPONSES["invalid_data"]["error"], "details": serializer.errors},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    elif request.method == 'DELETE':
-        user.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-    
 class RegisterView(APIView):
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            user = serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-class LoginView(APIView):
-    def post(self, request):
-        email = request.data.get('email')
-        password = request.data.get('password')
-
-        try:
-            user = User.objects.get(email=email)
-            if user.check_password(password):  # Проверяем пароль
-                refresh = RefreshToken.for_user(user)
-                return Response({
-                    'refresh': str(refresh),
-                    'access': str(refresh.access_token),
-                })
-            else:
-                return Response({'error': 'Invalid Credentials'}, status=status.HTTP_401_UNAUTHORIZED)
-        except User.DoesNotExist:
-            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
