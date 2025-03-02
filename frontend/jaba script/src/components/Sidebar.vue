@@ -28,23 +28,66 @@
   </div>
 </template>
 
-<script setup>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+<script>
+import axios from 'axios';
 
-const router = useRouter();
-const activeTab = ref('Мой профиль');
+export default {
+  data() {
+    return {
+      activeTab: 'Мой профиль',
+      refreshTokenInterval: null,
+    };
+  },
+  methods: {
+    setActiveTab(tab) {
+      this.activeTab = tab;
+    },
+    async logout() {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      this.$router.push('/signin');
+    },
+    async refreshToken() {
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (!refreshToken) {
+        this.logout();
+        return;
+      }
 
-const setActiveTab = (tab) => {
-  activeTab.value = tab;
-};
+      try {
+        const response = await axios.post('/api/token/refresh/', {
+          refresh: refreshToken,
+        });
 
-const logout = () => {
-  localStorage.removeItem('access_token');
-  localStorage.removeItem('refresh_token');
-  router.push('/').then(() => {
-    window.location.reload(); // Перезагружаем страницу после перехода
-  });
+        localStorage.setItem('access_token', response.data.access);
+        localStorage.setItem('refresh_token', response.data.refresh);
+      } catch (error) {
+        this.logout();
+      }
+    },
+    startTokenRefreshInterval() {
+      this.refreshTokenInterval = setInterval(() => {
+        const accessToken = localStorage.getItem('access_token');
+        if (accessToken) {
+          const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]));
+          const expirationTime = tokenPayload.exp * 1000;
+          const currentTime = Date.now();
+
+          if (expirationTime - currentTime < 60000) { // Если до истечения токена осталось меньше минуты
+            this.refreshToken();
+          }
+        }
+      }, 30000); // Проверяем каждые 30 секунд
+    },
+  },
+  mounted() {
+    this.startTokenRefreshInterval();
+  },
+  beforeDestroy() {
+    if (this.refreshTokenInterval) {
+      clearInterval(this.refreshTokenInterval);
+    }
+  },
 };
 </script>
   

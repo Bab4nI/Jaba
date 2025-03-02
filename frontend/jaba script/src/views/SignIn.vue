@@ -116,7 +116,7 @@ const checkAuth = () => {
 // Логин с JWT
 const login = async () => {
   try {
-    const response = await axios.post('http://localhost:8000/api/login/', {
+    const response = await axios.post('http://localhost:8000/api/token/', {
       email: form.value.email,
       password: form.value.password,
     });

@@ -19,6 +19,10 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import CustomTokenObtainPairSerializer, UserSerializer
 from .models import User
 
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
+
 # Словарь с текстами ошибок
 ERROR_RESPONSES = {
     400: {"error": "Некорректный запрос", "details": "Проверьте предоставленные данные."},
@@ -30,9 +34,6 @@ ERROR_RESPONSES = {
     "user_not_found": {"error": "Пользователь не найден", "details": "Пользователь с ID {} не существует."},
     "invalid_data": {"error": "Некорректные данные", "details": "Проверьте предоставленные данные."},
 }
-
-class CustomTokenObtainPairView(TokenObtainPairView):
-    serializer_class = CustomTokenObtainPairSerializer
 
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
@@ -129,3 +130,55 @@ class RegisterView(APIView):
             user = serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class UserByEmailView(APIView):
+    permission_classes = [IsAuthenticated]  # Только для аутентифицированных пользователей
+
+    def get(self, request):
+        """
+        Получение пользователя по email.
+        """
+        email = request.query_params.get('email')
+        if not email:
+            return Response({"error": "Параметр 'email' обязателен"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(email=email)
+            serializer = UserSerializer(user)
+            return Response(serializer.data)
+        except User.DoesNotExist:
+            return Response({"error": "Пользователь с таким email не найден"}, status=status.HTTP_404_NOT_FOUND)
+
+    def put(self, request):
+        """
+        Обновление пользователя по email.
+        """
+        email = request.query_params.get('email')
+        if not email:
+            return Response({"error": "Параметр 'email' обязателен"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"error": "Пользователь с таким email не найден"}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = UserSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request):
+        """
+        Удаление пользователя по email.
+        """
+        email = request.query_params.get('email')
+        if not email:
+            return Response({"error": "Параметр 'email' обязателен"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(email=email)
+            user.delete()
+            return Response({"status": "Пользователь успешно удален"}, status=status.HTTP_204_NO_CONTENT)
+        except User.DoesNotExist:
+            return Response({"error": "Пользователь с таким email не найден"}, status=status.HTTP_404_NOT_FOUND)
