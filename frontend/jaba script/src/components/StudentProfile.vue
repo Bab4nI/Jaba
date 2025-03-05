@@ -1,9 +1,8 @@
 <template>
-   <div class="profile-card-container2">
+  <div class="profile-card-container2">
     <p class="profile-heading">Мой профиль</p>
     <div class="student-profile-container">
       <div class="profile-card">
-        <!-- Контейнер для аватарки -->
         <div class="avatar-container">
           <img v-if="avatarBase64" :src="avatarBase64" alt="Аватар" class="profile-image" />
           <img v-else src="@/assets/images/default-avatar.png" alt="Аватар" class="profile-image" />
@@ -63,151 +62,45 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import axios from 'axios';
+// StudentProfile.vue
+import { computed, onMounted } from 'vue';
+import { useStore } from 'vuex';
 import Calendar from '@/components/Calendar.vue';
 
-// Данные пользователя
-const fullName = ref('');
-const email = ref('');
-const newEmail = ref('');
-const level = ref('');
-const group = ref('');
-const course = ref('');
-const department = ref('');
-const isEditingEmail = ref(false);
-const emailError = ref('');
-const avatarBase64 = ref(''); // Для хранения аватарки в формате base64
+const store = useStore();
 
-// Функция для загрузки данных пользователя с API
-const fetchUserProfile = async () => {
-  try {
-    const accessToken = localStorage.getItem('access_token');
-    if (!accessToken) {
-      console.error('Отсутствует токен доступа');
-      return;
-    }
+// Доступ к данным из хранилища
+const fullName = computed(() => store.state.user.fullName);
+const email = computed(() => store.state.user.email);
+const newEmail = computed({
+  get: () => store.state.user.newEmail,
+  set: (value) => store.commit('user/SET_NEW_EMAIL', value),
+});
+const level = computed(() => store.state.user.level);
+const group = computed(() => store.state.user.group);
+const course = computed(() => store.state.user.course);
+const department = computed(() => store.state.user.department);
+const isEditingEmail = computed(() => store.state.user.isEditingEmail);
+const emailError = computed(() => store.state.user.emailError);
+const avatarBase64 = computed(() => store.state.user.avatarBase64);
 
-    console.log('Токен доступа:', accessToken); // Отладочное сообщение
-
-    // Получаем данные профиля
-    const response = await axios.get('http://localhost:8000/api/profile/', {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    console.log('Ответ от сервера:', response.data); // Отладочное сообщение
-
-    // Обновляем данные профиля
-    const userData = response.data;
-    fullName.value = `${userData.last_name} ${userData.first_name}`;
-    email.value = userData.email;
-    newEmail.value = userData.email;
-    level.value = userData.level;
-    group.value = userData.group;
-    course.value = userData.course;
-    department.value = userData.department;
-    avatarBase64.value = userData.avatar_base64; // Загружаем аватарку
-  } catch (error) {
-    console.error('Ошибка при загрузке данных профиля:', error);
-    if (error.response) {
-      console.error('Данные ошибки:', error.response.data); // Отладочное сообщение
-    }
-  }
-};
-
-// Обработка загрузки аватарки
+// Доступ к методам из хранилища
+const fetchUserProfile = () => store.dispatch('user/fetchUserProfile'); // Правильный вызов действия
 const handleAvatarUpload = (event) => {
   const file = event.target.files[0];
   if (file) {
     const reader = new FileReader();
     reader.onload = (e) => {
-      avatarBase64.value = e.target.result; // Сохраняем base64
-      updateAvatar(e.target.result); // Отправляем на сервер
+      store.dispatch('user/updateAvatar', e.target.result);
     };
     reader.readAsDataURL(file);
   }
 };
+const toggleEditEmail = () => store.dispatch('user/toggleEditEmail');
+const saveEmail = () => store.dispatch('user/saveEmail');
+const cancelEdit = () => store.dispatch('user/cancelEdit');
 
-// Обновление аватарки на сервере
-const updateAvatar = async (base64) => {
-  try {
-    const accessToken = localStorage.getItem('access_token');
-    if (!accessToken) {
-      console.error('Отсутствует токен доступа');
-      return;
-    }
-
-    await axios.patch(
-      'http://localhost:8000/api/profile/',
-      { avatar_base64: base64 },
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }
-    );
-  } catch (error) {
-    console.error('Ошибка при обновлении аватарки:', error);
-  }
-};
-
-// Включение/выключение режима редактирования email
-const toggleEditEmail = () => {
-  isEditingEmail.value = !isEditingEmail.value;
-  if (isEditingEmail.value) {
-    newEmail.value = email.value; // Устанавливаем текущий email в поле ввода
-  }
-  emailError.value = ''; // Сбрасываем ошибку при переключении режима
-};
-
-// Функция для валидации email
-const validateEmail = (email) => {
-  const regex = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-  return regex.test(email);
-};
-
-// Сохранение нового email
-const saveEmail = async () => {
-  if (!validateEmail(newEmail.value)) {
-    emailError.value = 'Введите корректный адрес электронной почты';
-    return;
-  }
-
-  try {
-    const accessToken = localStorage.getItem('access_token');
-    if (!accessToken) {
-      console.error('Отсутствует токен доступа');
-      return;
-    }
-
-    // Отправляем запрос на обновление email
-    const response = await axios.patch(
-      'http://localhost:8000/api/profile/',
-      { email: newEmail.value },
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }
-    );
-
-    // Обновляем email на клиенте
-    email.value = newEmail.value;
-    isEditingEmail.value = false; // Выходим из режима редактирования
-    emailError.value = ''; // Сбрасываем ошибку
-  } catch (error) {
-    console.error('Ошибка при обновлении email:', error);
-  }
-};
-
-// Отмена редактирования
-const cancelEdit = () => {
-  isEditingEmail.value = false;
-  emailError.value = ''; // Сбрасываем ошибку
-};
-
+// Загружаем данные при монтировании компонента
 onMounted(() => {
   fetchUserProfile();
 });

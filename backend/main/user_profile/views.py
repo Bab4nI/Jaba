@@ -5,12 +5,16 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import authenticate, get_user_model
 from django.core.files.base import ContentFile
 import base64
+import logging
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 class GetUserProfileView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
        user = request.user
+       logger.info(f"User {user.email} requested profile data.")
        data = {
            'first_name': user.first_name,
            'last_name': user.last_name,

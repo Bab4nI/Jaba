@@ -1,34 +1,30 @@
 # front
-frontend/logs
-frontend/*.log
-frontend/npm-debug.log*
-frontend/yarn-debug.log*
-frontend/yarn-error.log*
-frontend/pnpm-debug.log*
-frontend/lerna-debug.log*
-frontend/
-frontend/node_modules
-frontend/.DS_Store
-frontend/dist
-frontend/dist-ssr
-frontend/coverage
-frontend/*.local
-frontend/
-frontend/cypress/videos/
-frontend/cypress/screenshots/
-frontend/
-frontend/.vscode/*
-frontend/!.vscode/extensions.json
-frontend/.idea
-frontend/*.suo
-frontend/*.ntvs*
-frontend/*.njsproj
-frontend/*.sln
-frontend/*.sw?
-frontend/
-frontend/*.tsbuildinfo
+/frontend/jaba script/logs
+/frontend/jaba script/*.log
+/frontend/jaba script/npm-debug.log*
+/frontend/jaba script/yarn-debug.log*
+/frontend/jaba script/yarn-error.log*
+/frontend/jaba script/pnpm-debug.log*
+/frontend/jaba script/lerna-debug.log*
+/frontend/jaba script/node_modules
+/frontend/jaba script/.DS_Store
+/frontend/jaba script/dist
+/frontend/jaba script/dist-ssr
+/frontend/jaba script/coverage
+/frontend/jaba script/*.local
+/frontend/jaba script/cypress/videos/
+/frontend/jaba script/cypress/screenshots/
+/frontend/jaba script/.vscode/*
+/frontend/jaba script/!.vscode/extensions.json
+/frontend/jaba script/.idea
+/frontend/jaba script/*.suo
+/frontend/jaba script/*.ntvs*
+/frontend/jaba script/*.njsproj
+/frontend/jaba script/*.sln
+/frontend/jaba script/*.sw?
+/frontend/jaba script/*.tsbuildinfo
 
-# back
-backend/.venv
-backend/.env
-backend/Backup-codes-sfedu.netlabai.txt
+#back
+/backend/main/.venv
+/backend/main/.env
+/backend/main/Backup-codes-sfedu.netlabai.txt
