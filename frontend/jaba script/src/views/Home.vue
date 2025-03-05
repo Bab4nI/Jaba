@@ -96,7 +96,7 @@
                     <p class="team-contacts-heading-style">Контакты команды</p>
                     <p class="team-contact-info-style">
                       <span class="contact-info-style">Email: </span>
-                      <a href="mailto:team@example.com" class="contact-info-link">jabascript@sfedu.com</a>
+                      <a href="netlabai@gmail.com" class="contact-info-link">netlabai@gmail.com</a>
                       <span class="line-height-reset"><br /></span>
 
                       <span class="contact-info-style">Телефон: </span>
@@ -142,8 +142,6 @@
     };
     
     </script>
-    
-    
     
     <!-- css -->
     <style scoped>

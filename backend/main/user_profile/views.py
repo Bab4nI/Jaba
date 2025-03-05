@@ -15,7 +15,6 @@ class GetUserProfileView(APIView):
             'email': user.email,
             'group': user.group,
             'level': user.level, 
-            'course': user.course,
             'department': user.department,
         }
         return Response(data)
