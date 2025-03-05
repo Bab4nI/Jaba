@@ -29,64 +29,32 @@
 </template>
 
 <script>
-import axios from 'axios';
+import { ref } from 'vue';
+import { useStore } from 'vuex';
+import { useRouter } from 'vue-router'; // Импортируем useRouter
 
 export default {
-  data() {
-    return {
-      activeTab: 'Мой профиль',
-      refreshTokenInterval: null,
+  setup() {
+    const store = useStore(); // Получаем доступ к хранилищу Vuex
+    const router = useRouter(); // Получаем доступ к роутеру
+    const activeTab = ref('Мой профиль'); // Реактивная переменная для активной вкладки
+
+    // Функция для выхода из системы
+    const logout = () => {
+      store.dispatch('logout'); // Вызываем action logout из Vuex
+      router.push('/signin'); // Перенаправляем на страницу входа
     };
-  },
-  methods: {
-    setActiveTab(tab) {
-      this.activeTab = tab;
-    },
-    async logout() {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      this.$router.push('/signin');
-    },
-    async refreshToken() {
-      const refreshToken = localStorage.getItem('refresh_token');
-      if (!refreshToken) {
-        this.logout();
-        return;
-      }
 
-      try {
-        const response = await axios.post('/api/token/refresh/', {
-          refresh: refreshToken,
-        });
+    // Функция для переключения активной вкладки
+    const setActiveTab = (tab) => {
+      activeTab.value = tab;
+    };
 
-        localStorage.setItem('access_token', response.data.access);
-        localStorage.setItem('refresh_token', response.data.refresh);
-      } catch (error) {
-        this.logout();
-      }
-    },
-    startTokenRefreshInterval() {
-      this.refreshTokenInterval = setInterval(() => {
-        const accessToken = localStorage.getItem('access_token');
-        if (accessToken) {
-          const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]));
-          const expirationTime = tokenPayload.exp * 1000;
-          const currentTime = Date.now();
-
-          if (expirationTime - currentTime < 60000) { // Если до истечения токена осталось меньше минуты
-            this.refreshToken();
-          }
-        }
-      }, 30000); // Проверяем каждые 30 секунд
-    },
-  },
-  mounted() {
-    this.startTokenRefreshInterval();
-  },
-  beforeDestroy() {
-    if (this.refreshTokenInterval) {
-      clearInterval(this.refreshTokenInterval);
-    }
+    return {
+      activeTab,
+      logout,
+      setActiveTab,
+    };
   },
 };
 </script>

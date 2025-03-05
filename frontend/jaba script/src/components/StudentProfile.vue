@@ -1,9 +1,14 @@
 <template>
-  <div class="profile-card-container2">
+   <div class="profile-card-container2">
     <p class="profile-heading">Мой профиль</p>
     <div class="student-profile-container">
       <div class="profile-card">
-        <img src="@/assets/images/image_756d8ce5.jpeg" class="profile-image-container" />
+        <!-- Контейнер для аватарки -->
+        <div class="avatar-container">
+          <img v-if="avatarBase64" :src="avatarBase64" alt="Аватар" class="profile-image" />
+          <img v-else src="@/assets/images/default-avatar.png" alt="Аватар" class="profile-image" />
+          <input type="file" accept="image/*" @change="handleAvatarUpload" class="avatar-upload-input" />
+        </div>
         <div class="student-info-card1">
           <p class="main-title-text-style">{{ fullName }}</p>
           <div class="student-info-container">
@@ -21,6 +26,7 @@
             </div>
             <div v-else>
               <input v-model="newEmail" type="email" class="email-input" />
+              <p v-if="emailError" class="error-message">{{ emailError }}</p>
               <button @click="saveEmail" class="save-button">Сохранить</button>
               <button @click="cancelEdit" class="cancel-button">Отмена</button>
             </div>
@@ -62,14 +68,16 @@ import axios from 'axios';
 import Calendar from '@/components/Calendar.vue';
 
 // Данные пользователя
-const fullName = ref('Фамилия Имя Отчество');
-const email = ref('smth@sfedu.ru');
+const fullName = ref('');
+const email = ref('');
 const newEmail = ref('');
-const level = ref('Специалист');
-const group = ref('КТсо2-4');
-const course = ref('10.05.03');
-const department = ref('БИТ им. О. Б. Макаревича');
+const level = ref('');
+const group = ref('');
+const course = ref('');
+const department = ref('');
 const isEditingEmail = ref(false);
+const emailError = ref('');
+const avatarBase64 = ref(''); // Для хранения аватарки в формате base64
 
 // Функция для загрузки данных пользователя с API
 const fetchUserProfile = async () => {
@@ -80,6 +88,8 @@ const fetchUserProfile = async () => {
       return;
     }
 
+    console.log('Токен доступа:', accessToken); // Отладочное сообщение
+
     // Получаем данные профиля
     const response = await axios.get('http://localhost:8000/api/profile/', {
       headers: {
@@ -87,17 +97,59 @@ const fetchUserProfile = async () => {
       },
     });
 
+    console.log('Ответ от сервера:', response.data); // Отладочное сообщение
+
     // Обновляем данные профиля
     const userData = response.data;
     fullName.value = `${userData.last_name} ${userData.first_name}`;
     email.value = userData.email;
-    newEmail.value = userData.email; // Инициализируем новое значение email
+    newEmail.value = userData.email;
     level.value = userData.level;
     group.value = userData.group;
     course.value = userData.course;
     department.value = userData.department;
+    avatarBase64.value = userData.avatar_base64; // Загружаем аватарку
   } catch (error) {
     console.error('Ошибка при загрузке данных профиля:', error);
+    if (error.response) {
+      console.error('Данные ошибки:', error.response.data); // Отладочное сообщение
+    }
+  }
+};
+
+// Обработка загрузки аватарки
+const handleAvatarUpload = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      avatarBase64.value = e.target.result; // Сохраняем base64
+      updateAvatar(e.target.result); // Отправляем на сервер
+    };
+    reader.readAsDataURL(file);
+  }
+};
+
+// Обновление аватарки на сервере
+const updateAvatar = async (base64) => {
+  try {
+    const accessToken = localStorage.getItem('access_token');
+    if (!accessToken) {
+      console.error('Отсутствует токен доступа');
+      return;
+    }
+
+    await axios.patch(
+      'http://localhost:8000/api/profile/',
+      { avatar_base64: base64 },
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Ошибка при обновлении аватарки:', error);
   }
 };
 
@@ -107,10 +159,22 @@ const toggleEditEmail = () => {
   if (isEditingEmail.value) {
     newEmail.value = email.value; // Устанавливаем текущий email в поле ввода
   }
+  emailError.value = ''; // Сбрасываем ошибку при переключении режима
+};
+
+// Функция для валидации email
+const validateEmail = (email) => {
+  const regex = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+  return regex.test(email);
 };
 
 // Сохранение нового email
 const saveEmail = async () => {
+  if (!validateEmail(newEmail.value)) {
+    emailError.value = 'Введите корректный адрес электронной почты';
+    return;
+  }
+
   try {
     const accessToken = localStorage.getItem('access_token');
     if (!accessToken) {
@@ -132,6 +196,7 @@ const saveEmail = async () => {
     // Обновляем email на клиенте
     email.value = newEmail.value;
     isEditingEmail.value = false; // Выходим из режима редактирования
+    emailError.value = ''; // Сбрасываем ошибку
   } catch (error) {
     console.error('Ошибка при обновлении email:', error);
   }
@@ -140,15 +205,45 @@ const saveEmail = async () => {
 // Отмена редактирования
 const cancelEdit = () => {
   isEditingEmail.value = false;
+  emailError.value = ''; // Сбрасываем ошибку
 };
 
-// Загружаем данные при монтировании компонента
 onMounted(() => {
   fetchUserProfile();
 });
 </script>
 
 <style scoped>
+.avatar-container {
+  position: relative;
+  width: 150px; /* Фиксированная ширина */
+  height: 150px; /* Фиксированная высота */
+  border-radius: 50%; /* Делаем контейнер круглым */
+  overflow: hidden; /* Обрезаем лишнее */
+  border: 2px solid #ebefef; /* Добавляем рамку */
+}
+
+.profile-image {
+  width: 100%; /* Заполняем контейнер по ширине */
+  height: 100%; /* Заполняем контейнер по высоте */
+  object-fit: cover; /* Масштабируем изображение с сохранением пропорций */
+}
+
+.avatar-upload-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.error-message {
+  color: red;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+
 .profile-card-container2 {
   flex: 0 0 885px; /* Ширина контейнера профиля */
 }
