@@ -5,13 +5,13 @@
       <div class="profile-card">
         <div class="avatar-container">
           <img v-if="avatarBase64" :src="avatarBase64" alt="Аватар" class="profile-image" />
-          <img v-else src="@/assets/images/default-avatar.png" alt="Аватар" class="profile-image" />
+          <img v-else :src="avatarSrc" alt="Аватар" class="profile-image" />
           <input type="file" accept="image/*" @change="handleAvatarUpload" class="avatar-upload-input" />
         </div>
         <div class="student-info-card1">
           <p class="main-title-text-style">{{ fullName }}</p>
           <div class="student-info-container">
-            <p class="student-role-text-style">Студент</p>
+            <p class="student-role-text-style">{{ userRole === 'student' ? 'Студент' : 'Преподаватель' }}</p>
             <p class="student-info-text-style">{{ department }}</p>
           </div>
         </div>
@@ -62,46 +62,42 @@
 </template>
 
 <script setup>
-// StudentProfile.vue
-import { computed, onMounted } from 'vue';
+import { computed, onMounted} from 'vue';
 import { useStore } from 'vuex';
 import Calendar from '@/components/Calendar.vue';
 
 const store = useStore();
-
-// Доступ к данным из хранилища
-const fullName = computed(() => store.state.user.fullName);
-const email = computed(() => store.state.user.email);
-const newEmail = computed({
-  get: () => store.state.user.newEmail,
-  set: (value) => store.commit('user/SET_NEW_EMAIL', value),
-});
-const level = computed(() => store.state.user.level);
-const group = computed(() => store.state.user.group);
-const course = computed(() => store.state.user.course);
-const department = computed(() => store.state.user.department);
-const isEditingEmail = computed(() => store.state.user.isEditingEmail);
-const emailError = computed(() => store.state.user.emailError);
-const avatarBase64 = computed(() => store.state.user.avatarBase64);
+const userRole = computed(() => store.state.userStore.role);
+const fullName = computed(() => `${store.state.userStore.first_name} ${store.state.userStore.last_name} ${store.state.userStore.middle_name}`);
+const email = computed(() => store.state.userStore.email);
+const group = computed(() => store.state.userStore.group);
+const avatarBase64 = computed(() => store.state.userStore.avatarBase64);
 
 // Доступ к методам из хранилища
-const fetchUserProfile = () => store.dispatch('user/fetchUserProfile'); // Правильный вызов действия
+const fetchUserProfile = () => store.dispatch('userStore/fetchUserProfile');
 const handleAvatarUpload = (event) => {
   const file = event.target.files[0];
   if (file) {
     const reader = new FileReader();
     reader.onload = (e) => {
-      store.dispatch('user/updateAvatar', e.target.result);
+      store.dispatch('userStore/updateAvatar', e.target.result);
     };
     reader.readAsDataURL(file);
   }
 };
-const toggleEditEmail = () => store.dispatch('user/toggleEditEmail');
-const saveEmail = () => store.dispatch('user/saveEmail');
-const cancelEdit = () => store.dispatch('user/cancelEdit');
+const avatarSrc = computed(() => {
+  if (avatarBase64) return avatarBase64;
+  return role === 'admin' 
+    ? new URL('@/assets/images/admin-avatar.png', import.meta.url).href 
+    : new URL('@/assets/images/default-avatar.png', import.meta.url).href;
+});
+const toggleEditEmail = () => store.dispatch('userStore/toggleEditEmail');
+const saveEmail = () => store.dispatch('userStore/saveEmail');
+const cancelEdit = () => store.dispatch('userStore/cancelEdit');
 
 // Загружаем данные при монтировании компонента
 onMounted(() => {
+  console.log('Компонент смонтирован');
   fetchUserProfile();
 });
 </script>

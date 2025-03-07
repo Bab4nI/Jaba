@@ -34,7 +34,7 @@ class SendRegistrationLinkView(APIView):
             data = request.data
             
             # Валидация обязательных полей
-            required_fields = ['last_name', 'first_name', 'email', 'group']
+            required_fields = ['last_name', 'first_name', 'middle_name', 'email', 'role']
             for field in required_fields:
                 if field not in data:
                     error_response = ERROR_RESPONSES["missing_field"]
@@ -45,8 +45,10 @@ class SendRegistrationLinkView(APIView):
             params = {
                 'last_name': data['last_name'],
                 'first_name': data['first_name'],
+                'middle_name': data['middle_name'],
                 'email': data['email'],
-                'group': data['group']
+                'group': data.get('group', ''),
+                'role': data['role']
             }
             encoded_params = urlencode(params)
             registration_url = f'http://localhost:5173/SignUp?{encoded_params}'
@@ -63,7 +65,7 @@ class SendRegistrationLinkView(APIView):
             send_mail(
                 subject,
                 message,
-                'noreply@netlab.ai',  # Замените на ваш email
+                'sfedu.netlabai@gmail.com',  # Замените на ваш email
                 [data['email']],
                 fail_silently=False,
             )
@@ -83,24 +85,7 @@ class UserListView(APIView):
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data)
 
-class GetUserProfileView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        user = request.user
-        data = {
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'middle_name': user.middle_name,
-            'email': user.email,
-            'group': user.group,
-            'level': user.level,  #   
-            'course': user.course,  #  
-            'department': user.department,  # кафедра
-        }
-        return Response(data)
-
-class RegisterView(APIView):
+class RegisterView(APIView):    
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():

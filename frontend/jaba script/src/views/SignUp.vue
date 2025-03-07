@@ -96,9 +96,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { header } from '@/config/header.js';
+import { ref, computed } from 'vue';
+import { useRoute } from 'vue-router';
+import axios from 'axios';
 
 // Иконки для пароля
 import eyeOpen from '@/assets/images/psswd_open.png';
@@ -106,91 +106,51 @@ import eyeClosed from '@/assets/images/psswd_close.png';
 
 // Состояния
 const route = useRoute();
-const router = useRouter();
 const isPasswordVisible = ref(false);
 const form = ref({
-lastName: '',
-firstName: '',
-email: '',
-group: '',
-password: '',
-confirmPassword: ''
-});
-
-// Заполнение полей из query параметров
-onMounted(() => {
-form.value = {
   lastName: route.query.last_name || '',
   firstName: route.query.first_name || '',
   email: route.query.email || '',
   group: route.query.group || '',
   password: '',
-  confirmPassword: ''
-}
+  confirmPassword: '',
 });
 
 // Логика пароля
 const passwordFieldType = computed(() => 
-isPasswordVisible.value ? 'text' : 'password'
+  isPasswordVisible.value ? 'text' : 'password'
 );
 
 const eyeIcon = computed(() => 
-isPasswordVisible.value ? eyeOpen : eyeClosed
+  isPasswordVisible.value ? eyeOpen : eyeClosed
 );
 
 const togglePasswordVisibility = () => {
-isPasswordVisible.value = !isPasswordVisible.value;
+  isPasswordVisible.value = !isPasswordVisible.value;
 };
 
-// Валидация формы
-const validateForm = () => {
-if (!form.value.password) {
-  alert('Пароль обязателен для заполнения');
-  return false;
-}
-
-if (form.value.password !== form.value.confirmPassword) {
-  alert('Пароли не совпадают');
-  return false;
-}
-
-if (form.value.password.length < 8) {
-  alert('Пароль должен содержать минимум 8 символов');
-  return false;
-}
-
-return true;
-};
-
-// Отправка формы
+// Обработка отправки формы
 const handleSubmit = async () => {
-if (!validateForm()) return;
+  if (form.value.password !== form.value.confirmPassword) {
+    alert('Пароли не совпадают');
+    return;
+  }
 
-try {
-  const response = await fetch('http://127.0.0.1:8000/api/register/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+  try {
+    const response = await axios.post('http://localhost:8000/api/register/', {
       last_name: form.value.lastName,
       first_name: form.value.firstName,
       email: form.value.email,
       group: form.value.group,
-      password: form.value.password
-    })
-  });
+      password: form.value.password,
+    });
 
-  if (!response.ok) throw new Error('Ошибка регистрации');
-
-  const data = await response.json();
-  alert('Регистрация успешно завершена!');
-  router.push('/SignIn');
-  
-} catch (error) {
-  console.error('Registration error:', error);
-  alert(error.message || 'Произошла ошибка при регистрации');
-}
+    // Перенаправление на страницу входа
+    window.location.href = 'http://localhost:5173/SignIn';
+  } catch (error) {
+    console.error('Ошибка при регистрации:', error);
+    alert('Ошибка при регистрации');
+  }
 };
 </script>
 

@@ -1,3 +1,4 @@
+# models.py
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 
@@ -22,18 +23,22 @@ class User(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     middle_name = models.CharField(max_length=100, default="")
-    avatar_base64 = models.TextField(null=True, blank=True)
     group = models.CharField(max_length=100)
-    department = models.CharField(max_length=100, default="")
-    level = models.CharField(max_length=100, default="")
-
     is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
 
     objects = CustomUserManager()
-
+    ROLE_CHOICES = [
+        ('admin', 'Admin'),
+        ('student', 'Student'),
+    ]
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
+    avatar_base64 = models.TextField(null=True, blank=True)
     def __str__(self):
         return f"{self.first_name} {self.last_name} {self.middle_name}"
+
+    @property
+    def is_staff(self):
+        return self.role == 'admin'

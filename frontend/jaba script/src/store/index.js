@@ -1,10 +1,11 @@
+// store/index.js
 import { createStore } from 'vuex';
-import userStore from './userStore'; // Импортируем модуль userStore
-import refresh from './refresh';
+import userStore from './userStore';
+import refreshStore from './refresh';
 
 export default createStore({
   modules: {
-    refresh,
-    user: userStore, // Регистрируем модуль user
+    refresh: refreshStore,
+    userStore: userStore,
   },
 });

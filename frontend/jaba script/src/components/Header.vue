@@ -26,11 +26,16 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
+import { useStore } from 'vuex';
 import { header } from '@/config/header.js';
 
-const isAuthenticated = ref(!!localStorage.getItem('access_token'));
+const store = useStore();
 
+// Используем состояние isAuthenticated из Vuex
+const isAuthenticated = computed(() => store.state.refresh.isAuthenticated);
+
+// Вычисляемое свойство для ссылки
 const authLink = computed(() => {
   return isAuthenticated.value
     ? { title: 'Профиль', link: '/profile' }

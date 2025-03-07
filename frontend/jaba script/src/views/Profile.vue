@@ -4,9 +4,9 @@
       <div class="profile-card-container">
         <div class="main-content-container">
           <div class="profile-card-container1">
-            <Sidebar />
+            <Sidebar/>
             <div class="vertical-divider1"></div>
-            <StudentProfile />
+            <component :is="currentComponent" />
           </div>
         </div>
       </div>
@@ -15,19 +15,31 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed} from 'vue';
+import { useStore } from 'vuex';
 import Sidebar from '@/components/Sidebar.vue';
-import Calendar from '@/components/Calendar.vue';
-import StudentProfile from '@/components/StudentProfile.vue';
-const activeTab = ref('Мой профиль');
+import Profile from '@/components/Profile.vue';
+import CourseProgress from '@/components/CourseProgress.vue';
+import CourseStatistics from '@/components/CourseStatistics.vue';
+import Homework from '@/components/Homework.vue';
+import InviteUser from '@/components/InviteUser.vue';
 
-const setActiveTab = (tab) => {
-  activeTab.value = tab;
+const store = useStore();
+const activeTab = computed(() => store.state.userStore.activeTab);
+
+const componentMap = {
+  'Мой профиль': Profile,
+  'Прогресс прохождения курса': CourseProgress,
+  'Статистика прохождения курса': CourseStatistics,
+  'Домашние задания': Homework,
+  'Пригласить пользователя': InviteUser,
 };
+
+// Выбираем компонент на основе активной вкладки
+const currentComponent = computed(() => componentMap[activeTab.value] || StudentProfile);
 </script>
 
 <style scoped>
-
 
 .main-content-container1 {
   box-sizing: border-box;
@@ -138,7 +150,7 @@ const setActiveTab = (tab) => {
   box-sizing: border-box;
   display: flex;
   flex-direction: row;
-  gap: 48px;
+  gap: 25px;
   align-items: flex-start;
   justify-content: flex-start;
   width: 100%;

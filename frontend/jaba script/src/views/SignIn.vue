@@ -50,7 +50,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, reactive } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 
@@ -119,6 +119,7 @@ const login = async () => {
     const response = await axios.post('http://localhost:8000/api/token/', {
       email: form.value.email,
       password: form.value.password,
+      timestamp: Date.now(),
     });
 
     // Сохраняем токены в localStorage
@@ -130,33 +131,6 @@ const login = async () => {
   } catch (error) {
     console.error('Ошибка при входе:', error);
     alert('Неверный email или пароль');
-  }
-};
-
-
-// Получение заголовка с токеном
-const getAuthHeader = () => {
-  const accessToken = localStorage.getItem('access_token');
-  return {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  };
-};
-
-// Обновление токена
-const refreshToken = async () => {
-  try {
-    const refreshToken = localStorage.getItem('refresh_token');
-    const response = await axios.post('http://localhost:8000/api/token/refresh/', {
-      refresh: refreshToken,
-    });
-
-    // Сохраняем новый access токен
-    localStorage.setItem('access_token', response.data.access);
-  } catch (error) {
-    console.error('Ошибка при обновлении токена:', error);
-    logout();
   }
 };
 </script>

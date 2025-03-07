@@ -2,24 +2,40 @@
   <div class="sidebar-container">
     <div class="course-progress-stats-container">
       <div class="course-progress-container">
-        <button 
+        <button
           :class="['sidebar-button', { 'active': activeTab === 'Мой профиль' }]" 
           @click="setActiveTab('Мой профиль')"
         >
           Мой профиль
         </button>
-        <button 
+        <button
+          v-if="userRole === 'student'"
           :class="['sidebar-button', { 'active': activeTab === 'Прогресс прохождения курса' }]" 
           @click="setActiveTab('Прогресс прохождения курса')"
         >
           Прогресс прохождения курса
         </button>
         <button 
-          :class="['sidebar-button', { 'active': activeTab === 'Статистика' }]" 
-          @click="setActiveTab('Статистика')"
+           v-if="userRole === 'admin'"
+          :class="['sidebar-button', { 'active': activeTab === 'Статистика прохождения курса' }]" 
+          @click="setActiveTab('Статистика прохождения курса')"
         >
-          Статистика
+          Статистика прохождения курса
         </button>
+        <button 
+           v-if="userRole === 'admin'"
+          :class="['sidebar-button', { 'active': activeTab === 'Домашние задания' }]" 
+          @click="setActiveTab('Домашние задания')"
+        >
+          Домашние задания
+        </button>
+        <button 
+           v-if="userRole === 'admin'"
+          :class="['sidebar-button', { 'active': activeTab === 'Пригласить пользователя' }]" 
+          @click="setActiveTab('Пригласить пользователя')"
+        >
+          Пригласить пользователя
+        </button> 
       </div>
     </div>
     <button class="logout-button" @click="logout">
@@ -28,34 +44,29 @@
   </div>
 </template>
 
-<script>
-import { ref } from 'vue';
+<script setup>
+import { computed } from 'vue';
 import { useStore } from 'vuex';
-import { useRouter } from 'vue-router'; // Импортируем useRouter
+import { useRouter } from 'vue-router';
 
-export default {
-  setup() {
-    const store = useStore(); // Получаем доступ к хранилищу Vuex
-    const router = useRouter(); // Получаем доступ к роутеру
-    const activeTab = ref('Мой профиль'); // Реактивная переменная для активной вкладки
+const store = useStore();
+const router = useRouter();
 
-    // Функция для выхода из системы
-    const logout = () => {
-      store.dispatch('logout'); // Вызываем action logout из Vuex
-      router.push('/signin'); // Перенаправляем на страницу входа
-    };
+// Получаем активную вкладку из хранилища
+const activeTab = computed(() => store.state.userStore.activeTab);
 
-    // Функция для переключения активной вкладки
-    const setActiveTab = (tab) => {
-      activeTab.value = tab;
-    };
+// Получаем роль пользователя
+const userRole = computed(() => store.state.userStore.role);
 
-    return {
-      activeTab,
-      logout,
-      setActiveTab,
-    };
-  },
+// Функция выхода
+const logout = () => {
+  store.dispatch('refresh/logout'); // Учитываем namespace модуля
+  router.push('/'); // Возвращаем на главную
+};
+
+// Функция для переключения вкладки
+const setActiveTab = (tab) => {
+  store.dispatch('userStore/setActiveTab', tab); // Используем действие из хранилища
 };
 </script>
   
