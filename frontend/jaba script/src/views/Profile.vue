@@ -15,8 +15,9 @@
 </template>
 
 <script setup>
-import { ref, computed} from 'vue';
-import { useStore } from 'vuex';
+//views/Profile.vue
+import { computed } from 'vue';
+import { useUserStore } from '@/stores/user';
 import Sidebar from '@/components/Sidebar.vue';
 import Profile from '@/components/Profile.vue';
 import CourseProgress from '@/components/CourseProgress.vue';
@@ -24,8 +25,8 @@ import CourseStatistics from '@/components/CourseStatistics.vue';
 import Homework from '@/components/Homework.vue';
 import InviteUser from '@/components/InviteUser.vue';
 
-const store = useStore();
-const activeTab = computed(() => store.state.userStore.activeTab);
+const userStore = useUserStore();
+const activeTab = computed(() => userStore.activeTab);
 
 const componentMap = {
   'Мой профиль': Profile,
@@ -35,8 +36,7 @@ const componentMap = {
   'Пригласить пользователя': InviteUser,
 };
 
-// Выбираем компонент на основе активной вкладки
-const currentComponent = computed(() => componentMap[activeTab.value] || StudentProfile);
+const currentComponent = computed(() => componentMap[activeTab.value] || Profile);
 </script>
 
 <style scoped>
@@ -143,7 +143,7 @@ const currentComponent = computed(() => componentMap[activeTab.value] || Student
 .main-content-container {
   box-sizing: border-box;
   min-width: 1280px;
-  padding-top: 84px;
+  padding-top: 40px;
   padding-bottom: 96px;
 }
 .profile-card-container1 {

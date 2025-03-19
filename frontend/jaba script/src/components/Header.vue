@@ -26,14 +26,16 @@
 </template>
 
 <script setup>
+//components/Header.vue
 import { computed } from 'vue';
-import { useStore } from 'vuex';
+import { useRefreshStore } from '@/stores/auth'; // Импортируем хранилище Pinia
 import { header } from '@/config/header.js';
 
-const store = useStore();
+// Используем хранилище Pinia
+const refreshStore = useRefreshStore();
 
-// Используем состояние isAuthenticated из Vuex
-const isAuthenticated = computed(() => store.state.refresh.isAuthenticated);
+// Используем состояние isAuthenticated из Pinia
+const isAuthenticated = computed(() => refreshStore.isAuthenticated);
 
 // Вычисляемое свойство для ссылки
 const authLink = computed(() => {

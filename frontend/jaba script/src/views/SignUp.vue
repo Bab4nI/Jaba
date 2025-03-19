@@ -96,24 +96,39 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
+import { jwtDecode }  from 'jwt-decode';
 import axios from 'axios';
 
-// Иконки для пароля
-import eyeOpen from '@/assets/images/psswd_open.png';
-import eyeClosed from '@/assets/images/psswd_close.png';
-
-// Состояния
 const route = useRoute();
 const isPasswordVisible = ref(false);
 const form = ref({
-  lastName: route.query.last_name || '',
-  firstName: route.query.first_name || '',
-  email: route.query.email || '',
-  group: route.query.group || '',
+  lastName: '',
+  firstName: '',
+  email: '',
+  group: '',
   password: '',
   confirmPassword: '',
+  role: '',
+});
+
+// ✅ Расшифровка токена при монтировании компонента
+onMounted(() => {
+  const token = route.query.token;
+  if (token) {
+    try {
+      const decoded = jwtDecode(token);
+      form.value.lastName = decoded.last_name;
+      form.value.firstName = decoded.first_name;
+      form.value.email = decoded.email;
+      form.value.group = decoded.group;
+      form.value.role = decoded.role;
+    } catch (error) {
+      console.error('Ошибка при декодировании токена:', error);
+      alert('Ошибка при обработке данных регистрации');
+    }
+  }
 });
 
 // Логика пароля
@@ -122,7 +137,7 @@ const passwordFieldType = computed(() =>
 );
 
 const eyeIcon = computed(() => 
-  isPasswordVisible.value ? eyeOpen : eyeClosed
+  isPasswordVisible.value ? '/src/assets/images/psswd_open.png' : '/src/assets/images/psswd_close.png'
 );
 
 const togglePasswordVisibility = () => {
@@ -142,16 +157,17 @@ const handleSubmit = async () => {
       first_name: form.value.firstName,
       email: form.value.email,
       group: form.value.group,
+      role: form.value.role,
       password: form.value.password,
     });
 
-    // Перенаправление на страницу входа
     window.location.href = 'http://localhost:5173/SignIn';
   } catch (error) {
     console.error('Ошибка при регистрации:', error);
     alert('Ошибка при регистрации');
   }
 };
+
 </script>
 
 <style scoped>

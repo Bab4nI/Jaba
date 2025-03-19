@@ -21,7 +21,7 @@
           <div class="student-info-card">
             <p class="email-label-text-style">Адрес электронной почты</p>
             <div v-if="!isEditingEmail">
-              <a :href="'mailto:' + email" class="email-link-text-style">{{ email }}</a>
+              <p class="email-link-text-style">{{ email }}</p>
             </div>
             <div v-else>
               <input v-model="newEmail" type="email" class="email-input" />
@@ -62,40 +62,41 @@
 </template>
 
 <script setup>
-import { computed, onMounted} from 'vue';
-import { useStore } from 'vuex';
+//components/profile.vue
+import { computed, onMounted } from 'vue';
+import { useUserStore } from '@/stores/user';
 import Calendar from '@/components/Calendar.vue';
 
-const store = useStore();
-const userRole = computed(() => store.state.userStore.role);
-const fullName = computed(() => `${store.state.userStore.first_name} ${store.state.userStore.last_name} ${store.state.userStore.middle_name}`);
-const email = computed(() => store.state.userStore.email);
-const group = computed(() => store.state.userStore.group);
-const avatarBase64 = computed(() => store.state.userStore.avatarBase64);
+const userStore = useUserStore();
+const userRole = computed(() => userStore.role);
+const fullName = computed(() => `${userStore.first_name} ${userStore.last_name} ${userStore.middle_name}`);
+const email = computed(() => userStore.email);
+const group = computed(() => userStore.group);
+const avatarBase64 = computed(() => userStore.avatarBase64);
 
-// Доступ к методам из хранилища
-const fetchUserProfile = () => store.dispatch('userStore/fetchUserProfile');
+const fetchUserProfile = () => userStore.fetchUserProfile();
 const handleAvatarUpload = (event) => {
   const file = event.target.files[0];
   if (file) {
     const reader = new FileReader();
     reader.onload = (e) => {
-      store.dispatch('userStore/updateAvatar', e.target.result);
+      userStore.updateAvatar(e.target.result);
     };
     reader.readAsDataURL(file);
   }
 };
+
 const avatarSrc = computed(() => {
   if (avatarBase64) return avatarBase64;
-  return role === 'admin' 
+  return userRole === 'admin' 
     ? new URL('@/assets/images/admin-avatar.png', import.meta.url).href 
     : new URL('@/assets/images/default-avatar.png', import.meta.url).href;
 });
-const toggleEditEmail = () => store.dispatch('userStore/toggleEditEmail');
-const saveEmail = () => store.dispatch('userStore/saveEmail');
-const cancelEdit = () => store.dispatch('userStore/cancelEdit');
 
-// Загружаем данные при монтировании компонента
+const toggleEditEmail = () => userStore.toggleEditEmail();
+const saveEmail = () => userStore.saveEmail();
+const cancelEdit = () => userStore.cancelEdit();
+
 onMounted(() => {
   console.log('Компонент смонтирован');
   fetchUserProfile();

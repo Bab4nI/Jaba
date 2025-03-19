@@ -1,6 +1,8 @@
 import json
 from urllib.parse import urlencode
-
+import jwt
+from datetime import datetime, timedelta
+from django.conf import settings
 from django.core.mail import send_mail
 
 from rest_framework.response import Response
@@ -33,7 +35,6 @@ class SendRegistrationLinkView(APIView):
         try:
             data = request.data
             
-            # Валидация обязательных полей
             required_fields = ['last_name', 'first_name', 'middle_name', 'email', 'role']
             for field in required_fields:
                 if field not in data:
@@ -41,17 +42,20 @@ class SendRegistrationLinkView(APIView):
                     error_response["details"] = error_response["details"].format(field)
                     return Response(error_response, status=status.HTTP_400_BAD_REQUEST)
 
-            # Создание URL с предзаполненными данными
-            params = {
+            # Создание токена с данными пользователя
+            payload = {
                 'last_name': data['last_name'],
                 'first_name': data['first_name'],
                 'middle_name': data['middle_name'],
                 'email': data['email'],
                 'group': data.get('group', ''),
-                'role': data['role']
+                'role': data['role'],
+                'exp': datetime.utcnow() + timedelta(minutes=15)  # токен истекает через 15 минут
             }
-            encoded_params = urlencode(params)
-            registration_url = f'http://localhost:5173/SignUp?{encoded_params}'
+            token = jwt.encode(payload, settings.SECRET_KEY, algorithm='HS256')
+
+            # Создание защищённой ссылки с токеном
+            registration_url = f'http://localhost:5173/SignUp?token={token}'
 
             # Отправка email
             subject = 'Завершите регистрацию в NetLab AI'
@@ -65,15 +69,13 @@ class SendRegistrationLinkView(APIView):
             send_mail(
                 subject,
                 message,
-                'sfedu.netlabai@gmail.com',  # Замените на ваш email
+                'sfedu.netlabai@gmail.com',
                 [data['email']],
                 fail_silently=False,
             )
 
             return Response({"status": "Email sent successfully"})
 
-        except json.JSONDecodeError:
-            return Response(ERROR_RESPONSES["invalid_json"], status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             error_response = ERROR_RESPONSES["email_send_failed"]
             error_response["details"] = error_response["details"].format(str(e))

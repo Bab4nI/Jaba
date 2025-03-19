@@ -118,6 +118,19 @@
   </script>
   
   <style scoped>
+  .horizontal-flex-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  width: 100%; /* Растянет контейнер на всю ширину */
+}
+
+  .vertical-center-text-box {
+  width: 150px; /* Достаточно для самого длинного месяца */
+  text-align: center;
+}
+
   .schedule-container {
     width: 430px;
     padding: 0px 44px;

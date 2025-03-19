@@ -45,28 +45,26 @@
 </template>
 
 <script setup>
+// components/Sidebar.vue
 import { computed } from 'vue';
-import { useStore } from 'vuex';
+import { useUserStore } from '@/stores/user'; // Импортируем userStore
+import { useRefreshStore } from '@/stores/auth'; // Импортируем refreshStore
 import { useRouter } from 'vue-router';
 
-const store = useStore();
+const userStore = useUserStore();
+const refreshStore = useRefreshStore(); // Используем refreshStore
 const router = useRouter();
 
-// Получаем активную вкладку из хранилища
-const activeTab = computed(() => store.state.userStore.activeTab);
+const activeTab = computed(() => userStore.activeTab);
+const userRole = computed(() => userStore.role);
 
-// Получаем роль пользователя
-const userRole = computed(() => store.state.userStore.role);
-
-// Функция выхода
 const logout = () => {
-  store.dispatch('refresh/logout'); // Учитываем namespace модуля
-  router.push('/'); // Возвращаем на главную
+  refreshStore.logout(); // Используем logout из refreshStore
+  router.push('/');
 };
 
-// Функция для переключения вкладки
 const setActiveTab = (tab) => {
-  store.dispatch('userStore/setActiveTab', tab); // Используем действие из хранилища
+  userStore.setActiveTab(tab);
 };
 </script>
   

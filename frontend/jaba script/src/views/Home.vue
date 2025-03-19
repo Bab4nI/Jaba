@@ -3,7 +3,6 @@
     <div style="display: inline-block; width: 1505px" data-ignore="used only for top most containter width">
       <router-view></router-view>
           <div class="netlab-ai-landing-page">
-            <!-- конец header -->
             <div class="course-details-container">
               <div class="course-details-section">
                 <div class="course-details-section1">
@@ -12,8 +11,6 @@
                     <p class="ai-support-heading">с поддержкой AI</p>
                   </div>
                   <div class="action-buttons-container">
-                    <!-- PLACEHOLDER - Button Component detected here. Go to "React Code" via right click menu to see code generated -->
-                    <!-- PLACEHOLDER - Button Component detected here. Go to "React Code" via right click menu to see code generated -->
                   </div>
                 </div>
               </div>
@@ -126,8 +123,6 @@
           </div>
         </div>
     </template>
-    
-    
     
     
     <!-- js -->
