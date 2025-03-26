@@ -40,7 +40,7 @@ export default {
       }
     };
 
-    app.mixin({
+    app.mixin({ 
       mounted() {
         console.log('Интервал обновления токена запущен');
         startTokenRefreshInterval();

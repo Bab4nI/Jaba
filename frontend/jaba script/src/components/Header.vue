@@ -6,10 +6,9 @@
     <div class="header-nav-container">
       <div class="navigation-bar">
         <div class="main-nav-container">
-          <p class="primary-text-content-style">
-            <router-link :to="header.home.link">{{ header.home.title }}</router-link>
-          </p>
-          <div class="main-section-border"></div>
+        <p class="primary-text-content-style">
+          <router-link :to="header.home.link">{{ header.home.title }}</router-link>
+        </p>
         </div>
         <div class="vertical-divider"></div>
         <p class="primary-text-content-style">
@@ -28,7 +27,7 @@
 <script setup>
 //components/Header.vue
 import { computed } from 'vue';
-import { useRefreshStore } from '@/stores/auth'; // Импортируем хранилище Pinia
+import { useRefreshStore } from '@/stores'; // Импортируем хранилище Pinia
 import { header } from '@/config/header.js';
 
 // Используем хранилище Pinia
