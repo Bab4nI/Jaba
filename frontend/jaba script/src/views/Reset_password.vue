@@ -6,39 +6,34 @@
           <div class="welcome-login-container">
             <div class="login-container">
               <div class="password-prompt-container1">
-                <p class="welcome-message">С возвращением!</p>
-                <p class="welcome-message1">Войдите, чтобы продолжить</p>
+                <p class="welcome-message">Восстановление пароля</p>
+                <p class="welcome-message1">Введите email, чтобы получить ссылку для сброса пароля</p>
               </div>
               <div class="login-form-container">
                 <div class="password-prompt-container1">
                   <div class="fullwidth-container">
                     <div class="input-container">
                       <input
-                        v-model="form.email"
+                        v-model="email"
                         type="email"
                         class="transparent-input"
-                        placeholder="Введите почту"
+                        placeholder="Введите вашу почту"
                       />
                     </div>
-                  </div>
-                  <div class="password-prompt-container">
-                    <div class="password-input-container">
-                      <input
-                        v-model="form.password"
-                        :type="passwordFieldType"
-                        class="transparent-input"
-                        placeholder="Введите пароль"
-                      />
-                      <img
-                        :src="eyeIcon"
-                        class="password-input-icon"
-                        @click="togglePasswordVisibility"
-                      />
-                    </div>
-                    <p class="forgot-password-link"><router-link to="/Reset_password">Забыли пароль?</router-link></p>
                   </div>
                 </div>
-                <button class="login-button" @click="validateForm">Войти</button>
+                <button 
+                  class="login-button" 
+                  @click="sendResetLink"
+                  :disabled="loading"
+                >
+                  {{ loading ? 'Отправка...' : 'Отправить ссылку' }}
+                </button>
+                <p v-if="successMessage" class="success-message">{{ successMessage }}</p>
+                <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
+                <p class="back-to-login">
+                  <router-link to="/signin">Вернуться к входу</router-link>
+                </p>
               </div>
             </div>
             <img src="@/assets/images/login_day2.jpg" class="hero-image-container" />
@@ -50,94 +45,51 @@
 </template>
 
 <script setup>
-// views/SignIn
-import { ref, computed, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { ref } from 'vue';
 import axios from 'axios';
+import { useRouter } from 'vue-router';
 
-// Иконки для пароля
-import eyeOpen from '@/assets/images/psswd_open.png';
-import eyeClosed from '@/assets/images/psswd_close.png';
-
-// Состояния
-const route = useRoute();
+const email = ref('');
+const errorMessage = ref('');
+const successMessage = ref('');
+const loading = ref(false);
 const router = useRouter();
-const isPasswordVisible = ref(false);
-const form = ref({
-  email: '',
-  password: '',
-});
 
-// Заполнение полей из query параметров
-onMounted(() => {
-  form.value = {
-    email: route.query.email || '',
-    password: '',
-  };
+const sendResetLink = async () => {
+  errorMessage.value = '';
+  successMessage.value = '';
+  loading.value = true;
 
-  // Проверка авторизации при загрузке компонента
-  checkAuth();
-});
-
-// Логика пароля
-const passwordFieldType = computed(() => 
-  isPasswordVisible.value ? 'text' : 'password'
-);
-
-const eyeIcon = computed(() => 
-  isPasswordVisible.value ? eyeOpen : eyeClosed
-);
-
-const togglePasswordVisibility = () => {
-  isPasswordVisible.value = !isPasswordVisible.value;
-};
-
-// Валидация формы
-const validateForm = () => {
-  if (!form.value.email) {
-    alert('Поле электронной почты обязательно для заполнения');
-    return false;
+  if (!email.value) {
+    errorMessage.value = 'Пожалуйста, введите email';
+    loading.value = false;
+    return;
   }
-  if (!form.value.password) {
-    alert('Пароль обязателен для заполнения');
-    return false;
-  }
-  login();
-  return true;
-};
 
-// Проверка авторизации через JWT
-const checkAuth = () => {
-  const accessToken = localStorage.getItem('access_token');
-  if (accessToken) {
-    window.location.href = 'http://localhost:5173/profile';
-  }
-};
-
-// Логин с JWT
-const login = async () => {
   try {
-    const response = await axios.post('http://localhost:8000/api/token/', {
-      email: form.value.email,
-      password: form.value.password,
-      timestamp: Date.now(),
+    const response = await axios.post('http://localhost:8000/api/password/reset/', {
+      email: email.value
     });
 
-    // Сохраняем токены в localStorage
-    localStorage.setItem('access_token', response.data.access);
-    localStorage.setItem('refresh_token', response.data.refresh);
-
-    // Перенаправление на страницу профиля
-    window.location.href = 'http://localhost:5173/profile';
+    if (response.status === 200) {
+      successMessage.value = 'Если пользователь существует, ссылка будет отправлена';
+      email.value = '';
+    }
   } catch (error) {
-    console.error('Ошибка при входе:', error);
-    alert('Неверный email или пароль');
+    console.error('Ошибка при отправке запроса:', error);
+    if (error.response?.data?.error) {
+      errorMessage.value = error.response.data.error;
+    } else {
+      errorMessage.value = 'Произошла ошибка. Пожалуйста, попробуйте позже.';
+    }
+  } finally {
+    loading.value = false;
   }
 };
 </script>
 
 <style scoped>
-
+/* Ваши существующие стили */
 .primary-text-content-style {
     flex: 0 0 auto;
     padding: 0;
@@ -332,52 +284,6 @@ const login = async () => {
 .input-style-571bd002::placeholder {
   color: black;
 }
-.password-prompt-container {
-  box-sizing: border-box;
-  width: 100%;
-  margin-top: 27px;
-}
-.password-input-container {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: row;
-  gap: 8px;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  height: 44px;
-  padding-right: 13px;
-  padding-left: 21px;
-  background: #f5f9f8;
-  border-radius: 20px;
-}
-.password-input-label {
-  flex: 0 0 auto;
-  padding: 0;
-  margin: 0;
-  font: 100 20px Raleway, sans-serif;
-  color: black;
-}
-.password-input-icon {
-  box-sizing: border-box;
-  display: block;
-  cursor: pointer;
-  width: 24px;
-  max-width: initial;
-  height: 24px;
-  border: none;
-  object-fit: cover;
-}
-.forgot-password-link {
-  padding: 0;
-  padding-right: 22px;
-  padding-left: 22px;
-  margin: 0;
-  margin-top: 19px;
-  font: 300 16px Raleway, sans-serif;
-  color: #a094b8;
-  text-decoration-line: underline;
-}
 .login-button {
   box-sizing: border-box;
   display: block;
@@ -407,5 +313,29 @@ const login = async () => {
   border: none;
   border-radius: 35px;
   object-fit: cover;
+}
+.back-to-login {
+  text-align: center;
+  margin-top: 20px;
+  font: 300 16px Raleway, sans-serif;
+}
+.back-to-login a {
+  color: #a094b8;
+  text-decoration: underline;
+}
+.back-to-login a:hover {
+  color: #7c54ca;
+}
+.error-message {
+  color: #ff5252;
+  font: 300 16px Raleway, sans-serif;
+  margin-top: 15px;
+  text-align: center;
+}
+.success-message {
+  color: #4caf50;
+  font: 300 16px Raleway, sans-serif;
+  margin-top: 15px;
+  text-align: center;
 }
 </style>

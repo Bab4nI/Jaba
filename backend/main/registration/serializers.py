@@ -44,3 +44,16 @@ class UserSerializer(serializers.ModelSerializer):
             user.set_password(password)  # Используем встроенный метод
         user.save()
         return user
+    
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    token = serializers.CharField(required=True)
+    new_password = serializers.CharField(min_length=8, required=True)
+
+class ChangeEmailRequestSerializer(serializers.Serializer):
+    new_email = serializers.EmailField(required=True)
+
+class VerifyEmailCodeSerializer(serializers.Serializer):
+    code = serializers.CharField(max_length=6, required=True)

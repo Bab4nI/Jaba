@@ -19,16 +19,52 @@
       <div class="profile-card1">
         <div class="student-profile-card">
           <div class="student-info-card">
-            <p class="email-label-text-style">Адрес электронной почты</p>
-            <div v-if="!isEditingEmail">
-              <p class="email-link-text-style">{{ email }}</p>
+            <div class="email-section">
+              <div class="email-header">
+                <p class="email-label-text-style">Адрес электронной почты</p>
+                <div v-if="!isEditingEmail" class="edit-button-container" @click="toggleEditEmail">
+                  <p class="edit-button-text-style">Редактировать</p>
+                  <img src="@/assets/images/edit.png" class="edit-icon" />
+                </div>
+              </div>
+              
+              <div v-if="!isEditingEmail">
+                <p class="email-link-text-style">{{ email }}</p>
+              </div>
+              
+              <div v-else class="email-edit-wrapper">
+                <input v-model="newEmail" type="email" class="email-input" placeholder="Введите новый email" />
+                <p v-if="emailError" class="error-message">{{ emailError }}</p>
+                
+                <div v-if="!showVerificationCode" class="email-actions">
+                  <button @click="saveEmail" class="save-button" :disabled="isSaving">
+                    {{ isSaving ? 'Отправка...' : 'Продолжить' }}
+                  </button>
+                  <button @click="cancelEdit" class="cancel-button">Отмена</button>
+                </div>
+
+                <div v-if="showVerificationCode" class="verification-section">
+                  <p class="verification-info">Код подтверждения отправлен на {{ newEmail }}</p>
+                  <input 
+                    v-model="verificationCode" 
+                    type="text" 
+                    placeholder="Введите 6-значный код" 
+                    class="verification-input"
+                    maxlength="6"
+                  />
+                  <p v-if="verificationError" class="error-message">{{ verificationError }}</p>
+                  <div class="verification-actions">
+                    <button @click="verifyCode" class="verify-button" :disabled="isVerifying">
+                      {{ isVerifying ? 'Проверка...' : 'Подтвердить' }}
+                    </button>
+                    <button @click="resendCode" class="resend-button" :disabled="isResending">
+                      {{ isResending ? 'Отправка...' : 'Отправить код повторно' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div v-else>
-              <input v-model="newEmail" type="email" class="email-input" />
-              <p v-if="emailError" class="error-message">{{ emailError }}</p>
-              <button @click="saveEmail" class="save-button">Сохранить</button>
-              <button @click="cancelEdit" class="cancel-button">Отмена</button>
-            </div>
+
             <div class="vertical-section-divider">
               <div class="course-progress-container">
                 <p class="email-label-text-style">Уровень обучения</p>
@@ -48,12 +84,6 @@
               </div>
             </div>
           </div>
-          <div class="edit-section-container">
-            <div class="edit-button-container" @click="toggleEditEmail">
-              <p class="edit-button-text-style">Редактировать</p>
-              <img src="@/assets/images/edit.png" class="edit-icon" />
-            </div>
-          </div>
           <Calendar />
         </div>
       </div>
@@ -62,19 +92,45 @@
 </template>
 
 <script setup>
-//components/profile.vue
-import { computed, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useUserStore } from '@/stores/user';
 import Calendar from '@/components/Calendar.vue';
+import axios from 'axios';
+import { useRefreshStore } from '@/stores/auth';
 
 const userStore = useUserStore();
+const refreshStore = useRefreshStore();
+
+// User data
 const userRole = computed(() => userStore.role);
 const fullName = computed(() => `${userStore.first_name} ${userStore.last_name} ${userStore.middle_name}`);
 const email = computed(() => userStore.email);
 const group = computed(() => userStore.group);
 const avatarBase64 = computed(() => userStore.avatarBase64);
+const department = computed(() => userStore.department || 'Не указано');
+const level = computed(() => userStore.level || 'Не указано');
+const course = computed(() => userStore.course || 'Не указано');
+
+// Email change states
+const newEmail = ref('');
+const isEditingEmail = ref(false);
+const emailError = ref('');
+const isSaving = ref(false);
+const showVerificationCode = ref(false);
+const verificationCode = ref('');
+const verificationError = ref('');
+const isVerifying = ref(false);
+const isResending = ref(false);
+
+const avatarSrc = computed(() => {
+  if (avatarBase64.value) return avatarBase64.value;
+  return userRole.value === 'admin' 
+    ? new URL('@/assets/images/admin-avatar.png', import.meta.url).href 
+    : new URL('@/assets/images/default-avatar.png', import.meta.url).href;
+});
 
 const fetchUserProfile = () => userStore.fetchUserProfile();
+
 const handleAvatarUpload = (event) => {
   const file = event.target.files[0];
   if (file) {
@@ -86,37 +142,226 @@ const handleAvatarUpload = (event) => {
   }
 };
 
-const avatarSrc = computed(() => {
-  if (avatarBase64) return avatarBase64;
-  return userRole === 'admin' 
-    ? new URL('@/assets/images/admin-avatar.png', import.meta.url).href 
-    : new URL('@/assets/images/default-avatar.png', import.meta.url).href;
-});
+const toggleEditEmail = () => {
+  isEditingEmail.value = !isEditingEmail.value;
+  if (isEditingEmail.value) {
+    newEmail.value = email.value;
+    emailError.value = '';
+    showVerificationCode.value = false;
+    verificationCode.value = '';
+    verificationError.value = '';
+  }
+};
 
-const toggleEditEmail = () => userStore.toggleEditEmail();
-const saveEmail = () => userStore.saveEmail();
-const cancelEdit = () => userStore.cancelEdit();
+const cancelEdit = () => {
+  isEditingEmail.value = false;
+  newEmail.value = email.value;
+  emailError.value = '';
+  showVerificationCode.value = false;
+};
+
+const saveEmail = async () => {
+  if (!newEmail.value) {
+    emailError.value = 'Email обязателен';
+    return;
+  }
+
+  if (newEmail.value === email.value) {
+    isEditingEmail.value = false;
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(newEmail.value)) {
+    emailError.value = 'Введите корректный email';
+    return;
+  }
+
+  isSaving.value = true;
+  emailError.value = '';
+
+  try {
+    const token = userStore.accessToken;
+    if (!token) {
+      throw new Error('Отсутствует токен доступа');
+    }
+
+    const response = await axios.post(
+      'http://localhost:8000/api/change-email/',
+      { new_email: newEmail.value },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (response.data.status === 'Код подтверждения отправлен на новый email') {
+      showVerificationCode.value = true;
+    } else {
+      throw new Error('Неизвестный ответ сервера');
+    }
+  } catch (error) {
+    console.error('Ошибка при запросе смены email:', error);
+    if (error.response) {
+      if (error.response.status === 400) {
+        emailError.value = error.response.data.error || 'Этот email уже используется';
+      } else if (error.response.status === 401) {
+        await refreshStore.refreshToken();
+        if (refreshStore.accessToken) {
+          userStore.setAccessToken(refreshStore.accessToken);
+          await saveEmail();
+          return;
+        }
+        emailError.value = 'Сессия истекла. Пожалуйста, войдите снова.';
+      } else {
+        emailError.value = 'Ошибка сервера при смене email';
+      }
+    } else {
+      emailError.value = 'Ошибка сети при смене email';
+    }
+  } finally {
+    isSaving.value = false;
+  }
+};
+
+const verifyCode = async () => {
+  if (!verificationCode.value || verificationCode.value.length !== 6) {
+    verificationError.value = 'Введите 6-значный код подтверждения';
+    return;
+  }
+
+  isVerifying.value = true;
+  verificationError.value = '';
+
+  try {
+    const token = userStore.accessToken;
+    if (!token) {
+      throw new Error('Отсутствует токен доступа');
+    }
+
+    const response = await axios.post(
+      'http://localhost:8000/api/verify-email-code/',
+      { code: verificationCode.value },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (response.data.status === 'Email успешно изменен') {
+      userStore.email = newEmail.value;
+      isEditingEmail.value = false;
+      showVerificationCode.value = false;
+    } else {
+      throw new Error('Неизвестный ответ сервера');
+    }
+  } catch (error) {
+    console.error('Ошибка при проверке кода:', error);
+    if (error.response) {
+      if (error.response.status === 400) {
+        verificationError.value = error.response.data.error || 'Неверный код подтверждения';
+      } else if (error.response.status === 401) {
+        verificationError.value = 'Сессия истекла. Пожалуйста, войдите снова.';
+      } else {
+        verificationError.value = 'Ошибка сервера при проверке кода';
+      }
+    } else {
+      verificationError.value = 'Ошибка сети при проверке кода';
+    }
+  } finally {
+    isVerifying.value = false;
+  }
+};
+
+const resendCode = async () => {
+  isResending.value = true;
+  verificationError.value = '';
+
+  try {
+    const token = userStore.accessToken;
+    if (!token) {
+      throw new Error('Отсутствует токен доступа');
+    }
+
+    const response = await axios.post(
+      'http://localhost:8000/api/change-email/',
+      { new_email: newEmail.value },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (response.data.status === 'Код подтверждения отправлен на новый email') {
+      verificationError.value = 'Новый код отправлен!';
+    } else {
+      throw new Error('Неизвестный ответ сервера');
+    }
+  } catch (error) {
+    console.error('Ошибка при повторной отправке кода:', error);
+    if (error.response) {
+      if (error.response.status === 400) {
+        verificationError.value = error.response.data.error || 'Ошибка при отправке кода';
+      } else if (error.response.status === 401) {
+        verificationError.value = 'Сессия истекла. Пожалуйста, войдите снова.';
+      } else {
+        verificationError.value = 'Ошибка сервера';
+      }
+    } else {
+      verificationError.value = 'Ошибка сети';
+    }
+  } finally {
+    isResending.value = false;
+  }
+};
 
 onMounted(() => {
-  console.log('Компонент смонтирован');
   fetchUserProfile();
 });
 </script>
 
 <style scoped>
+.profile-card-container2 {
+  flex: 0 0 885px;
+}
+
+.profile-heading {
+  font: 600 24px Raleway, sans-serif;
+  color: #24222f;
+  margin-bottom: 20px;
+}
+
+.student-profile-container {
+  margin-top: 35px;
+}
+
+.profile-card {
+  display: flex;
+  align-items: center;
+  padding: 18px 25px;
+  background: #f5f9f8;
+  border: 2px solid #ebefef;
+  border-radius: 15px;
+  margin-bottom: 25px;
+}
+
 .avatar-container {
   position: relative;
-  width: 150px; /* Фиксированная ширина */
-  height: 150px; /* Фиксированная высота */
-  border-radius: 50%; /* Делаем контейнер круглым */
-  overflow: hidden; /* Обрезаем лишнее */
-  border: 2px solid #ebefef; /* Добавляем рамку */
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid #ebefef;
+  flex-shrink: 0;
 }
 
 .profile-image {
-  width: 100%; /* Заполняем контейнер по ширине */
-  height: 100%; /* Заполняем контейнер по высоте */
-  object-fit: cover; /* Масштабируем изображение с сохранением пропорций */
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .avatar-upload-input {
@@ -128,48 +373,16 @@ onMounted(() => {
   opacity: 0;
   cursor: pointer;
 }
-.error-message {
-  color: red;
-  font-size: 0.875rem;
-  margin-top: 0.5rem;
-}
-
-.profile-card-container2 {
-  flex: 0 0 885px; /* Ширина контейнера профиля */
-}
-
-.profile-heading {
-  font: 600 24px Raleway, sans-serif;
-  color: #24222f;
-}
-
-.student-profile-container {
-  margin-top: 35px;
-}
-
-.profile-card {
-  display: flex;
-  align-items: center;
-  padding: 18px 25px 14px;
-  background: #f5f9f8;
-  border: 2px solid #ebefef;
-  border-radius: 15px;
-}
-
-.profile-image-container {
-  width: 150px;
-  height: 150px;
-  border-radius: 100px;
-  object-fit: cover;
-}
 
 .student-info-card1 {
   margin-left: 29px;
+  flex-grow: 1;
 }
 
 .main-title-text-style {
   font: 400 32px Raleway, sans-serif;
   color: #24222f;
+  margin: 0;
 }
 
 .student-info-container {
@@ -179,6 +392,7 @@ onMounted(() => {
 .student-role-text-style {
   font: 400 20px Raleway, sans-serif;
   color: #3b3a4a;
+  margin: 0;
 }
 
 .student-info-text-style {
@@ -193,26 +407,108 @@ onMounted(() => {
 
 .student-profile-card {
   display: flex;
-  justify-content: space-between;
-  padding: 14px 19px 25px 24px;
+  padding: 25px;
   background: #f5f9f8;
   border: 2px solid #ebefef;
   border-radius: 15px;
+  gap: 40px;
+}
+
+.student-info-card {
+  flex: 1;
+}
+
+.email-section {
+  margin-bottom: 30px;
+}
+
+.email-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
 }
 
 .email-label-text-style {
   font: 400 14px Raleway, sans-serif;
   color: #575667;
+  margin: 0;
 }
 
 .email-link-text-style {
   font: 400 16px Raleway, sans-serif;
   color: #24222f;
-  text-decoration: none;
+  margin: 0;
+}
+
+.edit-button-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 12px;
+  background: #f5f9f8;
+  border: 2px solid #ebefef;
+  border-radius: 15px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.edit-button-container:hover {
+  background: #ebefef;
+}
+
+.edit-button-text-style {
+  font: 400 14px Raleway, sans-serif;
+  color: #575667;
+  margin: 0;
+}
+
+.edit-icon {
+  width: 15px;
+  height: 15px;
+  margin-left: 6px;
+}
+
+.email-edit-wrapper {
+  margin-top: 15px;
+}
+
+.email-input {
+  width: 100%;
+  max-width: 400px;
+  padding: 10px 15px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font: 400 16px Raleway, sans-serif;
+  transition: border-color 0.2s;
+}
+
+.email-input:focus {
+  outline: none;
+  border-color: #4caf50;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+}
+
+.error-message {
+  color: #e74c3c;
+  font: 400 14px Raleway, sans-serif;
+  margin-top: 8px;
+}
+
+.email-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
 }
 
 .vertical-section-divider {
-  margin-top: 23px;
+  margin-top: 25px;
+}
+
+.course-progress-container,
+.group-info-block {
+  margin-bottom: 20px;
 }
 
 .education-details-text-style {
@@ -221,69 +517,93 @@ onMounted(() => {
   margin-top: 8px;
 }
 
-.group-info-block {
-  margin-top: 23px;
+/* Verification section */
+.verification-section {
+  margin-top: 20px;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
 }
 
-.edit-section-container {
-  align-self: center;
-  padding-bottom: 281px;
-}
-
-.edit-button-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 36px;
-  padding: 0 10px;
-  background: #f5f9f8;
-  border: 2px solid #ebefef;
-  border-radius: 15px;
-}
-
-.edit-button-text-style {
+.verification-info {
   font: 400 14px Raleway, sans-serif;
   color: #575667;
-}
-.edit-button-text-style {
-  cursor: pointer;
-}
-.edit-icon {
-  width: 15px;
-  height: 15px;
-  margin-left: 6px;
+  margin-bottom: 15px;
 }
 
-.email-input {
-  padding: 5px;
-  font-size: 16px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  margin-right: 10px;
+.verification-input {
+  width: 100%;
+  max-width: 200px;
+  padding: 10px 15px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font: 400 16px Raleway, sans-serif;
+  letter-spacing: 1px;
+}
+
+.verification-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+  flex-wrap: wrap;
+}
+
+/* Buttons */
+.save-button,
+.cancel-button,
+.verify-button,
+.resend-button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font: 500 14px Raleway, sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
 .save-button,
-.cancel-button {
-  padding: 5px 10px;
-  font-size: 14px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.save-button {
+.verify-button {
   background-color: #4caf50;
   color: white;
+}
+
+.save-button:hover,
+.verify-button:hover {
+  background-color: #3e8e41;
+}
+
+.save-button:disabled,
+.verify-button:disabled {
+  background-color: #a5d6a7;
+  cursor: not-allowed;
 }
 
 .cancel-button {
   background-color: #f44336;
   color: white;
-  margin-left: 5px;
 }
 
-.save-button:hover,
 .cancel-button:hover {
-  opacity: 0.8;
+  background-color: #d32f2f;
+}
+
+.resend-button {
+  background-color: #2196f3;
+  color: white;
+}
+
+.resend-button:hover {
+  background-color: #0b7dda;
+}
+
+.resend-button:disabled {
+  background-color: #90caf9;
+  cursor: not-allowed;
+}
+
+/* Calendar section */
+.calendar-container {
+  flex: 0 0 300px;
 }
 </style>
