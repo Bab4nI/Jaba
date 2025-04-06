@@ -13,3 +13,5 @@ def run_in_new_terminal(command, directory):
 # Запуск серверов
 run_in_new_terminal("python manage.py runserver", "backend/main")
 run_in_new_terminal("npm run dev", 'frontend/jaba script')
+
+...
