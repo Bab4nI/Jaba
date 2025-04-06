@@ -28,3 +28,8 @@
 /backend/main/.venv
 /backend/main/.env
 /backend/main/Backup-codes-sfedu.netlabai.txt
+/backend/main/db.sqlite3
+/backend/main/*.log
+/backend/main/*.pot
+/backend/main/*.pyc
+/backend/main/__pycache__/
