@@ -6,7 +6,7 @@ import SignIn from '@/views/SignIn.vue';
 import Profile from '@/views/Profile.vue';
 import Reset_password from './views/Reset_password.vue';
 import New_password from './views/New_password.vue';
-
+import Course from './views/Course.vue';
 
 const routes = [
   { path: '/', component: Home },
@@ -15,6 +15,8 @@ const routes = [
 
   { path: '/Reset_password', component: Reset_password },
 
+  { path: '/Course', component: Course },
+  
   {
     path: '/signup',
     name: 'SignUp',
