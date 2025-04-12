@@ -36,6 +36,17 @@
 
 > 🛡️ Доступ: чтение доступно всем, создание/редактирование — только админам.
 
+Примеры запросов:
+![image](https://github.com/user-attachments/assets/584de922-0d14-4765-bcab-372656ba1203)
+
+![image](https://github.com/user-attachments/assets/a671daa8-3afc-4fa9-a5b2-bd4fd5a9a1c6)
+
+![image](https://github.com/user-attachments/assets/74305314-04bb-4478-b46f-5e18b6abe721)
+
+![image](https://github.com/user-attachments/assets/c050fac3-0694-4693-8d0a-535bb2bb4a5d)
+
+* Либо можно создавать через админку)
+
 ## 🧑‍💼 Django Admin
 
 Управление через админку:
