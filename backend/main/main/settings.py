@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'registration',
     'user_profile',
+    'courses',
     'corsheaders',
     'rest_framework_simplejwt',
     'drf_yasg',
@@ -192,3 +193,6 @@ SIMPLE_JWT = {
     "SLIDING_TOKEN_OBTAIN_SERIALIZER": "rest_framework_simplejwt.serializers.TokenObtainSlidingSerializer",
     "SLIDING_TOKEN_REFRESH_SERIALIZER": "rest_framework_simplejwt.serializers.TokenRefreshSlidingSerializer",
 }
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
