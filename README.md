@@ -1,6 +1,6 @@
 ## UPD!!!
 Теперь можно создать суперпользователя и опробовать работу с бд самому, зайдя с созданного аккаунта
-#Создание
+# Создание
 ```python
 python manage.py makemigrations
 python manage.py migrate 
