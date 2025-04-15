@@ -1,3 +1,13 @@
+##UPD!!!
+Теперь можно создать суперпользователя и опробовать работу с бд самому, зайдя с созданного аккаунта
+#Создание
+```python
+python manage.py makemigrations
+python manage.py migrate 
+python manage.py createsuperuser
+# Ввод почты и пароля. Почта не должна быть существующей 
+```
+
 # Django Courses API
 
 Это REST API для создания, управления и отображения онлайн-курсов. Система построена на Django и Django REST Framework.
