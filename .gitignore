@@ -25,6 +25,7 @@
 /frontend/jaba script/*.tsbuildinfo
 
 
+
 ### OSX ###
 /backend/main/.DS_Store
 /backend/main/.AppleDouble
@@ -104,12 +105,11 @@
 
 
 ### Django ###
-/backend/main/*.log
-/backend/main/*.pot
-/backend/main/*.pyc
-/backend/main/*__pycache__/
-/backend/main/*local_settings.py
+*.log
+*.pot
+*.pyc
+__pycache__/
+local_settings.py
 
 /backend/main/.env
 /backend/main/db.sqlite3
-/backend/main/media
