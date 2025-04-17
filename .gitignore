@@ -24,12 +24,91 @@
 /frontend/jaba script/*.sw?
 /frontend/jaba script/*.tsbuildinfo
 
-#back
-/backend/main/.venv
-/backend/main/Backup-codes-sfedu.netlabai.txt
-/backend/main/db.sqlite3
+
+### OSX ###
+/backend/main/.DS_Store
+/backend/main/.AppleDouble
+/backend/main/.LSOverride
+
+# Icon must end with two \r
+/backend/main/Icon
+
+
+# Thumbnails
+._*
+
+# Files that might appear on external disk
+/backend/main/.Spotlight-V100
+/backend/main/.Trashes
+
+# Directories potentially created on remote AFP share
+/backend/main/.AppleDB
+/backend/main/.AppleDesktop
+/backend/main/Network Trash Folder
+/backend/main/Temporary Items
+/backend/main/.apdisk
+
+
+### Python ###
+# Byte-compiled / optimized / DLL files
+/backend/main/__pycache__/
+/backend/main/*.py[cod]
+
+# C extensions
+/backend/main/*.so
+
+# Distribution / packaging
+/backend/main/.Python
+/backend/main/env/
+/backend/main/build/
+/backend/main/develop-eggs/
+/backend/main/dist/
+/backend/main/downloads/
+/backend/main/eggs/
+/backend/main/lib/
+/backend/main/lib64/
+/backend/main/parts/
+/backend/main/sdist/
+/backend/main/var/
+/backend/main/*.egg-info/
+/backend/main/.installed.cfg
+/backend/main/*.egg
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+/backend/main/*.manifest
+/backend/main/*.spec
+
+# Installer logs
+/backend/main/pip-log.txt
+/backend/main/pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+/backend/main/htmlcov/
+/backend/main/.tox/
+/backend/main/.coverage
+/backend/main/.cache
+/backend/main/nosetests.xml
+/backend/main/coverage.xml
+
+# Translations
+/backend/main/*.mo
+/backend/main/*.pot
+
+# Sphinx documentation
+/backend/main/docs/_build/
+
+# PyBuilder
+/backend/main/target/
+
+
+### Django ###
 /backend/main/*.log
 /backend/main/*.pot
 /backend/main/*.pyc
 /backend/main/__pycache__/
-/backend/main/media
+/backend/main/local_settings.py
+
+/backend/main/.env
+/backend/main/db.sqlite3
