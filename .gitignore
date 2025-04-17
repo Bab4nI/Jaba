@@ -112,3 +112,4 @@
 
 /backend/main/.env
 /backend/main/db.sqlite3
+/backend/main/media
