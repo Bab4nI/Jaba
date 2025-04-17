@@ -1,28 +1,28 @@
 # front
-/frontend/jaba script/logs
-/frontend/jaba script/*.log
-/frontend/jaba script/npm-debug.log*
-/frontend/jaba script/yarn-debug.log*
-/frontend/jaba script/yarn-error.log*
-/frontend/jaba script/pnpm-debug.log*
-/frontend/jaba script/lerna-debug.log*
-/frontend/jaba script/node_modules
-/frontend/jaba script/.DS_Store
-/frontend/jaba script/dist
-/frontend/jaba script/dist-ssr
-/frontend/jaba script/coverage
-/frontend/jaba script/*.local
-/frontend/jaba script/cypress/videos/
-/frontend/jaba script/cypress/screenshots/
-/frontend/jaba script/.vscode/*
-/frontend/jaba script/!.vscode/extensions.json
-/frontend/jaba script/.idea
-/frontend/jaba script/*.suo
-/frontend/jaba script/*.ntvs*
-/frontend/jaba script/*.njsproj
-/frontend/jaba script/*.sln
-/frontend/jaba script/*.sw?
-/frontend/jaba script/*.tsbuildinfo
+*logs
+*.log
+*npm-debug.log*
+*yarn-debug.log*
+*yarn-error.log*
+*pnpm-debug.log*
+*lerna-debug.log*
+*node_modules
+*.DS_Store
+*dist
+*dist-ssr
+*coverage
+*.local
+*cypress/videos/
+*cypress/screenshots/
+*.vscode/*
+*!.vscode/extensions.json
+*.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.tsbuildinfo
 
 
 
@@ -53,10 +53,10 @@
 ### Python ###
 # Byte-compiled / optimized / DLL files
 *__pycache__/
-**.py[cod]
+*.py[cod]
 
 # C extensions
-**.so
+*.so
 
 # Distribution / packaging
 *.Python
@@ -71,15 +71,15 @@
 *parts/
 *sdist/
 *var/
-**.egg-info/
+*.egg-info/
 *.installed.cfg
-**.egg
+*.egg
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
-**.manifest
-**.spec
+*.manifest
+*.spec
 
 # Installer logs
 *pip-log.txt
@@ -94,8 +94,8 @@
 *coverage.xml
 
 # Translations
-**.mo
-**.pot
+*.mo
+*.pot
 
 # Sphinx documentation
 *docs/_build/
@@ -113,3 +113,4 @@
 
 *.env
 *db.sqlite3
+#
