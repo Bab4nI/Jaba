@@ -107,8 +107,8 @@
 /backend/main/*.log
 /backend/main/*.pot
 /backend/main/*.pyc
-/backend/main/__pycache__/
-/backend/main/local_settings.py
+/backend/main/*__pycache__/
+/backend/main/*local_settings.py
 
 /backend/main/.env
 /backend/main/db.sqlite3
