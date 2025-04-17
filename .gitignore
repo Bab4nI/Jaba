@@ -32,3 +32,4 @@
 /backend/main/*.pot
 /backend/main/*.pyc
 /backend/main/__pycache__/
+/backend/main/media
