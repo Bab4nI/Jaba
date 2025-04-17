@@ -1,3 +1,5 @@
+# backend/main/courses/admin.py
+
 from django.contrib import admin
 from django.utils.safestring import mark_safe
 from django.utils.text import slugify

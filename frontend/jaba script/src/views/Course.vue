@@ -1,5 +1,5 @@
 <template>
-  <div style="display: inline-block; width: 1480px; background: #f5f9f8">
+  <div>
     <div class="main-content-container">
       <div class="main-content-section">
         <div class="module-card-container">
@@ -14,7 +14,7 @@
             </div>
             <input 
               v-model="searchQuery"
-              class="article-title-text-style search-input" 
+              class="search-input" 
               placeholder="Поиск по модулям и работам"
               @input="searchModules"
             />
@@ -23,7 +23,6 @@
         </div>
 
         <div class="main-content-container1">
-          <!-- Список модулей -->
           <div 
             v-for="(module, moduleIndex) in filteredModules" 
             :key="module.id" 
@@ -37,41 +36,44 @@
               <div class="module-container2">
                 <input 
                   v-model="module.title" 
-                  class="module-title-style module-title-input"
+                  class="module-title-input"
                   placeholder="Название модуля"
                   @change="updateModuleTitle(moduleIndex, $event)"
                 />
               </div>
               
-              <!-- Список работ в модуле с flex-wrap (3 в ряд) -->
               <div class="articles-wrapper">
                 <div 
-                  v-for="(article, articleIndex) in module.articles" 
-                  :key="article.id" 
+                  v-for="(lesson, lessonIndex) in module.lessons" 
+                  :key="lesson.id" 
                   class="article-card"
+                  @click="openArticleEditor(moduleIndex, lessonIndex)"
                 >
                   <img 
                     class="article-thumbnail" 
-                    :src="getImageUrl(article.image)" 
+                    :src="getImageUrl(lesson.thumbnail)" 
                   />
                   <div class="article-content">
-                    <h3>{{ article.title }}</h3>
-                    <p>{{ article.description }}</p>
+                    <h3>{{ lesson.title }}</h3>
+                    <p>{{ lesson.description || 'Без описания' }}</p>
                     <div class="article-meta">
-                      <span>{{ formatDate(article.date) }}</span>
-                      <span>{{ getTypeName(article.type) }}</span>
+                      <span>{{ formatDate(lesson.created_at) }}</span>
+                      <span class="lesson-type">{{ getTypeLabel(lesson.type) }}</span>
                       <div class="article-actions">
-                        <button @click="editArticle(moduleIndex, articleIndex)"><img src="@/assets/images/pencil_4211918_1.png" /></button>
-                        <button @click="deleteArticle(moduleIndex, articleIndex)"><img src="@/assets/images/delete_16596354_1.png" /></button>
+                        <button @click.stop="editLesson(moduleIndex, lessonIndex)">
+                          <img src="@/assets/images/pencil_4211918_1.png" />
+                        </button>
+                        <button @click.stop="deleteLesson(moduleIndex, lessonIndex)">
+                          <img src="@/assets/images/delete_16596354_1.png" />
+                        </button>
                       </div>
                     </div>
                   </div>
                 </div>
                 
-                <!-- Кнопка добавления работы с изображением -->
                 <div 
                   class="add-article-card" 
-                  @click="addArticle(moduleIndex)"
+                  @click="addLesson(moduleIndex)"
                 >
                   <img 
                     src="@/assets/images/image_5f285c02.png" 
@@ -83,9 +85,8 @@
             </div>
           </div>
 
-          <!-- Кнопка добавления нового модуля -->
           <p 
-            class="module-title-text-style add-module-btn" 
+            class="add-module-btn" 
             @click="addModule"
           >
             + Добавить модуль
@@ -94,45 +95,76 @@
       </div>
     </div>
     
-    <!-- Модальное окно для редактирования работы -->
-    <div v-if="editingArticle" class="modal-overlay">
+    <div v-if="editingLesson" class="modal-overlay">
       <div class="modal-content">
         <h3>Редактирование работы</h3>
-        <input v-model="editingArticle.title" placeholder="Название" />
-        <textarea 
-          v-model="editingArticle.description" 
-          placeholder="Описание"
-          class="fixed-textarea"
-        ></textarea>
-        <input type="date" v-model="editingArticle.date" />
-        <select v-model="editingArticle.type">
-          <option value="article">Статья</option>
-          <option value="lab">Лабораторная</option>
-          <option value="practice">Практика</option>
-        </select>
+        <div class="form-group">
+          <label>Название:</label>
+          <input v-model="editingLesson.title" placeholder="Введите название" />
+        </div>
         
-        <!-- Поле для загрузки изображения -->
-        <div class="image-upload-container">
-          <label for="image-upload" class="image-upload-label">
-            <span v-if="!editingArticle.image">Выберите изображение</span>
-            <span v-else>Изменить изображение</span>
-            <input 
-              id="image-upload" 
-              type="file" 
-              accept="image/*" 
-              @change="handleImageUpload"
-              class="image-upload-input"
-            />
-          </label>
-          <div v-if="editingArticle.image" class="image-preview">
-            <img :src="getImageUrl(editingArticle.image)" class="preview-image" />
-            <button @click="removeImage" class="remove-image-btn">×</button>
+        <div class="form-group">
+          <label>Описание:</label>
+          <textarea 
+            v-model="editingLesson.description" 
+            placeholder="Введите описание"
+            class="fixed-textarea"
+          ></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label>Тип работы:</label>
+          <select v-model="editingLesson.type" @change="updateDefaultThumbnail">
+            <option value="ARTICLE">Статья</option>
+            <option value="LAB">Лабораторная работа</option>
+            <option value="PRACTICE">Практика</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>Длительность (минуты):</label>
+          <input 
+            type="number" 
+            v-model.number="editingLesson.duration"
+            placeholder="Введите длительность"
+            min="0"
+          />
+        </div>
+        
+        <div class="form-group">
+          <label>Порядок:</label>
+          <input 
+            type="number" 
+            v-model.number="editingLesson.order"
+            placeholder="Введите порядок"
+            min="0"
+          />
+        </div>
+        
+        <div class="form-group">
+          <label>Изображение:</label>
+          <div class="image-upload-container">
+            <label for="image-upload" class="image-upload-label">
+              <span v-if="!editingLesson.thumbnail">Выберите изображение</span>
+              <span v-else>Изменить изображение</span>
+              <input 
+                id="image-upload" 
+                type="file" 
+                accept="image/*" 
+                @change="handleImageUpload"
+                class="image-upload-input"
+              />
+            </label>
+            <div v-if="editingLesson.thumbnail" class="image-preview">
+              <img :src="getImageUrl(editingLesson.thumbnail)" class="preview-image" />
+              <button @click="removeImage" class="remove-image-btn">×</button>
+            </div>
           </div>
         </div>
         
         <div class="modal-actions">
-          <button @click="saveEditedArticle">Сохранить</button>
-          <button @click="cancelEdit">Отмена</button>
+          <button @click="saveEditedLesson" class="save-btn">Сохранить</button>
+          <button @click="cancelEdit" class="cancel-btn">Отмена</button>
         </div>
       </div>
     </div>
@@ -140,190 +172,444 @@
 </template>
 
 <script>
-import defaultImage from '@/assets/images/image_37e6f0fb.png';
+import { ref, onMounted, computed } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+import axios from 'axios';
+import { useRefreshStore } from '@/stores/auth';
+import articleImg from '@/assets/images/article.png';
+import labImg from '@/assets/images/lab.png';
+import pracImg from '@/assets/images/prac.png';
 
 export default {
+  name: 'CourseEditor',
+
+  setup() {
+    const router = useRouter();
+    const route = useRoute();
+    const authStore = useRefreshStore();
+
+    const api = axios.create({
+      baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    api.interceptors.request.use(
+      (config) => {
+        const token = authStore.accessToken || localStorage.getItem('access_token');
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    api.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const originalRequest = error.config;
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+          try {
+            await authStore.refreshToken();
+            originalRequest.headers.Authorization = `Bearer ${authStore.accessToken}`;
+            return api(originalRequest);
+          } catch (refreshError) {
+            console.error('❌ Не удалось обновить токен:', refreshError);
+            authStore.logout();
+            router.push({ name: 'SignIn' });
+            return Promise.reject(refreshError);
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return {
+      router,
+      route,
+      api,
+      authStore,
+    };
+  },
+
   data() {
     return {
       searchQuery: '',
       modules: [],
-      editingArticle: null,
-      currentEditIndexes: { moduleIndex: null, articleIndex: null },
-      nextId: 1
-    }
+      filteredModules: [],
+      editingLesson: null,
+      editingModuleIndex: null,
+      editingLessonIndex: null,
+      isLoading: false,
+    };
   },
+
   computed: {
-    filteredModules() {
-      if (!this.searchQuery.trim()) return this.modules;
-      
-      const query = this.searchQuery.toLowerCase().trim();
-      return this.modules.filter(module => {
-        // Поиск по названию модуля
-        if (module.title.toLowerCase().includes(query)) return true;
-        
-        // Поиск по работам в модуле
-        return module.articles.some(article => 
-          article.title.toLowerCase().includes(query) || 
-          article.description.toLowerCase().includes(query) ||
-          this.getTypeName(article.type).toLowerCase().includes(query)
-        );
-      }).map(module => {
-        // Если есть поисковый запрос, показываем все работы в найденных модулях
-        if (module.title.toLowerCase().includes(query)) {
-          return module;
-        }
-        
-        // Иначе фильтруем только работы, соответствующие запросу
-        return {
-          ...module,
-          articles: module.articles.filter(article => 
-            article.title.toLowerCase().includes(query) || 
-            article.description.toLowerCase().includes(query) ||
-            this.getTypeName(article.type).toLowerCase().includes(query))
-        };
-      });
-    }
+    courseSlug() {
+      return this.route.params.slug;
+    },
   },
+
   methods: {
     getImageUrl(imagePath) {
-      if (!imagePath) return defaultImage;
-      if (typeof imagePath === 'object' && imagePath instanceof File) {
+      if (!imagePath) return '';
+      if (typeof imagePath === 'object') {
         return URL.createObjectURL(imagePath);
       }
+      if (imagePath.startsWith('http')) return imagePath;
+      return `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${imagePath}`;
+    },
+
+    formatDate(date) {
+      if (!date) return '';
+      const d = new Date(date);
+      return d.toLocaleDateString('ru-RU');
+    },
+
+    getTypeLabel(type) {
+      const typeMap = {
+        ARTICLE: 'Статья',
+        LAB: 'Лабораторная работа',
+        PRACTICE: 'Практика',
+      };
+      return typeMap[type] || 'Статья';
+    },
+
+    async getDefaultImage(type) {
+      const imageMap = {
+        ARTICLE: { src: articleImg, name: 'article.png' },
+        LAB: { src: labImg, name: 'lab.png' },
+        PRACTICE: { src: pracImg, name: 'prac.png' },
+      };
+      const { src, name } = imageMap[type] || imageMap.ARTICLE;
+
       try {
-        // Попробуем загрузить изображение по переданному пути
-        return require(`@/assets/${imagePath.replace('@\\', '')}`);
-      } catch (e) {
-        // Если не получилось, вернем изображение по умолчанию
-        return defaultImage;
+        const response = await fetch(src);
+        const blob = await response.blob();
+        return new File([blob], name, { type: blob.type });
+      } catch (error) {
+        console.error(`❌ Ошибка загрузки изображения для ${type}:`, error);
+        return null;
       }
     },
-    generateId() {
-      return this.nextId++;
-    },
-    getTypeName(type) {
-      switch(type) {
-        case 'article': return 'Статья';
-        case 'lab': return 'Лабораторная';
-        case 'practice': return 'Практика';
-        default: return type;
+
+    async updateDefaultThumbnail() {
+      if (this.editingLesson) {
+        const defaultImage = await this.getDefaultImage(this.editingLesson.type || 'ARTICLE');
+        if (defaultImage) {
+          this.editingLesson.thumbnail = defaultImage;
+        } else {
+          this.editingLesson.thumbnail = '';
+        }
       }
     },
-    formatDate(dateString) {
-      if (!dateString) return '';
-      const date = new Date(dateString);
-      return date.toLocaleDateString('ru-RU');
+
+    async loadModules() {
+      this.isLoading = true;
+      try {
+        const response = await this.api.get(`/courses/${this.courseSlug}/modules/`);
+        this.modules = Array.isArray(response.data) ? response.data : [];
+        this.filteredModules = [...this.modules];
+        console.log('✅ Модули загружены:', this.modules);
+      } catch (error) {
+        console.error('❌ Ошибка загрузки модулей:', error);
+        this.modules = [];
+        this.filteredModules = [];
+        if (error.response?.status === 401) {
+          this.authStore.logout();
+          this.router.push({ name: 'SignIn' });
+        }
+      } finally {
+        this.isLoading = false;
+      }
     },
-    addModule() {
-      this.modules.push({
-        id: this.generateId(),
-        title: `Модуль ${this.modules.length + 1}`,
-        articles: []
-      });
+
+    searchModules() {
+      const query = this.searchQuery.toLowerCase().trim();
+      if (!query) {
+        this.filteredModules = [...this.modules];
+        return;
+      }
+      this.filteredModules = this.modules
+        .map((module) => ({
+          ...module,
+          lessons: module.lessons.filter(
+            (lesson) =>
+              lesson.title?.toLowerCase().includes(query) ||
+              lesson.description?.toLowerCase().includes(query)
+          ),
+        }))
+        .filter(
+          (module) =>
+            module.title?.toLowerCase().includes(query) || module.lessons.length > 0
+        );
     },
+
+    generateUniqueModuleTitle(baseTitle, existingTitles) {
+      let title = baseTitle;
+      let counter = 1;
+      while (existingTitles.includes(title)) {
+        title = `${baseTitle} ${counter}`;
+        counter++;
+      }
+      return title;
+    },
+
+    async addModule() {
+      const baseTitle = 'Новый модуль';
+      const existingTitles = this.modules.map((module) => module.title);
+      const uniqueTitle = this.generateUniqueModuleTitle(baseTitle, existingTitles);
+
+      try {
+        const response = await this.api.post(`/courses/${this.courseSlug}/modules/`, {
+          title: uniqueTitle,
+          course: this.courseSlug,
+          description: '',
+          order: this.modules.length,
+        });
+        this.modules.push({ ...response.data, lessons: [] });
+        this.searchModules();
+        console.log('✅ Модуль создан:', response.data);
+      } catch (error) {
+        console.error('❌ Ошибка создания модуля:', error);
+        const errorMessage = error.response?.data?.title || error.response?.data?.detail || 'Неизвестная ошибка';
+        alert('Не удалось создать модуль: ' + errorMessage);
+      }
+    },
+
+    async saveModule(moduleIndex) {
+      const module = this.modules[moduleIndex];
+      try {
+        await this.api.put(`/courses/${this.courseSlug}/modules/${module.id}/`, {
+          title: module.title,
+          course: this.courseSlug,
+          description: module.description || '',
+          order: module.order || 0,
+        });
+        console.log('✅ Модуль сохранен:', module);
+        alert('Модуль успешно сохранен');
+      } catch (error) {
+        console.error('❌ Ошибка сохранения модуля:', error);
+        const errorMessage = error.response?.data?.title || error.response?.data?.detail || 'Неизвестная ошибка';
+        alert('Не удалось сохранить модуль: ' + errorMessage);
+      }
+    },
+
+    async deleteModule(moduleIndex) {
+      const module = this.modules[moduleIndex];
+      if (!confirm('Вы уверены, что хотите удалить этот модуль?')) return;
+      try {
+        await this.api.delete(`/courses/${this.courseSlug}/modules/${module.id}/`);
+        this.modules.splice(moduleIndex, 1);
+        this.searchModules();
+        console.log('✅ Модуль удален:', module.id);
+      } catch (error) {
+        console.error('❌ Ошибка удаления модуля:', error);
+        alert('Не удалось удалить модуль: ' + (error.response?.data?.detail || 'Неизвестная ошибка'));
+      }
+    },
+
     updateModuleTitle(moduleIndex, event) {
       this.modules[moduleIndex].title = event.target.value;
     },
-    deleteModule(index) {
-      if (confirm('Удалить модуль и все его работы?')) {
-        this.modules.splice(index, 1);
+
+    generateUniqueLessonTitle(baseTitle, existingTitles) {
+      let title = baseTitle;
+      let counter = 1;
+      while (existingTitles.includes(title)) {
+        title = `${baseTitle} ${counter}`;
+        counter++;
+      }
+      return title;
+    },
+
+    async addLesson(moduleIndex) {
+      const module = this.modules[moduleIndex];
+      const baseTitle = 'Новая работа';
+      const existingTitles = module.lessons ? module.lessons.map((lesson) => lesson.title) : [];
+      const uniqueTitle = this.generateUniqueLessonTitle(baseTitle, existingTitles);
+      const lessonType = 'ARTICLE'; // Default type
+
+      const formData = new FormData();
+      formData.append('title', uniqueTitle);
+      formData.append('description', '');
+      formData.append('type', lessonType);
+      formData.append('duration', '0');
+      formData.append('order', module.lessons ? module.lessons.length : 0);
+
+      // Add default image based on type
+      const defaultImage = await this.getDefaultImage(lessonType);
+      if (defaultImage) {
+        formData.append('thumbnail', defaultImage);
+      } else {
+        formData.append('thumbnail', '');
+      }
+
+      try {
+        const response = await this.api.post(
+          `/courses/${this.courseSlug}/modules/${module.id}/lessons/`,
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          }
+        );
+        if (!module.lessons) module.lessons = [];
+        module.lessons.push(response.data);
+        this.modules[moduleIndex] = { ...module };
+        this.searchModules();
+        console.log('✅ Работа создана:', response.data);
+      } catch (error) {
+        console.error('❌ Ошибка создания работы:', error);
+        const errorMessage = error.response?.data?.title || error.response?.data?.detail || 'Неизвестная ошибка';
+        alert('Не удалось создать работу: ' + errorMessage);
       }
     },
-    saveModule(index) {
-      alert(`Модуль "${this.modules[index].title}" сохранен`);
+
+    editLesson(moduleIndex, lessonIndex) {
+      const module = this.modules[moduleIndex];
+      const lesson = module.lessons[lessonIndex];
+      this.editingLesson = {
+        ...lesson,
+        moduleIndex,
+        lessonIndex,
+      };
+      this.editingModuleIndex = moduleIndex;
+      this.editingLessonIndex = lessonIndex;
     },
-    addArticle(moduleIndex) {
-      this.modules[moduleIndex].articles.push({
-        id: this.generateId(),
-        title: 'Новая работа',
-        description: 'Описание работы',
-        date: new Date().toISOString().split('T')[0],
-        type: 'article',
-        image: null
+
+    openArticleEditor(moduleIndex, lessonIndex) {
+      const module = this.modules[moduleIndex];
+      const lesson = module.lessons[lessonIndex];
+      this.router.push({
+        name: 'ArticleEditor',
+        params: {
+          courseSlug: this.courseSlug,
+          moduleId: module.id,
+          lessonId: lesson.id,
+        },
+        query: {
+          title: lesson.title,
+          type: lesson.type.toLowerCase(),
+        },
       });
     },
-    editArticle(moduleIndex, articleIndex) {
-      this.currentEditIndexes = { moduleIndex, articleIndex };
-      this.editingArticle = { ...this.modules[moduleIndex].articles[articleIndex] };
-    },
-    saveEditedArticle() {
-      const { moduleIndex, articleIndex } = this.currentEditIndexes;
-      this.modules[moduleIndex].articles[articleIndex] = { ...this.editingArticle };
-      this.editingArticle = null;
-    },
-    cancelEdit() {
-      this.editingArticle = null;
-    },
-    deleteArticle(moduleIndex, articleIndex) {
-      if (confirm('Удалить эту работу?')) {
-        this.modules[moduleIndex].articles.splice(articleIndex, 1);
+
+    async deleteLesson(moduleIndex, lessonIndex) {
+      const module = this.modules[moduleIndex];
+      const lesson = module.lessons[lessonIndex];
+      if (!confirm('Вы уверены, что хотите удалить эту работу?')) return;
+      try {
+        await this.api.delete(
+          `/courses/${this.courseSlug}/modules/${module.id}/lessons/${lesson.id}/`
+        );
+        module.lessons.splice(lessonIndex, 1);
+        this.modules[moduleIndex] = { ...module };
+        this.searchModules();
+        console.log('✅ Работа удалена:', lesson.id);
+      } catch (error) {
+        console.error('❌ Ошибка удаления работы:', error);
+        alert('Не удалось удалить работу: ' + (error.response?.data?.detail || 'Неизвестная ошибка'));
       }
     },
-    searchModules() {
-      // Фильтрация выполняется автоматически через computed свойство filteredModules
-      console.log('Выполнен поиск:', this.searchQuery);
-    },
+
     handleImageUpload(event) {
       const file = event.target.files[0];
       if (!file) return;
-      
-      // Сохраняем сам файл изображения
-      this.editingArticle.image = file;
+      if (!file.type.match('image.*')) {
+        alert('Пожалуйста, выберите файл изображения');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Файл слишком большой. Максимальный размер - 5MB');
+        return;
+      }
+      this.editingLesson.thumbnail = file;
     },
+
     removeImage() {
-      this.editingArticle.image = null;
-    }
+      this.editingLesson.thumbnail = '';
+    },
+
+    async saveEditedLesson() {
+      const { moduleIndex, lessonIndex, ...lessonData } = this.editingLesson;
+      const module = this.modules[moduleIndex];
+      const formData = new FormData();
+      formData.append('title', lessonData.title || 'Новая работа');
+      formData.append('description', lessonData.description || '');
+      formData.append('type', lessonData.type || 'ARTICLE');
+      formData.append('duration', lessonData.duration || 0);
+      formData.append('order', lessonData.order || 0);
+
+      // Handle thumbnail
+      if (lessonData.thumbnail instanceof File) {
+        formData.append('thumbnail', lessonData.thumbnail);
+      } else if (lessonData.thumbnail === '' || !lessonData.thumbnail) {
+        const defaultImage = await this.getDefaultImage(lessonData.type || 'ARTICLE');
+        if (defaultImage) {
+          formData.append('thumbnail', defaultImage);
+        } else {
+          formData.append('thumbnail', '');
+        }
+      }
+
+      try {
+        const response = await this.api.put(
+          `/courses/${this.courseSlug}/modules/${module.id}/lessons/${lessonData.id}/`,
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          }
+        );
+        module.lessons[lessonIndex] = response.data;
+        this.modules[moduleIndex] = { ...module };
+        this.searchModules();
+        this.editingLesson = null;
+        console.log('✅ Работа обновлена:', response.data);
+        alert('Работа успешно обновлена');
+      } catch (error) {
+        console.error('❌ Ошибка обновления работы:', error);
+        let errorMessage = 'Неизвестная ошибка';
+        if (error.response?.data) {
+          if (error.response.data.title) {
+            errorMessage = error.response.data.title;
+          } else if (error.response.data.detail) {
+            errorMessage = error.response.data.detail;
+          } else {
+            errorMessage = JSON.stringify(error.response.data);
+          }
+        }
+        alert('Не удалось обновить работу: ' + errorMessage);
+      }
+    },
+
+    cancelEdit() {
+      this.editingLesson = null;
+      this.editingModuleIndex = null;
+      this.editingLessonIndex = null;
+    },
+
+    async initialize() {
+      console.log('🔍 Начало инициализации CourseEditor');
+      if (!this.authStore.isAuthenticated) {
+        console.warn('❌ Пользователь не аутентифицирован, перенаправляем на SignIn');
+        this.router.push({ name: 'SignIn' });
+        return;
+      }
+      await this.loadModules();
+    },
   },
-  mounted() {
-    // Инициализация тестовыми данными
-    this.addModule();
-    this.addModule();
-    this.modules[0].articles = [
-      {
-        id: this.generateId(),
-        title: 'Пример статьи',
-        description: 'Это пример статьи в модуле',
-        date: '2023-05-15',
-        type: 'article',
-        image: 'images/image_33f63252.jpeg'
-      },
-      {
-        id: this.generateId(),
-        title: 'Лабораторная работа 1',
-        description: 'Основы программирования',
-        date: '2023-05-20',
-        type: 'lab',
-        image: 'images/image_33f63252.jpeg'
-      },
-      {
-        id: this.generateId(),
-        title: 'Практическое задание 1',
-        description: 'Введение в HTML',
-        date: '2023-05-25',
-        type: 'practice',
-        image: 'images/image_33f63252.jpeg'
-      }
-    ];
-    this.modules[1].articles = [
-      {
-        id: this.generateId(),
-        title: 'Практическое задание 2',
-        description: 'Работа с API',
-        date: '2023-06-01',
-        type: 'practice',
-        image: 'images/image_33f63252.jpeg'
-      },
-      {
-        id: this.generateId(),
-        title: 'Лабораторная работа 2',
-        description: 'Работа с CSS',
-        date: '2023-06-05',
-        type: 'lab',
-        image: 'images/image_33f63252.jpeg'
-      }
-    ];
-  }
-}
+
+  async mounted() {
+    await this.initialize();
+  },
+};
 </script>
 
 <style scoped>
@@ -338,12 +624,14 @@ export default {
   margin: 0 auto;
   overflow-x: hidden;
 }
+
 .main-content-section {
   box-sizing: border-box;
   width: 100%;
   max-width: 1480px;
   padding: 50px 20px 101px;
 }
+
 .module-card-container {
   box-sizing: border-box;
   display: flex;
@@ -358,6 +646,7 @@ export default {
   border-radius: 20px;
   box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
 }
+
 .module-title-container {
   box-sizing: border-box;
   display: flex;
@@ -371,20 +660,14 @@ export default {
   border: 1px solid #c5c8cc;
   border-radius: 20px;
 }
+
 .svg-container {
   display: flex;
   flex: 0 0 auto;
   width: 24px;
   height: 24px;
 }
-.article-title-text-style {
-  flex: 0 0 auto;
-  padding: 0;
-  margin: 0;
-  margin-left: 13.5px;
-  font: 400 14px Raleway, sans-serif;
-  color: #575667;
-}
+
 .search-input {
   flex: 1;
   background: transparent;
@@ -393,6 +676,7 @@ export default {
   width: 100%;
   margin-left: 13.5px;
 }
+
 .search-button {
   box-sizing: border-box;
   display: block;
@@ -407,11 +691,13 @@ export default {
   border: none;
   border-radius: 20px;
 }
+
 .main-content-container1 {
   box-sizing: border-box;
   width: 100%;
   margin-top: 66px;
 }
+
 .module-container4 {
   box-sizing: border-box;
   display: flex;
@@ -421,6 +707,7 @@ export default {
   width: 100%;
   margin-bottom: 40px;
 }
+
 .save-button-container {
   flex: 0 0 auto;
   align-self: flex-end;
@@ -429,6 +716,7 @@ export default {
   display: flex;
   gap: 10px;
 }
+
 .save-button {
   box-sizing: border-box;
   display: block;
@@ -442,6 +730,7 @@ export default {
   border: none;
   border-radius: 10px;
 }
+
 .delete-button {
   box-sizing: border-box;
   display: block;
@@ -454,10 +743,12 @@ export default {
   border: none;
   border-radius: 10px;
 }
+
 .module-container3 {
   flex: 0 0 auto;
   margin-top: 1px;
 }
+
 .module-container2 {
   display: flex;
   margin-left: 100px;
@@ -465,13 +756,7 @@ export default {
   align-items: flex-end;
   justify-content: flex-start;
 }
-.module-title-style {
-  flex: 0 0 auto;
-  padding: 0;
-  margin: 0;
-  font: 400 24px Raleway, sans-serif;
-  color: #24222f;
-}
+
 .module-title-input {
   background: transparent;
   border: none;
@@ -490,7 +775,7 @@ export default {
 }
 
 .article-card {
-  width: calc(33.333% - 14px); /* 3 карточки в ряд с учетом отступов */
+  width: calc(33.333% - 14px);
   background: #ebefef;
   border-radius: 20px;
   padding: 20px;
@@ -498,14 +783,15 @@ export default {
   box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
   min-height: 350px;
   box-sizing: border-box;
+  cursor: pointer;
 }
 
 .article-thumbnail {
   width: 100%;
   height: 150px;
-  object-fit: contain; /* Изображение масштабируется, чтобы полностью поместиться */
+  object-fit: contain;
   border-radius: 10px;
-  object-position: center; /* Центрируем изображение */
+  object-position: center;
 }
 
 .article-content {
@@ -536,6 +822,10 @@ export default {
   margin-top: 7px;
   font: 400 12px Raleway, sans-serif;
   color: #a094b8;
+}
+
+.article-meta .lesson-type {
+  margin-left: 10px;
 }
 
 .article-actions {
@@ -597,6 +887,34 @@ export default {
   background: #ebefef;
 }
 
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.form-group select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="5" viewBox="0 0 10 5"><path fill="%23575667" d="M0 0l5 5 5-5H0z"/></svg>') no-repeat right 10px center;
+  background-size: 10px;
+}
+
 .fixed-textarea {
   resize: none;
   width: 100%;
@@ -620,66 +938,49 @@ export default {
   background: white;
   padding: 20px;
   border-radius: 10px;
-  width: 400px;
+  width: 500px;
   max-width: 90%;
-}
-
-.modal-content h3 {
-  margin-top: 0;
-  font: 400 20px Raleway, sans-serif;
-  color: #24222f;
-}
-
-.modal-content input,
-.modal-content textarea,
-.modal-content select {
-  width: 100%;
-  margin-bottom: 15px;
-  padding: 8px;
-  border: 1px solid #c5c8cc;
-  border-radius: 5px;
-  font: 300 14px Raleway, sans-serif;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .modal-actions {
-  margin-top: 15px;
+  margin-top: 20px;
   display: flex;
   justify-content: flex-end;
   gap: 10px;
 }
 
-.modal-actions button {
+.save-btn {
   padding: 8px 16px;
+  background: #4CAF50;
+  color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: 4px;
   cursor: pointer;
-  font: 400 14px Raleway, sans-serif;
 }
 
-.modal-actions button:first-child {
-  background: #a094b8;
+.cancel-btn {
+  padding: 8px 16px;
+  background: #f44336;
   color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
-.modal-actions button:last-child {
-  background: #ff6b6b;
-  color: white;
-}
-
-/* Стили для загрузки изображений */
 .image-upload-container {
-  margin-bottom: 15px;
+  margin-top: 10px;
 }
 
 .image-upload-label {
   display: inline-block;
   padding: 8px 16px;
-  background: #a094b8;
+  background: #2196F3;
   color: white;
-  border-radius: 5px;
+  border-radius: 4px;
   cursor: pointer;
-  font: 400 14px Raleway, sans-serif;
-  margin-bottom: 10px;
 }
 
 .image-upload-input {
@@ -693,15 +994,15 @@ export default {
 
 .preview-image {
   max-width: 100%;
-  max-height: 150px;
-  border-radius: 5px;
+  max-height: 200px;
+  border-radius: 4px;
 }
 
 .remove-image-btn {
   position: absolute;
   top: 5px;
   right: 5px;
-  background: #ff6b6b;
+  background: #f44336;
   color: white;
   border: none;
   border-radius: 50%;
@@ -711,7 +1012,5 @@ export default {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
 }
 </style>

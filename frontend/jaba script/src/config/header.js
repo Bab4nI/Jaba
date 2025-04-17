@@ -1,5 +1,5 @@
 export const header = {
     home: { title: 'Главная', link: '/' },
-    course: { title: 'Курс', link: '/Course' },
+    courses: { title: 'Курсы', link: '/Courses' },
     login: { title: 'Вход', link: '/SignIn' }
 };

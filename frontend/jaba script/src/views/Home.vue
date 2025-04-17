@@ -127,14 +127,6 @@
     
     <!-- js -->
     <script setup>
-    import { ref, reactive } from 'vue';
-    import { useRouter } from 'vue-router';
-    import { header } from '@/config/header.js';
-    
-    const router = useRouter();
-    const goToSignin = () => {
-      router.push('header.login.link');
-    };
     
     </script>
     

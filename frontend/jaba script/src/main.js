@@ -5,7 +5,7 @@ import App from './App.vue';
 import '@/assets/fonts/fonts.css';
 import router from '@/router';
 import tokenRefresh from './plugins/tokenRefresh';
-
+import '@/assets/fonts/gfonts.css';
 const app = createApp(App);
 const pinia = createPinia();
 

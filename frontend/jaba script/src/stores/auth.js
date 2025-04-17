@@ -65,9 +65,20 @@ export const useRefreshStore = defineStore('refresh', {
         this.isRefreshingToken = false;
       }
     },
-
     logout() {
       this.clearTokens();
+    },
+    async ready() {
+      if (!this.accessToken) {
+        this.clearTokens();
+        return;
+      }
+      try {
+        await this.refreshToken();
+      } catch (error) {
+        console.error('❌ Не удалось инициализировать токен:', error);
+        this.clearTokens();
+      }
     },
   },
 });
