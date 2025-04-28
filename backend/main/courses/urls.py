@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import CourseViewSet, ModuleViewSet, LessonViewSet, LessonContentViewSet
+from .views import CourseViewSet, ModuleViewSet, LessonViewSet, LessonContentViewSet, CodeExecutionView
 
 router = DefaultRouter()
 router.register(r'courses', CourseViewSet, basename='course')
@@ -49,4 +49,6 @@ urlpatterns = [
         LessonContentViewSet.as_view({'patch': 'update_order'}),
         name='content-order'
     ),
+
+    path('execute-code/', CodeExecutionView.as_view(), name='execute-code'),
 ]

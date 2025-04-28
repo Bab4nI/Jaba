@@ -194,3 +194,58 @@ SIMPLE_JWT = {
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+JUDGE0_LANGUAGE_IDS = {
+    'javascript': {
+        'default': 63,  # Node.js
+        'node': 63
+    },
+    'python': {
+        'default': 71,  # CPython 3.8.1
+        'cpython': 71,
+        'pypy': 99      # PyPy 7.3.0
+    },
+    'java': {
+        'default': 62,  # OpenJDK 13.0.1
+        'openjdk': 62
+    },
+    'kotlin': {
+        'default': 78,  # Kotlin 1.3.70
+        'kotlin-jvm': 78
+    },
+    'go': {
+        'default': 60,  # Go 1.13.5
+        'go': 60
+    },
+    'rust': {
+        'default': 73,  # Rust 1.40.0
+        'rustc': 73
+    },
+    'cpp': {
+        'default': 54,  # GCC 9.2.0 (C++)
+        'g++': 54
+    },
+    'csharp': {
+        'default': 51,  # Mono C# 6.8.0
+        'mono': 51
+    },
+    'php': {
+        'default': 68,  # PHP 7.4.1
+        'php': 68
+    },
+    'ruby': {
+        'default': 72,  # Ruby 2.7.0
+        'mri': 72
+    },
+    'swift': {
+        'default': 83,  # Swift 5.2.3
+        'swift': 83
+    },
+    'scala': {
+        'default': 81,  # Scala 2.13.2
+        'scala': 81
+    }
+}
+
+JUDGE0_API_URL = os.getenv('JUDGE0_API_URL')
+JUDGE0_API_KEY = os.getenv('JUDGE0_API_KEY')

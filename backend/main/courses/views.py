@@ -7,6 +7,11 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from django.db import transaction
 import json
 import logging
+import time
+from rest_framework.views import APIView
+from django.conf import settings
+import requests
+from django.core.cache import cache
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -144,3 +149,113 @@ class LessonContentViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Invalid content ID'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+class CodeExecutionView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        source_code = request.data.get('source_code')
+        language_id = request.data.get('language_id')
+        interpreter = request.data.get('interpreter', 'default')
+        stdin = request.data.get('stdin', '')
+
+        if not source_code or not language_id:
+            return Response(
+                {'error': 'Source code and language ID are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if len(source_code) > 100_000:
+            return Response(
+                {'error': 'Source code is too large (max 100 KB)'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        language_map = settings.JUDGE0_LANGUAGE_IDS.get(language_id, {})
+        if not language_map:
+            return Response(
+                {'error': f'Unsupported language: {language_id}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        judge0_language_id = language_map.get(interpreter, language_map.get('default'))
+        if not judge0_language_id:
+            return Response(
+                {'error': f'Unsupported interpreter: {interpreter} for language: {language_id}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        cache_key = f"code_execution:{hash(source_code + str(judge0_language_id) + stdin)}"
+        cached_result = cache.get(cache_key)
+        if cached_result:
+            logger.info(f"Returning cached result for {cache_key}")
+            return Response(cached_result, status=status.HTTP_200_OK)
+
+        try:
+            headers = {
+                'Content-Type': 'application/json',
+            }
+            # Если используешь RapidAPI (публичный сервер Judge0)
+            if hasattr(settings, 'JUDGE0_API_KEY') and settings.JUDGE0_API_KEY:
+                headers.update({
+                    'x-rapidapi-key': settings.JUDGE0_API_KEY,
+                    'x-rapidapi-host': 'judge0-ce.p.rapidapi.com'
+                })
+
+            submission_data = {
+                'source_code': source_code,
+                'language_id': judge0_language_id,
+                'stdin': stdin,
+            }
+
+            logger.info(f"Sending submission to Judge0: {submission_data}")
+            response = requests.post(
+                f'{settings.JUDGE0_API_URL}/submissions?base64_encoded=false&wait=false',
+                json=submission_data,
+                headers=headers
+            )
+            response.raise_for_status()
+            logger.info(f"Judge0 submission response: {response.status_code} {response.text}")
+
+            token = response.json().get('token')
+            if not token:
+                logger.error(f"No token received from Judge0: {response.text}")
+                return Response(
+                    {'error': 'Failed to create submission'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+            # Ожидание завершения выполнения
+            for attempt in range(10):
+                time.sleep(1)
+                result_response = requests.get(
+                    f'{settings.JUDGE0_API_URL}/submissions/{token}?base64_encoded=false',
+                    headers=headers
+                )
+                result_response.raise_for_status()
+                result = result_response.json()
+
+                if result.get('status', {}).get('id', 0) > 2:  # 1-2: In queue / Processing
+                    output = {
+                        'stdout': result.get('stdout', ''),
+                        'stderr': result.get('stderr', ''),
+                        'compile_output': result.get('compile_output', ''),
+                        'status': result.get('status', {}).get('description', 'Unknown'),
+                        'time': result.get('time', ''),
+                        'memory': result.get('memory', '')
+                    }
+                    cache.set(cache_key, output, timeout=3600)
+                    logger.info(f"Submission completed: {output}")
+                    return Response(output, status=status.HTTP_200_OK)
+
+            return Response(
+                {'error': 'Submission timeout'},
+                status=status.HTTP_408_REQUEST_TIMEOUT
+            )
+
+        except requests.RequestException as e:
+            logger.error(f"Judge0 API error: {str(e)}")
+            return Response(
+                {'error': 'Failed to execute code'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

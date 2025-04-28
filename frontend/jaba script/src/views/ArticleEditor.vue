@@ -3,7 +3,12 @@
     <div class="editor-header">
       <h1>{{ article.title }}</h1>
       <div class="header-controls">
-        <button @click="toggleMode" class="mode-toggle-button">
+        <!-- Show toggle button only for admins -->
+        <button 
+          v-if="userStore.role === 'admin'" 
+          @click="toggleMode" 
+          class="mode-toggle-button"
+        >
           {{ mode === 'edit' ? 'Предпросмотр' : 'Редактировать' }}
         </button>
         <button @click="goBack" class="back-button">← Назад к модулям</button>
@@ -12,7 +17,7 @@
     
     <div class="contents-list">
       <draggable 
-        v-if="mode === 'edit'"
+        v-if="mode === 'edit' && userStore.role === 'admin'"
         v-model="contents" 
         item-key="id"
         handle=".drag-handle"
@@ -34,7 +39,7 @@
               :is="getContentComponent(element.type)"
               :content="element"
               :lessonId="article.id"
-              :readOnly="mode === 'preview'"
+              :readOnly="element.type !== 'code'"
               @update:content="handleContentUpdate(index, $event)"
             />
           </div>
@@ -46,14 +51,15 @@
             :is="getContentComponent(element.type)"
             :content="element"
             :lessonId="article.id"
-            :readOnly="true"
+            :readOnly="element.type !== 'code'"
             @update:content="handleContentUpdate(index, $event)"
           />
         </div>
       </div>
     </div>
     
-    <div v-if="mode === 'edit'" class="editor-toolbar">
+    <!-- Show editor toolbar only for admins in edit mode -->
+    <div v-if="mode === 'edit' && userStore.role === 'admin'" class="editor-toolbar">
       <select v-model="selectedContentType" class="content-type-select">
         <option value="">Добавить элемент...</option>
         <option value="text">Текст</option>
@@ -74,7 +80,8 @@
       </button>
     </div>
     
-    <div v-if="mode === 'edit'" class="editor-footer">
+    <!-- Show editor footer only for admins in edit mode -->
+    <div v-if="mode === 'edit' && userStore.role === 'admin'" class="editor-footer">
       <button @click="saveAllChanges" class="save-button">Сохранить работу</button>
     </div>
   </div>
@@ -93,6 +100,7 @@ import FileElement from '@/components/article/FileElement.vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 import { useRefreshStore } from '@/stores/auth';
+import { useUserStore } from '@/stores/user';
 
 const CONTENT_TYPES = {
   text: 'TEXT',
@@ -105,13 +113,13 @@ const CONTENT_TYPES = {
 };
 
 const DEFAULT_CONTENT = {
-  text: { text: '' },
-  image: { image: null },
-  video: { video_url: '' },
-  code: { code: '', language: 'javascript' },
-  quiz: { question: '', answers: ['', ''], correct_answer: null },
-  table: { headers: ['Заголовок 1', 'Заголовок 2'], data: [['', ''], ['', '']] },
-  file: { file: null },
+  text: { text: '', readOnly: true },
+  image: { image: null, readOnly: true },
+  video: { video_url: '', readOnly: true },
+  code: { code: '', language: 'javascript', readOnly: false },
+  quiz: { question: '', answers: ['', ''], correct_answer: null, readOnly: true },
+  table: { headers: ['Заголовок 1', 'Заголовок 2'], data: [['', ''], ['', '']], readOnly: true },
+  file: { file: null, readOnly: true },
 };
 
 export default {
@@ -130,6 +138,7 @@ export default {
     const route = useRoute();
     const router = useRouter();
     const authStore = useRefreshStore();
+    const userStore = useUserStore();
 
     const api = axios.create({
       baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
@@ -176,7 +185,7 @@ export default {
     const selectedContentType = ref('');
     const contents = ref([]);
     const pendingUpdates = ref(new Map());
-    const mode = ref('edit'); // 'edit' or 'preview'
+    const mode = ref('preview'); // Default to preview mode
 
     const getContentTypeName = (type) => {
       const types = {
@@ -223,6 +232,7 @@ export default {
         id: djangoContent.id,
         type,
         order: djangoContent.order || 0,
+        readOnly: type !== 'code', // Все элементы кроме кода только для чтения
       };
 
       switch (type) {
@@ -233,6 +243,7 @@ export default {
             ...base,
             code: djangoContent.text || '',
             language: djangoContent.code_language || 'javascript',
+            readOnly: false, // Код всегда редактируемый
           };
         case 'quiz':
           return {
@@ -266,6 +277,7 @@ export default {
       const payload = {
         content_type: CONTENT_TYPES[content.type],
         order: content.order || 0,
+        read_only: content.type !== 'code', // Все элементы кроме кода только для чтения
       };
 
       switch (content.type) {
@@ -275,6 +287,7 @@ export default {
         case 'code':
           payload.text = content.code || '';
           payload.code_language = content.language || 'javascript';
+          payload.read_only = false; // Код всегда редактируемый
           break;
         case 'quiz':
           payload.quiz_data = {
@@ -305,33 +318,15 @@ export default {
 
     const validateContent = (content) => {
       const errors = [];
-      switch (content.type) {
-        case 'text':
-          if (!content.text) errors.push('Текст обязателен для типа "Текст".');
-          break;
-        case 'code':
-          if (!content.code) errors.push('Код обязателен для типа "Код".');
-          if (!content.language) errors.push('Язык программирования обязателен для типа "Код".');
-          break;
-        case 'quiz':
-          if (!content.question) errors.push('Вопрос обязателен для типа "Тест".');
-          if (!content.answers || content.answers.length < 2) errors.push('Необходимо минимум два ответа для теста.');
-          if (content.correct_answer === null || content.correct_answer === undefined) errors.push('Правильный ответ обязателен для теста.');
-          break;
-        case 'table':
-          if (!content.headers || !content.headers.length) errors.push('Заголовки таблицы обязательны.');
-          if (!content.data || !content.data.length) errors.push('Данные таблицы обязательны.');
-          break;
-        case 'image':
-          if (!content.image) errors.push('Изображение обязательно для типа "Изображение".');
-          break;
-        case 'video':
-          if (!content.video_url) errors.push('URL видео обязателен для типа "Видео".');
-          break;
-        case 'file':
-          if (!content.file) errors.push('Файл обязателен для типа "Файл".');
-          break;
+      if (content.type !== 'code') {
+        // Для всех элементов кроме кода пропускаем валидацию
+        return errors;
       }
+      
+      // Валидация только для кода
+      if (!content.code) errors.push('Код обязателен для типа "Код".');
+      if (!content.language) errors.push('Язык программирования обязателен для типа "Код".');
+      
       return errors;
     };
 
@@ -361,13 +356,19 @@ export default {
     };
 
     const handleContentUpdate = (index, updatedContent) => {
-      if (mode.value === 'preview') return; // Prevent updates in preview mode
-      contents.value[index] = { ...contents.value[index], ...updatedContent };
-      pendingUpdates.value.set(index, true);
+      // Разрешаем обновление только для кода
+      if (contents.value[index].type === 'code') {
+        contents.value[index] = { ...contents.value[index], ...updatedContent };
+        pendingUpdates.value.set(index, true);
+      }
     };
 
     const updateContent = async (index) => {
       const content = contents.value[index];
+      
+      // Обновляем только код
+      if (content.type !== 'code') return;
+
       const validationErrors = validateContent(content);
       if (validationErrors.length) {
         throw new Error(validationErrors.join(' '));
@@ -474,10 +475,12 @@ export default {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
 
-        // Сохраняем все измененные элементы
+        // Сохраняем только код-блоки
         const updatePromises = [];
         pendingUpdates.value.forEach((_, index) => {
-          updatePromises.push(updateContent(index));
+          if (contents.value[index].type === 'code') {
+            updatePromises.push(updateContent(index));
+          }
         });
 
         await Promise.all(updatePromises);
@@ -504,14 +507,18 @@ export default {
     };
 
     const toggleMode = () => {
-      mode.value = mode.value === 'edit' ? 'preview' : 'edit';
+      if (userStore.role === 'admin') {
+        mode.value = mode.value === 'edit' ? 'preview' : 'edit';
+      }
     };
 
-    onMounted(() => {
-      loadArticle();
+    onMounted(async () => {
+      await userStore.fetchUserProfile();
+      await loadArticle();
     });
 
     return {
+      userStore,
       article,
       selectedContentType,
       contents,
@@ -531,7 +538,7 @@ export default {
 
 <style scoped>
 .article-editor-container {
-  max-width: 800px; /* Reduced max-width to match Stepik's narrower content area */
+  max-width: 800px;
   margin: 0 auto;
   padding: 20px;
 }
@@ -546,9 +553,9 @@ export default {
 }
 
 .editor-header h1 {
-  font-size: 24px; /* Adjusted font size to match Stepik */
+  font-size: 24px;
   font-weight: 700;
-  text-align: left; /* Align title to the left */
+  text-align: left;
 }
 
 .header-controls {
@@ -610,28 +617,26 @@ export default {
   margin: 20px 0;
 }
 
-/* Edit Mode Styles */
 .article-editor-container:not(.preview-mode) .contents-list {
   display: flex;
-  flex-direction: column; /* Stack items vertically in edit mode */
+  flex-direction: column;
   gap: 15px;
 }
 
 .article-editor-container:not(.preview-mode) .content-item {
-  border: none; /* Remove border as per Stepik style */
-  padding: 15px 0; /* Adjust padding for a cleaner look */
-  background: transparent; /* Remove background */
+  border: none;
+  padding: 15px 0;
+  background: transparent;
   min-height: 100px;
   box-sizing: border-box;
 }
 
-/* Specific styles for text, file, and quiz elements in edit mode */
 .article-editor-container:not(.preview-mode) .content-item:has(> text-element),
 .article-editor-container:not(.preview-mode) .content-item:has(> file-element),
 .article-editor-container:not(.preview-mode) .content-item:has(> quiz-element) {
-  border: none; /* Explicitly remove borders */
-  box-shadow: none; /* Remove any potential shadows */
-  background: transparent; /* Ensure no background */
+  border: none;
+  box-shadow: none;
+  background: transparent;
 }
 
 .article-editor-container:not(.preview-mode) .content-toolbar {
@@ -666,7 +671,6 @@ export default {
   line-height: 1;
 }
 
-/* Preview Mode Styles */
 .article-editor-container.preview-mode .contents-list {
   display: flex;
   flex-direction: column;
@@ -675,30 +679,29 @@ export default {
 
 .article-editor-container.preview-mode .preview-content {
   max-width: 800px;
-  margin: 0; /* Align content to the left */
-  text-align: left; /* Ensure text is left-aligned */
+  margin: 0;
+  text-align: left;
 }
 
 .article-editor-container.preview-mode .content-item {
-  border: none; /* Remove border as per Stepik style */
-  padding: 10px 0; /* Adjust padding for a cleaner look */
-  background: transparent; /* Remove background */
-  box-shadow: none; /* Remove shadow */
+  border: none;
+  padding: 10px 0;
+  background: transparent;
+  box-shadow: none;
   min-height: auto;
   box-sizing: border-box;
 }
 
-/* Specific styles for text, file, and quiz elements in preview mode */
 .article-editor-container.preview-mode .content-item:has(> text-element),
 .article-editor-container.preview-mode .content-item:has(> file-element),
 .article-editor-container.preview-mode .content-item:has(> quiz-element) {
-  border: none; /* Explicitly remove borders */
-  box-shadow: none; /* Remove any potential shadows */
-  background: transparent; /* Ensure no background */
+  border: none;
+  box-shadow: none;
+  background: transparent;
 }
 
 .article-editor-container.preview-mode .content-toolbar {
-  display: none; /* Hide toolbar in preview mode */
+  display: none;
 }
 
 .editor-footer {
