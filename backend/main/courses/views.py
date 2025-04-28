@@ -22,6 +22,10 @@ class CourseViewSet(viewsets.ModelViewSet):
             return [permissions.IsAuthenticated()]
         return [permissions.AllowAny()]
 
+    def perform_create(self, serializer):
+        # Automatically set the author to the authenticated user
+        serializer.save(author=self.request.user)
+
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=True)
@@ -29,7 +33,7 @@ class CourseViewSet(viewsets.ModelViewSet):
             serializer.is_valid(raise_exception=True)
         except Exception as e:
             logger.error(f"Serializer validation failed: {str(e)}")
-            logger.error(f"Request data: {dict(request.data)}") # Improved logging
+            logger.error(f"Request data: {dict(request.data)}")
             raise
 
         # Handle thumbnail deletion

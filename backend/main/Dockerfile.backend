@@ -1,0 +1,28 @@
+FROM python:3.12.10-bookworm
+# Установка зависимостей
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    && postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Создание рабочей директории
+WORKDIR /usr/src/app
+
+# Копирование и установка зависимостей Python
+COPY requirements.txt .
+RUN python -m pip install --upgrade pip \
+    && pip cache purge \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Копирование остальных файлов
+COPY . .
+
+# Скрипт ожидания БД (создайте этот файл в вашем проекте)
+COPY wait-for-db.sh /usr/src/app/wait-for-db.sh
+RUN chmod +x /usr/src/app/wait-for-db.sh
+
+EXPOSE 8000
+
+# Используем скрипт ожидания как entrypoint
+ENTRYPOINT ["/usr/src/app/wait-for-db.sh"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

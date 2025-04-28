@@ -1,4 +1,3 @@
-```vue
 <template>
   <div class="video-element" :class="{ 'read-only': readOnly }">
     <div v-if="!localContent.video_url && !readOnly" class="video-input-container">
@@ -11,7 +10,6 @@
     </div>
     <div v-if="localContent.video_url" class="video-preview-container">
       <div class="video-embed" v-html="embedCode"></div>
-      <button v-if="!readOnly" @click="removeVideo" class="remove-video-btn">Удалить видео</button>
     </div>
   </div>
 </template>
@@ -40,11 +38,11 @@ const embedCode = computed(() => {
   if (!localContent.value.video_url) return '';
   if (localContent.value.video_url.includes('youtube.com') || localContent.value.video_url.includes('youtu.be')) {
     const videoId = extractYouTubeId(localContent.value.video_url);
-    return `<iframe width="100%" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>`;
+    return `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>`;
   }
   if (localContent.value.video_url.includes('vimeo.com')) {
     const videoId = localContent.value.video_url.split('/').pop();
-    return `<iframe src="https://player.vimeo.com/video/${videoId}" width="100%" height="360" frameborder="0" allowfullscreen></iframe>`;
+    return `<iframe src="https://player.vimeo.com/video/${videoId}" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>`;
   }
   return '<p>Неподдерживаемый видео-сервис</p>';
 });
@@ -88,9 +86,17 @@ const emitUpdate = () => {
 </script>
 
 <style scoped>
+.video-element {
+  width: 100%;
+  max-width: 800px; /* Limit max width for larger screens */
+  margin: 0 auto;
+}
+
 .video-input-container {
   display: flex;
   gap: 10px;
+  width: 100%;
+  flex-wrap: wrap; /* Allow wrapping on smaller screens */
 }
 
 .video-url-input {
@@ -98,6 +104,8 @@ const emitUpdate = () => {
   padding: 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
+  font-size: 16px;
+  min-width: 200px; /* Ensure input doesn't shrink too much */
 }
 
 .add-video-btn {
@@ -107,6 +115,8 @@ const emitUpdate = () => {
   padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 16px;
+  white-space: nowrap; /* Prevent button text from wrapping */
 }
 
 .add-video-btn:disabled {
@@ -118,13 +128,15 @@ const emitUpdate = () => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: 100%;
 }
 
 .video-embed {
   position: relative;
-  padding-bottom: 56.25%; /* 16:9 */
-  height: 0;
+  width: 100%;
+  aspect-ratio: 16 / 9; /* Maintain 16:9 aspect ratio */
   overflow: hidden;
+  border-radius: 8px;
 }
 
 .video-embed iframe {
@@ -133,7 +145,7 @@ const emitUpdate = () => {
   left: 0;
   width: 100%;
   height: 100%;
-  border-radius: 8px;
+  border: none;
 }
 
 .read-only .video-embed {
@@ -148,6 +160,24 @@ const emitUpdate = () => {
   border-radius: 4px;
   cursor: pointer;
   align-self: flex-start;
+  font-size: 16px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .video-url-input {
+    font-size: 14px;
+  }
+
+  .add-video-btn,
+  .remove-video-btn {
+    font-size: 14px;
+    padding: 6px 12px;
+  }
+
+  .video-element {
+    padding: 0 10px; /* Add some padding on smaller screens */
+  }
 }
 </style>
 ```

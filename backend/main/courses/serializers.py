@@ -209,4 +209,4 @@ class CourseSerializer(serializers.ModelSerializer):
             'slug': {'read_only': True},
             'created_at': {'read_only': True},
             'updated_at': {'read_only': True}
-        }
+        }   

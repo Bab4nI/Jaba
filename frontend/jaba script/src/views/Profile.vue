@@ -406,7 +406,6 @@ const currentComponent = computed(() => componentMap[activeTab.value] || Profile
   width: 430px;
   padding: 36px 44px;
   margin-left: 24px;
-  background: url("@/assets/image_3c444adc.png") 50% / cover no-repeat;
 }
 .calendar-container2 {
   box-sizing: border-box;

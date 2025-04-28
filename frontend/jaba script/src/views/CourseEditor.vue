@@ -1,4 +1,3 @@
-```vue
 <template>
   <div class="course-editor-container">
     <!-- Поиск и создание курса -->
@@ -182,7 +181,6 @@ import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { useRefreshStore } from '@/stores/auth';
-import { jwtDecode } from 'jwt-decode';
 
 export default {
   name: 'CourseEditor',
@@ -347,17 +345,9 @@ export default {
 
     async createNewCourse() {
       try {
-        const token = this.authStore.accessToken || localStorage.getItem('access_token');
-        if (!token) {
-          throw new Error('Токен авторизации не найден');
-        }
-        const decodedToken = jwtDecode(token);
-        const authorId = decodedToken.user_id;
-
         const formData = new FormData();
         formData.append('title', this.newCourseForm.title || 'Новый курс');
         formData.append('description', this.newCourseForm.description);
-        formData.append('author', authorId);
         formData.append('is_published', this.newCourseForm.is_published);
 
         if (this.newCourseForm.thumbnail instanceof File) {
@@ -448,9 +438,6 @@ export default {
         } else if (this.editCourseForm.thumbnail === '') {
           formData.append('thumbnail', '');
         }
-        // If thumbnail is a URL (unchanged), do not include it
-
-        console.log('FormData:', Object.fromEntries(formData)); // Debug log
 
         const response = await this.api.patch(`/courses/${this.editCourseForm.slug}/`, formData, {
           headers: {
@@ -628,6 +615,7 @@ export default {
   align-items: center;
   justify-content: space-between;
   padding: 20px 28px;
+  margin: 20px;
   background: #ebefef;
   border-radius: 20px;
   box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);

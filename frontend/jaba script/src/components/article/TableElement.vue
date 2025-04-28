@@ -1,4 +1,3 @@
-```vue
 <template>
   <div class="table-element" :class="{ 'read-only': readOnly }">
     <div v-if="!readOnly" class="table-controls">
@@ -156,68 +155,69 @@ const removeColumn = () => {
 .table-wrapper {
   overflow-x: auto;
   width: 100%;
-  border: 1px solid #e0e0e0;
+  border: 1px solid #d1d5db; /* Slightly darker border for better visibility */
   border-radius: 6px;
 }
 
 .read-only .table-wrapper {
-  border: none;
+  border: none; /* Keep it borderless in read-only mode per Stepik style */
   background: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  padding: 15px;
+  padding: 10px;
 }
 
 .editable-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate; /* Use separate to allow for spacing */
+  border-spacing: 0;
 }
 
 .editable-table th,
 .editable-table td {
-  border: 1px solid #e0e0e0;
-  padding: 10px;
+  border: 1px solid #d1d5db; /* More pronounced borders for clarity */
+  padding: 12px; /* Increased padding for better readability */
   text-align: left;
+  min-width: 120px; /* Ensure cells have a minimum width for better layout */
 }
 
 .read-only .editable-table th,
 .read-only .editable-table td {
-  border: none;
+  border: 1px solid #e5e7eb; /* Subtle borders in read-only mode */
 }
 
 .editable-table th {
-  background-color: #f5f5f5;
-  font-weight: 500;
+  background-color: #f3f4f6; /* Slightly darker header background for contrast */
+  font-weight: 600;
+  color: #1f2937; /* Darker text for headers */
 }
 
 .read-only .editable-table th {
-  background-color: #ffffff;
+  background-color: #f9fafb; /* Lighter header in read-only mode */
 }
 
 .header-input {
   width: 100%;
   padding: 6px;
-  border: 1px solid #ddd;
+  border: 1px solid #d1d5db;
   border-radius: 3px;
   font-weight: bold;
   background: transparent;
 }
 
 .header-text {
-  font-weight: bold;
-  color: #2c3e50;
+  font-weight: 600;
+  color: #1f2937;
 }
 
 .cell-input {
   width: 100%;
   padding: 6px;
-  border: 1px solid #eee;
+  border: 1px solid #e5e7eb;
   border-radius: 3px;
   background: transparent;
 }
 
 .cell-text {
-  color: #2c3e50;
+  color: #374151;
 }
 
 .cell-input:focus,
@@ -234,12 +234,10 @@ const removeColumn = () => {
   background: #f9f9f9;
   border-radius: 6px;
   border: 1px dashed #ddd;
-} 
+}
 
 .read-only .empty-table-message {
   background: #ffffff;
   border: none;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 </style>
-```

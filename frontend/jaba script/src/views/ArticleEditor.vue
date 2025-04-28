@@ -1,4 +1,3 @@
-```vue
 <template>
   <div class="article-editor-container" :class="{ 'preview-mode': mode === 'preview' }">
     <div class="editor-header">
@@ -532,7 +531,7 @@ export default {
 
 <style scoped>
 .article-editor-container {
-  max-width: 1200px;
+  max-width: 800px; /* Reduced max-width to match Stepik's narrower content area */
   margin: 0 auto;
   padding: 20px;
 }
@@ -544,6 +543,12 @@ export default {
   margin-bottom: 30px;
   padding-bottom: 15px;
   border-bottom: 1px solid #eee;
+}
+
+.editor-header h1 {
+  font-size: 24px; /* Adjusted font size to match Stepik */
+  font-weight: 700;
+  text-align: left; /* Align title to the left */
 }
 
 .header-controls {
@@ -607,19 +612,26 @@ export default {
 
 /* Edit Mode Styles */
 .article-editor-container:not(.preview-mode) .contents-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  display: flex;
+  flex-direction: column; /* Stack items vertically in edit mode */
   gap: 15px;
 }
 
 .article-editor-container:not(.preview-mode) .content-item {
-  border: 1px solid #eee;
-  border-radius: 4px;
-  padding: 15px;
-  margin: 15px;
-  background: #f9f9f9;
-  min-height: 150px;
+  border: none; /* Remove border as per Stepik style */
+  padding: 15px 0; /* Adjust padding for a cleaner look */
+  background: transparent; /* Remove background */
+  min-height: 100px;
   box-sizing: border-box;
+}
+
+/* Specific styles for text, file, and quiz elements in edit mode */
+.article-editor-container:not(.preview-mode) .content-item:has(> text-element),
+.article-editor-container:not(.preview-mode) .content-item:has(> file-element),
+.article-editor-container:not(.preview-mode) .content-item:has(> quiz-element) {
+  border: none; /* Explicitly remove borders */
+  box-shadow: none; /* Remove any potential shadows */
+  background: transparent; /* Ensure no background */
 }
 
 .article-editor-container:not(.preview-mode) .content-toolbar {
@@ -663,17 +675,26 @@ export default {
 
 .article-editor-container.preview-mode .preview-content {
   max-width: 800px;
-  margin: 0 auto;
+  margin: 0; /* Align content to the left */
+  text-align: left; /* Ensure text is left-aligned */
 }
 
 .article-editor-container.preview-mode .content-item {
-  border: none;
-  border-radius: 8px;
-  padding: 20px;
-  background: #ffffff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border: none; /* Remove border as per Stepik style */
+  padding: 10px 0; /* Adjust padding for a cleaner look */
+  background: transparent; /* Remove background */
+  box-shadow: none; /* Remove shadow */
   min-height: auto;
   box-sizing: border-box;
+}
+
+/* Specific styles for text, file, and quiz elements in preview mode */
+.article-editor-container.preview-mode .content-item:has(> text-element),
+.article-editor-container.preview-mode .content-item:has(> file-element),
+.article-editor-container.preview-mode .content-item:has(> quiz-element) {
+  border: none; /* Explicitly remove borders */
+  box-shadow: none; /* Remove any potential shadows */
+  background: transparent; /* Ensure no background */
 }
 
 .article-editor-container.preview-mode .content-toolbar {
@@ -695,4 +716,3 @@ export default {
   cursor: pointer;
 }
 </style>
-```

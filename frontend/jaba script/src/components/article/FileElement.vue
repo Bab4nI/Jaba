@@ -1,4 +1,3 @@
-```vue
 <template>
   <div class="file-element" :class="{ 'read-only': readOnly }">
     <div v-if="!localContent.file && !readOnly" class="file-upload-area" @click="triggerFileInput">
@@ -23,9 +22,6 @@
           {{ displayFileName }}
         </a>
         <span v-if="!readOnly" class="file-size">{{ fileSize }}</span>
-      </div>
-      <div v-if="!readOnly" class="file-controls">
-        <button @click="removeFile" class="remove-file-btn">Удалить</button>
       </div>
     </div>
   </div>
@@ -127,17 +123,23 @@ const emitUpdate = () => {
 </script>
 
 <style scoped>
+.file-element {
+  font-family: inherit;
+}
+
 .file-upload-area {
-  border: 2px dashed #ccc;
+  border: none;
+  background: #f8f9fa;
   border-radius: 5px;
   padding: 30px;
   text-align: center;
   cursor: pointer;
   transition: background 0.3s;
+  color: #2c3e50;
 }
 
 .file-upload-area:hover {
-  background: #f5f5f5;
+  background: #e9ecef;
 }
 
 .file-preview-container {
@@ -157,10 +159,9 @@ const emitUpdate = () => {
 
 .read-only .file-info {
   background: #ffffff;
-  border: none;
   padding: 15px;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  /* Убрана тень */
 }
 
 .file-icon {
@@ -168,10 +169,11 @@ const emitUpdate = () => {
 }
 
 .file-name {
-  font-weight: bold;
+  font-weight: normal; /* Уменьшил жирность */
   flex-grow: 1;
   color: #2c3e50;
   text-decoration: none;
+  text-shadow: none; /* Убрана тень у текста */
 }
 
 .file-name:hover {
@@ -180,6 +182,7 @@ const emitUpdate = () => {
 
 .file-size {
   color: #666;
+  font-size: 0.9em;
 }
 
 .file-controls {
@@ -194,6 +197,7 @@ const emitUpdate = () => {
   padding: 8px 12px;
   border-radius: 4px;
   cursor: pointer;
+  font-weight: normal;
+  text-shadow: none; /* Убрана тень у текста */
 }
 </style>
-```

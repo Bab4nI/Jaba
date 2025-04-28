@@ -13,9 +13,6 @@
     </div>
     <div v-if="localContent.image" class="image-preview-container">
       <img :src="imageUrl" class="image-preview" />
-      <div v-if="!readOnly" class="image-controls">
-        <button @click="removeImage" class="remove-btn">Удалить</button>
-      </div>
     </div>
   </div>
 </template>

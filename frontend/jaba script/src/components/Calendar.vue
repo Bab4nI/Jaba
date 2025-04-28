@@ -168,7 +168,6 @@ const closeModal = () => {
 .schedule-container {
   width: 430px;
   padding: 0px 44px;
-  background: url("@/assets/image_3c444adc.png") 50% / cover no-repeat;
 }
 
 .calendar-container2 {

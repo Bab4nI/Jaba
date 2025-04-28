@@ -1,4 +1,3 @@
-```vue
 <template>
   <div class="quiz-element" :class="{ 'read-only': readOnly }">
     <input
@@ -9,6 +8,7 @@
       class="question-input"
     />
     <div v-else class="question-text">{{ localContent.question || 'Вопрос отсутствует' }}</div>
+    
     <div class="answers-list">
       <div v-for="(answer, index) in localContent.answers" :key="index" class="answer-item">
         <input
@@ -33,6 +33,7 @@
         <button v-if="!readOnly" @click="removeAnswer(index)" class="remove-answer-btn">×</button>
       </div>
     </div>
+    
     <div v-if="!readOnly" class="quiz-controls">
       <button @click="addAnswer" class="add-answer-btn">+ Добавить ответ</button>
       <span v-if="localContent.answers.length < 2" class="warning-text">Нужно минимум 2 ответа</span>
@@ -102,104 +103,124 @@ const emitUpdate = () => {
   display: flex;
   flex-direction: column;
   gap: 15px;
+  font-family: Arial, sans-serif;
 }
 
 .question-input {
   width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
   font-size: 16px;
+  background: #f8f9fa;
 }
 
 .question-text {
-  font-size: 16px;
-  font-weight: bold;
-  color: #2c3e50;
-}
-
-.read-only .question-text {
-  padding: 10px;
-  background: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  padding: 8px 0;
+  border-bottom: 2px solid #f0f0f0;
 }
 
 .answers-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+  margin-top: 10px;
 }
 
 .answer-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  padding: 8px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background: #fff;
 }
 
 .correct-answer-radio {
   margin: 0;
+  width: 18px;
+  height: 18px;
 }
 
 .answer-input {
   flex-grow: 1;
-  padding: 8px;
-  border: 1px solid #ddd;
+  padding: 10px;
+  border: 1px solid #e0e0e0;
   border-radius: 4px;
+  font-size: 15px;
+  background: #f8f9fa;
 }
 
 .answer-text {
   flex-grow: 1;
-  padding: 8px;
-  color: #2c3e50;
-}
-
-.read-only .answer-text {
-  background: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  padding: 10px;
+  color: #333;
+  font-size: 15px;
 }
 
 .answer-indicator {
   font-size: 18px;
-  color: #666;
+  width: 24px;
+  text-align: center;
 }
 
 .correct-answer {
-  color: #4CAF50;
-  font-weight: bold;
+  color: #2e7d32;
 }
 
 .remove-answer-btn {
-  background: #ff6b6b;
+  background: #ff4444;
   color: white;
   border: none;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .quiz-controls {
   display: flex;
   align-items: center;
   gap: 15px;
+  margin-top: 10px;
 }
 
 .add-answer-btn {
-  background: #a094b8;
+  background: #5c6bc0;
   color: white;
   border: none;
-  padding: 8px 12px;
-  border-radius: 4px;
+  padding: 10px 16px;
+  border-radius: 6px;
   cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .warning-text {
-  color: #ff6b6b;
+  color: #ff4444;
   font-size: 14px;
+  font-weight: 500;
+}
+
+/* Улучшенные состояния при наведении */
+.question-input:hover,
+.answer-input:hover {
+  border-color: #bdbdbd;
+}
+
+.add-answer-btn:hover {
+  background: #3f51b5;
+}
+
+.remove-answer-btn:hover {
+  background: #cc0000;
 }
 </style>
-```
