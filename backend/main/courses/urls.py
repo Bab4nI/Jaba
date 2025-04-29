@@ -1,6 +1,7 @@
+# main/courses/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import CourseViewSet, ModuleViewSet, LessonViewSet, LessonContentViewSet, CodeExecutionView
+from .views import CourseViewSet, ModuleViewSet, LessonViewSet, LessonContentViewSet, CodeExecutionView, AIChatView
 
 router = DefaultRouter()
 router.register(r'courses', CourseViewSet, basename='course')
@@ -51,4 +52,5 @@ urlpatterns = [
     ),
 
     path('execute-code/', CodeExecutionView.as_view(), name='execute-code'),
+    path('ai/chat/', AIChatView.as_view(), name='ai-chat'),
 ]

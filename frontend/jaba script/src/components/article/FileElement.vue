@@ -12,16 +12,11 @@
     <div v-if="localContent.file" class="file-preview-container">
       <div class="file-info">
         <span class="file-icon">📄</span>
-        <a
-          :href="fileUrl"
-          :download="displayFileName"
-          class="file-name"
-          target="_blank"
-          @click.prevent="downloadFile"
-        >
-          {{ displayFileName }}
-        </a>
+        <span class="file-name">{{ displayFileName }}</span>
         <span v-if="!readOnly" class="file-size">{{ fileSize }}</span>
+        <button class="download-btn" @click="downloadFile" title="Скачать файл">
+          <img src="@/assets/images/download.png" alt="Скачать файл" class="download-icon">
+        </button>
       </div>
     </div>
   </div>
@@ -97,16 +92,8 @@ const handleFileSelect = (event) => {
   fileInput.value.value = '';
 };
 
-const removeFile = () => {
-  if (props.readOnly) return;
-  localContent.value.file = null;
-  localContent.value.filename = null;
-  emitUpdate();
-};
-
-const downloadFile = (event) => {
+const downloadFile = () => {
   if (fileUrl.value !== '#') {
-    event.preventDefault();
     const link = document.createElement('a');
     link.href = fileUrl.value;
     link.download = displayFileName.value;
@@ -158,10 +145,9 @@ const emitUpdate = () => {
 }
 
 .read-only .file-info {
-  background: #ffffff;
+  background: transparent;
   padding: 15px;
   border-radius: 8px;
-  /* Убрана тень */
 }
 
 .file-icon {
@@ -169,15 +155,9 @@ const emitUpdate = () => {
 }
 
 .file-name {
-  font-weight: normal; /* Уменьшил жирность */
+  font-weight: normal;
   flex-grow: 1;
   color: #2c3e50;
-  text-decoration: none;
-  text-shadow: none; /* Убрана тень у текста */
-}
-
-.file-name:hover {
-  text-decoration: underline;
 }
 
 .file-size {
@@ -185,19 +165,21 @@ const emitUpdate = () => {
   font-size: 0.9em;
 }
 
-.file-controls {
-  display: flex;
-  gap: 10px;
+.download-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  line-height: 1;
 }
 
-.remove-file-btn {
-  background: #ff6b6b;
-  color: white;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: normal;
-  text-shadow: none; /* Убрана тень у текста */
+.download-icon {
+  width: 20px;
+  height: 20px;
+  transition: opacity 0.2s;
+}
+
+.download-btn:hover .download-icon {
+  opacity: 0.7;
 }
 </style>

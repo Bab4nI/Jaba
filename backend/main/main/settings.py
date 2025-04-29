@@ -149,6 +149,11 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.AllowAny',
     ),
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.MultiPartParser',
+        'rest_framework.parsers.FormParser',
+    ],
 }
 
 
@@ -249,3 +254,4 @@ JUDGE0_LANGUAGE_IDS = {
 
 JUDGE0_API_URL = os.getenv('JUDGE0_API_URL')
 JUDGE0_API_KEY = os.getenv('JUDGE0_API_KEY')
+DEEPSEEK_API_KEY = "sk-844822d9c2214b1ab1288181a903118c"

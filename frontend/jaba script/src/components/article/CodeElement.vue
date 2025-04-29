@@ -2,11 +2,12 @@
   <div class="code-element" :class="{ 'read-only': readOnly, [currentTheme]: true }">
     <div class="controls">
       <div class="selector-group">
+        <!-- Language selector always visible -->
         <select
-          v-if="!readOnly"
           v-model="localContent.language"
           @change="emitUpdate"
           class="language-selector"
+          :aria-label="readOnly ? 'Выбрать язык программирования (предпросмотр)' : 'Выбрать язык программирования'"
         >
           <option value="javascript">JavaScript</option>
           <option value="python">Python</option>
@@ -21,13 +22,14 @@
           <option value="swift">Swift</option>
           <option value="scala">Scala</option>
         </select>
-        <span v-else class="language-label">{{ languageLabel }}</span>
 
+        <!-- Interpreter selector only in edit mode, label in preview mode -->
         <select
           v-if="!readOnly"
           v-model="localContent.interpreter"
           @change="emitUpdate"
           class="interpreter-selector"
+          aria-label="Выбрать интерпретатор"
         >
           <option value="default">Default</option>
           <option v-if="localContent.language === 'javascript'" value="node">Node.js</option>
@@ -44,9 +46,9 @@
           <option v-if="localContent.language === 'swift'" value="swift">Swift</option>
           <option v-if="localContent.language === 'scala'" value="scala">Scala</option>
         </select>
-        <span v-else-if="localContent.interpreter" class="interpreter-label">{{ interpreterLabel }}</span>
+        <span v-else-if="localContent.interpreter && localContent.interpreter !== 'default'" class="interpreter-label">{{ interpreterLabel }}</span>
 
-        <select v-model="currentTheme" class="theme-selector">
+        <select v-model="currentTheme" class="theme-selector" aria-label="Выбрать тему редактора">
           <option value="vs-light">VS Light</option>
           <option value="vs-dark">VS Dark</option>
           <option value="vs-high-contrast">VS High Contrast</option>
@@ -58,14 +60,14 @@
           v-if="canRunCode"
           @click="runCode"
           class="run-button"
-          :disabled="isRunning || !isAuthenticated"
+          :disabled="isRunning || !refreshStore.isAuthenticated"
         >
           <span class="icon">▶️</span> {{ isRunning ? 'Running...' : 'Run' }}
         </button>
       </div>
     </div>
 
-    <div v-if="!isAuthenticated && canRunCode" class="auth-warning">
+    <div v-if="!refreshStore.isAuthenticated && canRunCode" class="auth-warning">
       <p>Please <a href="/login">log in</a> to run code.</p>
     </div>
 
@@ -76,27 +78,30 @@
       @keydown="handleKeydown"
       placeholder="Enter your code..."
       class="code-input"
+      aria-label="Редактировать код"
     ></textarea>
-    
+
     <div v-if="localContent.code && (readOnly || showPreview)" class="code-preview">
       <pre v-if="!isEditingPreview"><code :class="'language-' + localContent.language">{{ localContent.code }}</code></pre>
       <textarea
         v-else
         v-model="editingCode"
+        @input="updateEditingCode"
         @blur="savePreviewChanges"
         @keydown="handleKeydown"
         @keydown.ctrl.enter="saveAndRun"
         class="code-input"
+        aria-label="Редактировать код в предпросмотре"
       ></textarea>
       <div class="preview-controls" v-if="showPreview && !readOnly">
         <button @click="toggleEditPreview" class="edit-button">
           {{ isEditingPreview ? 'Save' : 'Edit' }}
         </button>
-        <button 
+        <button
           v-if="isEditingPreview"
           @click="saveAndRun"
           class="run-button"
-          :disabled="isRunning || !isAuthenticated"
+          :disabled="isRunning || !refreshStore.isAuthenticated"
         >
           <span class="icon">▶️</span> Save and Run
         </button>
@@ -111,24 +116,10 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, onMounted } from 'vue';
-import axios from 'axios';
-import Prism from 'prismjs';
-import 'prismjs/themes/prism.css';
-import 'prismjs/components/prism-javascript';
-import 'prismjs/components/prism-python';
-import 'prismjs/components/prism-java';
-import 'prismjs/components/prism-kotlin';
-import 'prismjs/components/prism-go';
-import 'prismjs/components/prism-rust';
-import 'prismjs/components/prism-c';
-import 'prismjs/components/prism-cpp';
-import 'prismjs/components/prism-csharp';
-import 'prismjs/components/prism-php';
-import 'prismjs/components/prism-ruby';
-import 'prismjs/components/prism-swift';
-import 'prismjs/components/prism-scala';
-import { useRouter } from 'vue-router';
+import { ref, watch, computed, onMounted } from 'vue'
+import axios from 'axios'
+import { useRouter } from 'vue-router'
+import { useRefreshStore } from '@/stores/auth'
 
 const props = defineProps({
   content: {
@@ -140,31 +131,46 @@ const props = defineProps({
     type: Boolean,
     default: false
   }
-});
+})
 
-const emit = defineEmits(['update:content']);
-const router = useRouter();
+const emit = defineEmits(['update:content'])
+const router = useRouter()
+const refreshStore = useRefreshStore()
 
-const localContent = ref({ ...props.content, interpreter: props.content.interpreter || 'default' });
-const showPreview = ref(false);
-const executionResult = ref(null);
-const executionError = ref(false);
-const isRunning = ref(false);
-const isAuthenticated = ref(false);
-const isEditingPreview = ref(false);
-const editingCode = ref('');
-const currentTheme = ref('vs-dark');
+const localContent = ref({
+  code: props.content.code || '',
+  language: props.content.language || 'javascript',
+  interpreter: props.content.interpreter || 'default'
+})
+const showPreview = ref(props.readOnly)
+const executionResult = ref(null)
+const executionError = ref(false)
+const isRunning = ref(false)
+const isEditingPreview = ref(false)
+const editingCode = ref('')
+const currentTheme = ref('vs-dark')
 
 onMounted(() => {
-  checkAuthStatus();
-  applyTheme();
-  Prism.highlightAll();
-});
+  refreshStore.ready() // Initialize tokens
+  loadSavedContent()
+})
 
-const checkAuthStatus = () => {
-  const token = localStorage.getItem('access_token');
-  isAuthenticated.value = !!token;
-};
+const loadSavedContent = () => {
+  const savedContent = localStorage.getItem('code-editor-content')
+  if (savedContent) {
+    try {
+      const parsedContent = JSON.parse(savedContent)
+      localContent.value = {
+        code: parsedContent.code || '',
+        language: parsedContent.language || 'javascript',
+        interpreter: parsedContent.interpreter || 'default'
+      }
+      emitUpdate()
+    } catch (error) {
+      console.error('Error parsing saved content:', error)
+    }
+  }
+}
 
 const languageLabel = computed(() => {
   const labels = {
@@ -180,9 +186,9 @@ const languageLabel = computed(() => {
     ruby: 'Ruby',
     swift: 'Swift',
     scala: 'Scala'
-  };
-  return labels[localContent.value.language] || localContent.value.language.toUpperCase();
-});
+  }
+  return labels[localContent.value.language] || localContent.value.language.toUpperCase()
+})
 
 const interpreterLabel = computed(() => {
   const labels = {
@@ -200,85 +206,83 @@ const interpreterLabel = computed(() => {
     mri: 'MRI',
     swift: 'Swift',
     scala: 'Scala'
-  };
-  return labels[localContent.value.interpreter] || localContent.value.interpreter;
-});
+  }
+  return labels[localContent.value.interpreter] || localContent.value.interpreter
+})
 
 const canRunCode = computed(() => {
-  const executableLanguages = ['javascript', 'python', 'java', 'kotlin', 'go', 'rust', 'cpp', 'csharp', 'php', 'ruby', 'swift', 'scala'];
-  return executableLanguages.includes(localContent.value.language) && localContent.value.code;
-});
+  const executableLanguages = ['javascript', 'python', 'java', 'kotlin', 'go', 'rust', 'cpp', 'csharp', 'php', 'ruby', 'swift', 'scala']
+  return executableLanguages.includes(localContent.value.language) && localContent.value.code
+})
 
 const emitUpdate = () => {
-  if (props.readOnly) return;
-  emit('update:content', { ...localContent.value });
-};
-
-const togglePreview = () => {
-  showPreview.value = !showPreview.value;
-  if (showPreview.value) {
-    setTimeout(() => Prism.highlightAll(), 0);
-  }
-};
+  emit('update:content', {
+    code: localContent.value.code,
+    language: localContent.value.language,
+    interpreter: localContent.value.interpreter
+  })
+  localStorage.setItem('code-editor-content', JSON.stringify(localContent.value))
+}
 
 const toggleEditPreview = () => {
+  isEditingPreview.value = !isEditingPreview.value
   if (isEditingPreview.value) {
-    savePreviewChanges();
+    editingCode.value = localContent.value.code
   } else {
-    editingCode.value = localContent.value.code;
-    isEditingPreview.value = true;
+    savePreviewChanges()
   }
-};
+}
+
+const updateEditingCode = () => {
+  // Update editingCode without immediately saving to localContent
+}
 
 const savePreviewChanges = () => {
-  localContent.value.code = editingCode.value;
-  isEditingPreview.value = false;
-  emitUpdate();
-};
+  if (isEditingPreview.value) {
+    localContent.value.code = editingCode.value
+    isEditingPreview.value = false
+    emitUpdate()
+  }
+}
 
 const saveAndRun = () => {
-  savePreviewChanges();
-  runCode();
-};
-
-const applyTheme = () => {
-  document.documentElement.setAttribute('data-theme', currentTheme.value);
-  Prism.highlightAll();
-};
+  savePreviewChanges()
+  runCode()
+}
 
 const handleKeydown = (event) => {
   if (event.key === 'Tab') {
-    event.preventDefault();
-    const textarea = event.target;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const value = textarea.value;
+    event.preventDefault()
+    const textarea = event.target
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const value = textarea.value
 
-    textarea.value = value.substring(0, start) + '  ' + value.substring(end);
-    textarea.selectionStart = textarea.selectionEnd = start + 2;
+    textarea.value = value.substring(0, start) + '  ' + value.substring(end)
+    textarea.selectionStart = textarea.selectionEnd = start + 2
 
     if (!showPreview.value) {
-      localContent.value.code = textarea.value;
+      localContent.value.code = textarea.value
+      emitUpdate()
     } else {
-      editingCode.value = textarea.value;
+      editingCode.value = textarea.value
     }
-    emitUpdate();
   }
-};
+}
 
 const runCode = async () => {
-  if (!canRunCode.value || !isAuthenticated.value) {
-    return;
+  if (!canRunCode.value || !refreshStore.isAuthenticated) {
+    return
   }
 
-  isRunning.value = true;
-  executionResult.value = null;
-  executionError.value = false;
+  isRunning.value = true
+  executionResult.value = null
+  executionError.value = false
 
   try {
-    const token = localStorage.getItem('access_token');
+    const token = refreshStore.accessToken
     if (!token) {
-      throw new Error('Authentication token missing');
+      throw new Error('Authentication token missing')
     }
 
     const response = await axios.post(
@@ -295,54 +299,68 @@ const runCode = async () => {
           'Authorization': `Bearer ${token}`
         }
       }
-    );
+    )
 
-    const result = response.data;
+    const result = response.data
 
     if (result.status === 'Accepted') {
-      executionResult.value = result.stdout || 'Program executed without output.';
+      executionResult.value = result.stdout || 'Program executed without output.'
     } else {
-      executionError.value = true;
-      executionResult.value = result.stderr || result.compile_output || `Error: ${result.status}`;
+      executionError.value = true
+      executionResult.value = result.stderr || result.compile_output || `Error: ${result.status}`
     }
   } catch (error) {
-    console.error('Code execution error:', error);
-    executionError.value = true;
+    console.error('Code execution error:', error)
+    executionError.value = true
 
     if (error.response) {
       if (error.response.status === 401) {
-        executionResult.value = 'Authentication error. Please log in again.';
-        router.push('/login');
+        executionResult.value = 'Authentication error. Trying to refresh token...'
+        try {
+          await refreshStore.refreshToken()
+          if (refreshStore.isAuthenticated) {
+            executionResult.value = 'Token refreshed. Please try running the code again.'
+          } else {
+            executionResult.value = 'Authentication failed. Please log in again.'
+            router.push('/login')
+          }
+        } catch (refreshError) {
+          executionResult.value = 'Failed to refresh token. Please log in again.'
+          router.push('/login')
+        }
       } else if (error.response.status === 400) {
-        executionResult.value = error.response.data.error || 'Invalid request. Check data.';
+        executionResult.value = error.response.data.error || 'Invalid request. Check data.'
       } else if (error.response.status === 408) {
-        executionResult.value = 'Timeout. Program took too long to execute.';
+        executionResult.value = 'Timeout. Program took too long to execute.'
       } else {
-        executionResult.value = 'Error executing code. Try again later.';
+        executionResult.value = 'Error executing code. Try again later.'
       }
     } else {
-      executionResult.value = 'Failed to connect to server. Check connection.';
+      executionResult.value = 'Failed to connect to server. Check connection.'
     }
   } finally {
-    isRunning.value = false;
+    isRunning.value = false
   }
-};
+}
 
 watch(() => props.content, (newVal) => {
-  localContent.value = { ...newVal, interpreter: newVal.interpreter || 'default' };
-}, { deep: true });
+  const savedContent = localStorage.getItem('code-editor-content')
+  if (!savedContent) {
+    localContent.value = {
+      code: newVal.code || '',
+      language: newVal.language || 'javascript',
+      interpreter: newVal.interpreter || 'default'
+    }
+  }
+}, { deep: true })
 
 watch(() => localContent.value.language, (newLang) => {
-  const validInterpreters = getValidInterpreters(newLang);
+  const validInterpreters = getValidInterpreters(newLang)
   if (!validInterpreters.includes(localContent.value.interpreter)) {
-    localContent.value.interpreter = 'default';
-    emitUpdate();
+    localContent.value.interpreter = 'default'
+    emitUpdate()
   }
-});
-
-watch(currentTheme, () => {
-  applyTheme();
-});
+})
 
 const getValidInterpreters = (language) => {
   const interpreterMap = {
@@ -358,9 +376,9 @@ const getValidInterpreters = (language) => {
     ruby: ['default', 'mri'],
     swift: ['default', 'swift'],
     scala: ['default', 'scala']
-  };
-  return interpreterMap[language] || ['default'];
-};
+  }
+  return interpreterMap[language] || ['default']
+}
 </script>
 
 <style scoped>
@@ -415,6 +433,10 @@ const getValidInterpreters = (language) => {
   transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
+.read-only .language-selector {
+  background: #e5e7eb;
+}
+
 .vs-dark .language-selector,
 .vs-dark .interpreter-selector,
 .vs-dark .theme-selector {
@@ -423,12 +445,20 @@ const getValidInterpreters = (language) => {
   border-color: #4b4b4b;
 }
 
+.read-only.vs-dark .language-selector {
+  background: #2d2d2d;
+}
+
 .vs-high-contrast .language-selector,
 .vs-high-contrast .interpreter-selector,
 .vs-high-contrast .theme-selector {
   background: #1a1a1a;
   color: #ffffff;
   border-color: #ffffff;
+}
+
+.read-only.vs-high-contrast .language-selector {
+  background: #1a1a1a;
 }
 
 .language-selector:focus,
@@ -518,6 +548,7 @@ const getValidInterpreters = (language) => {
   border: 1px solid #d1d5db;
   border-radius: 0.375rem;
   background: #ffffff;
+  color: #1f2937;
   resize: vertical;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   box-sizing: border-box;
@@ -545,7 +576,6 @@ const getValidInterpreters = (language) => {
 
 .code-preview {
   padding: 0.75rem;
-  background: #1e293b;
   border-radius: 0.375rem;
   overflow-x: hidden;
   font-family: 'Fira Code', monospace;
@@ -554,26 +584,39 @@ const getValidInterpreters = (language) => {
   word-break: break-all;
 }
 
-.vs-light .code-preview {
+.code-preview pre {
+  margin: 0;
+  background: #1e293b;
+  padding: 1rem;
+  border-radius: 0.375rem;
+}
+
+.code-preview pre code {
+  color: #e5e7eb;
+}
+
+.vs-light .code-preview pre {
   background: #f8fafc;
 }
 
-.vs-dark .code-preview {
+.vs-light .code-preview pre code {
+  color: #1f2937;
+}
+
+.vs-dark .code-preview pre {
   background: #1a1a1a;
 }
 
-.vs-high-contrast .code-preview {
+.vs-dark .code-preview pre code {
+  color: #e5e7eb;
+}
+
+.vs-high-contrast .code-preview pre {
   background: #000000;
 }
 
-:deep(.code-preview pre) {
-  margin: 0;
-  word-break: break-all;
-}
-
-:deep(.code-preview code) {
-  white-space: pre-wrap;
-  word-break: break-all;
+.vs-high-contrast .code-preview pre code {
+  color: #ffffff;
 }
 
 .code-element.read-only .code-preview {
@@ -630,118 +673,5 @@ const getValidInterpreters = (language) => {
 .auth-warning a {
   color: #1d4ed8;
   text-decoration: underline;
-}
-
-/* Custom Prism.js styles for VS Code-like syntax highlighting */
-:deep(.token.comment),
-:deep(.token.prolog),
-:deep(.token.doctype),
-:deep(.token.cdata) {
-  color: #6b7280;
-}
-
-:deep(.token.punctuation) {
-  color: #9ca3af;
-}
-
-:deep(.token.property),
-:deep(.token.tag),
-:deep(.token.constant),
-:deep(.token.symbol),
-:deep(.token.deleted) {
-  color: #f43f5e;
-}
-
-:deep(.token.boolean),
-:deep(.token.number) {
-  color: #60a5fa;
-}
-
-:deep(.token.selector),
-:deep(.token.attr-name),
-:deep(.token.string),
-:deep(.token.char),
-:deep(.token.builtin),
-:deep(.token.inserted) {
-  color: #34d399;
-}
-
-:deep(.token.operator),
-:deep(.token.entity),
-:deep(.token.url),
-:deep(.token.variable) {
-  color: #f59e0b;
-}
-
-:deep(.token.atrule),
-:deep(.token.attr-value),
-:deep(.token.function),
-:deep(.token.class-name) {
-  color: #facc15;
-}
-
-:deep(.token.keyword) {
-  color: #3b82f6;
-}
-
-:deep(.token.regex),
-:deep(.token.important) {
-  color: #fb923c;
-}
-
-.vs-light :deep(.token.comment),
-.vs-light :deep(.token.prolog),
-.vs-light :deep(.token.doctype),
-.vs-light :deep(.token.cdata) {
-  color: #a3a3a3;
-}
-
-.vs-light :deep(.token.punctuation) {
-  color: #4b4b4b;
-}
-
-.vs-light :deep(.token.property),
-.vs-light :deep(.token.tag),
-.vs-light :deep(.token.constant),
-.vs-light :deep(.token.symbol),
-.vs-light :deep(.token.deleted) {
-  color: #e11d48;
-}
-
-.vs-light :deep(.token.boolean),
-.vs-light :deep(.token.number) {
-  color: #2563eb;
-}
-
-.vs-light :deep(.token.selector),
-.vs-light :deep(.token.attr-name),
-.vs-light :deep(.token.string),
-.vs-light :deep(.token.char),
-.vs-light :deep(.token.builtin),
-.vs-light :deep(.token.inserted) {
-  color: #059669;
-}
-
-.vs-light :deep(.token.operator),
-.vs-light :deep(.token.entity),
-.vs-light :deep(.token.url),
-.vs-light :deep(.token.variable) {
-  color: #b45309;
-}
-
-.vs-light :deep(.token.atrule),
-.vs-light :deep(.token.attr-value),
-.vs-light :deep(.token.function),
-.vs-light :deep(.token.class-name) {
-  color: #b91c1c;
-}
-
-.vs-light :deep(.token.keyword) {
-  color: #1d4ed8;
-}
-
-.vs-light :deep(.token.regex),
-.vs-light :deep(.token.important) {
-  color: #c2410c;
 }
 </style>
