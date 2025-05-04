@@ -1,5 +1,109 @@
 <template>
-  <div class="article-editor-container">
+  <div class="main-content-container">
+
+    <div class="central-content-container">
+      <div class="main-content-container1">
+        <div class="article-header">
+          <input
+            v-model="article.title"
+            type="text"
+            class="article-title"
+            placeholder="Название работы"
+            :readonly="!isEditMode"
+          >
+          <div class="mode-controls" v-if="userStore.role === 'admin'">
+            <button 
+              @click="toggleMode" 
+              class="mode-toggle-btn"
+              :class="{ 'active': mode === 'edit' }"
+            >
+              {{ mode === 'edit' ? 'Предпросмотр' : 'Редактировать' }}
+            </button>
+          </div>
+        </div>
+        
+        <div class="info-panel">
+          <div v-if="mode === 'edit' && userStore.role === 'admin'" class="editable-content">
+            <ContentBlock
+              v-for="(element, index) in contents"
+              :key="element.id || `temp-${index}`"
+              :content="element"
+              :read-only="isContentReadOnly"
+              :is-first="index === 0"
+              :is-last="index === contents.length - 1"
+              @update:content="onContentUpdate(index, $event)"
+              @move-up="moveContentUp(index)"
+              @move-down="moveContentDown(index)"
+              @remove="removeContent(index)"
+            />
+          </div>
+          <div v-else class="preview-content">
+            <ContentBlock
+              v-for="(element, index) in contents"
+              :key="element.id || index"
+              :content="element"
+              :read-only="true"
+            />
+          </div>
+        </div>
+
+        <div v-if="mode === 'edit' && userStore.role === 'admin'" class="editor-toolbar">
+          <div class="toolbar-content">
+            <button
+              @click="openBlockModal"
+              class="add-content-btn"
+              aria-label="Добавить новый элемент"
+            >
+              <span class="btn-icon">+</span>
+              Добавить элемент
+            </button>
+
+            <button
+              @click="saveAllChanges"
+              class="save-button"
+              :disabled="isSaving || !hasChanges"
+              aria-label="Сохранить все изменения"
+            >
+              <span v-if="isSaving" class="spinner"></span>
+              <span v-else class="btn-icon">💾</span>
+              {{ isSaving ? 'Сохранение...' : 'Сохранить работу' }}
+              <span v-if="hasChanges" class="changes-indicator">*</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dark-purple-flex-container">
+      <div class="team-contacts-section1">
+        <div class="team-contacts-section">
+          <div class="team-contact-info-container">
+            <p class="team-contacts-heading">Контакты команды</p>
+            <p class="team-contact-info-display-style">
+              <span class="contact-info-style">Email: jabascript</span>
+              <a href="mailto:team@example.com" class="contact-info-link">@sfedu.com</a>
+              <span class="line-break-separator"><br /></span>
+              <span class="contact-info-style">Телефон: </span>
+              <a href="tel:+1234567890" class="contact-info-link">+7-(938)-100-16-77</a>
+              <span class="line-break-separator"><br /></span>
+              <span class="contact-info-style">Адрес: пер. Некрасовский, 44, г. Таганрог</span>
+            </p>
+          </div>
+          <div class="partner-section1">
+            <p class="team-contacts-heading">Партнёры</p>
+            <div class="partner-section">
+              <img src="@/assets/images/ictis.png" class="image-container" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="central-content-container">
+        <div class="center-aligned-copyright-text">
+          <p class="purple-heading">© 2024 NetLab AI. Все права защищены.</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Error Message for Content Loading -->
     <div v-if="loadError" class="error-message">
       {{ loadError }}
@@ -21,161 +125,51 @@
       </button>
     </transition>
 
-    <!-- AI Modal -->
-    <div v-if="aiStore.modalVisible" class="ai-modal" role="dialog" aria-labelledby="ai-modal-title">
-      <div class="ai-modal-content">
-        <button class="ai-modal-close" @click="closeAiModal" aria-label="Закрыть модальное окно">×</button>
-        <h3 id="ai-modal-title">Работа с выделенным текстом</h3>
-        <div class="selected-text-preview">{{ aiStore.selectedText }}</div>
-
-        <textarea
-          v-model="aiUserPrompt"
-          placeholder="Уточните ваш запрос или выберите действие..."
-          class="ai-prompt-input"
-          aria-label="Поле для ввода запроса к AI"
-        ></textarea>
-
-        <div class="ai-quick-actions">
-          <button @click="aiExplainText" class="ai-action-btn">Объяснить</button>
-          <button @click="aiSimplifyText" class="ai-action-btn">Упростить</button>
-          <button @click="aiExpandText" class="ai-action-btn">Расширить</button>
-          <button @click="aiAskCustom" class="ai-action-btn">Спросить</button>
+    <!-- AI Chat Modal -->
+    <div v-if="aiStore.modalVisible" class="ai-chat-modal" role="dialog" aria-labelledby="ai-modal-title">
+      <div class="ai-chat-container">
+        <div class="ai-chat-header">
+          <h3 id="ai-modal-title" class="main-heading-style">Работа с выделенным текстом</h3>
+          <button class="ai-modal-close" @click="closeAiModal" aria-label="Закрыть модальное окно">×</button>
         </div>
-
-        <div v-if="aiStore.isLoading" class="ai-loading">
-          <span class="spinner"></span> Идет обработка запроса...
-        </div>
-        <div v-else-if="aiStore.error" class="ai-error">Ошибка AI: {{ aiStore.error }}</div>
-        <div v-else-if="aiStore.aiResponse" class="ai-response">
-          <h4>Ответ:</h4>
-          <div class="ai-response-content">{{ aiStore.aiResponse }}</div>
-          <div class="ai-response-actions">
-            <button @click="insertAiResponse" class="ai-insert-btn">Вставить в статью</button>
-            <button @click="copyAiResponse" class="ai-copy-btn">Копировать</button>
+        <div class="ai-chat-content">
+          <div class="selected-text-panel">
+            <p class="info-text">{{ aiStore.selectedText || 'Выделите текст для обработки' }}</p>
+          </div>
+          <div class="ai-prompt-panel">
+            <textarea
+              v-model="aiUserPrompt"
+              placeholder="Уточните ваш запрос или выберите действие..."
+              class="ai-prompt-input"
+              aria-label="Поле для ввода запроса к AI"
+            ></textarea>
+            <div class="ai-quick-actions">
+              <button @click="aiExplainText" class="ai-action-btn">Объяснить</button>
+              <button @click="aiSimplifyText" class="ai-action-btn">Упростить</button>
+              <button @click="aiExpandText" class="ai-action-btn">Расширить</button>
+              <button @click="aiAskCustom" class="ai-action-btn">Спросить</button>
+            </div>
+          </div>
+          <div v-if="aiStore.isLoading" class="ai-loading-panel">
+            <span class="spinner"></span>
+            <p class="info-text">Идет обработка запроса...</p>
+          </div>
+          <div v-else-if="aiStore.error" class="ai-error-panel">
+            <p class="error-text">Ошибка AI: {{ aiStore.error }}</p>
+          </div>
+          <div v-else-if="aiStore.aiResponse" class="ai-response-panel">
+            <h4 class="title-heading">Ответ:</h4>
+            <p class="ai-response-content">{{ aiStore.aiResponse }}</p>
+            <div class="ai-response-actions">
+              <button @click="insertAiResponse" class="ai-insert-btn">Вставить в статью</button>
+              <button @click="copyAiResponse" class="ai-copy-btn">Копировать</button>
+            </div>
           </div>
         </div>
-
-        <div class="ai-modal-footer">
+        <div class="ai-chat-footer">
           <button @click="closeAiModal" class="ai-close-btn">Закрыть</button>
         </div>
       </div>
-    </div>
-
-    <!-- Editor Content -->
-    <div class="editor-header">
-      <h1>{{ article.title }}</h1>
-      <div class="header-controls">
-        <button
-          v-if="userStore.role === 'admin'"
-          @click="toggleMode"
-          class="mode-toggle-button"
-          :aria-label="mode === 'edit' ? 'Переключить на предпросмотр' : 'Переключить на редактирование'"
-        >
-          {{ mode === 'edit' ? 'Предпросмотр' : 'Редактировать' }}
-        </button>
-        <button @click="goBack" class="back-button" aria-label="Вернуться к модулям">← Назад к модулям</button>
-      </div>
-    </div>
-
-    <div class="contents-list">
-      <div v-if="mode === 'edit' && userStore.role === 'admin'" class="editable-content">
-        <div
-          v-for="(element, index) in contents"
-          :key="element.id || `temp-${index}`"
-          class="content-item"
-          :class="{ 'editable': !isContentReadOnly }"
-        >
-          <div class="content-toolbar">
-            <div class="order-controls">
-              <button
-                :disabled="index === 0"
-                @click="moveContentUp(index)"
-                class="order-btn"
-                title="Переместить вверх"
-                aria-label="Переместить элемент вверх"
-              >
-                ↑
-              </button>
-              <button
-                :disabled="index === contents.length - 1"
-                @click="moveContentDown(index)"
-                class="order-btn"
-                title="Переместить вниз"
-                aria-label="Переместить элемент вниз"
-              >
-                ↓
-              </button>
-            </div>
-            <span class="content-type">{{ getContentTypeName(element.type) }}</span>
-            <button
-              @click="removeContent(index)"
-              class="remove-content-btn"
-              aria-label="Удалить элемент"
-            >
-              ×
-            </button>
-          </div>
-
-          <component
-            :is="getContentComponent(element.type)"
-            :content="element"
-            :lesson-id="article.id"
-            :read-only="isContentReadOnly"
-            @update:content="onContentUpdate(index, $event)"
-            @text-selected="handleTextSelection"
-          />
-        </div>
-      </div>
-      <div v-else class="preview-content">
-        <div v-for="(element, index) in contents" :key="element.id || index" class="content-item">
-          <component
-            :is="getContentComponent(element.type)"
-            :content="element"
-            :lesson-id="article.id"
-            :read-only="true"
-            @text-selected="handleTextSelection"
-          />
-        </div>
-      </div>
-    </div>
-
-    <div v-if="mode === 'edit' && userStore.role === 'admin'" class="editor-toolbar">
-      <select
-        v-model="selectedContentType"
-        class="content-type-select"
-        aria-label="Выбрать тип контента"
-      >
-        <option value="">Добавить элемент...</option>
-        <option value="text">Текст</option>
-        <option value="image">Изображение</option>
-        <option value="video">Видео</option>
-        <option value="code">Код</option>
-        <option value="quiz">Тест</option>
-        <option value="table">Таблица</option>
-        <option value="file">Файл</option>
-      </select>
-
-      <button
-        @click="addContent"
-        class="add-content-btn"
-        :disabled="!selectedContentType"
-        aria-label="Добавить новый элемент контента"
-      >
-        Добавить
-      </button>
-    </div>
-
-    <div v-if="mode === 'edit' && userStore.role === 'admin'" class="editor-footer">
-      <button
-        @click="saveAllChanges"
-        class="save-button"
-        :disabled="isSaving || !hasChanges"
-        aria-label="Сохранить все изменения"
-      >
-        <span v-if="isSaving" class="spinner"></span>
-        {{ isSaving ? 'Сохранение...' : 'Сохранить работу' }}
-        <span v-if="hasChanges" class="changes-indicator">*</span>
-      </button>
     </div>
 
     <!-- Toast Notifications -->
@@ -187,28 +181,52 @@
         </button>
       </div>
     </transition>
+
+    <!-- Block Creation Modal -->
+    <div v-if="showBlockModal" class="block-modal" role="dialog" aria-labelledby="block-modal-title">
+      <div class="block-modal-container">
+        <div class="block-modal-header">
+          <h3 id="block-modal-title" class="main-heading-style">Добавить новый элемент</h3>
+          <button class="modal-close" @click="closeBlockModal" aria-label="Закрыть модальное окно">×</button>
+        </div>
+        <div class="block-modal-content">
+          <div class="block-type-selection">
+            <div 
+              v-for="type in blockTypes" 
+              :key="type.value"
+              class="block-type-card"
+              :class="{ 'selected': selectedBlockType === type.value }"
+              @click="selectBlockType(type.value)"
+            >
+              <span class="block-icon">{{ type.icon }}</span>
+              <span class="block-title">{{ type.label }}</span>
+              <span class="block-description">{{ type.description }}</span>
+            </div>
+          </div>
+          <div class="block-modal-footer">
+            <button 
+              @click="addNewBlock" 
+              class="add-block-btn"
+              :disabled="!selectedBlockType"
+            >
+              Добавить блок
+            </button>
+            <button @click="closeBlockModal" class="cancel-btn">Отмена</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
-// The script section remains unchanged unless additional logic is needed for UX improvements.
-// For brevity, I'll assume the original script logic is sufficient, with minor additions for toast dismissal.
-
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useAIStore } from '@/stores/aiStore'
 import api from '@/api'
 import { debounce } from 'lodash-es'
-
-// Components
-import TextElement from '@/components/article/TextElement.vue'
-import ImageElement from '@/components/article/ImageElement.vue'
-import VideoElement from '@/components/article/VideoElement.vue'
-import CodeElement from '@/components/article/CodeElement.vue'
-import QuizElement from '@/components/article/QuizElement.vue'
-import TableElement from '@/components/article/TableElement.vue'
-import FileElement from '@/components/article/FileElement.vue'
+import ContentBlock from '@/components/article/ContentBlock.vue'
 
 const CONTENT_TYPES = {
   text: 'TEXT',
@@ -230,15 +248,54 @@ const DEFAULT_CONTENT = {
   file: { file: null, filename: null, readOnly: true },
 }
 
+const BLOCK_TYPES = [
+  {
+    value: 'text',
+    label: 'Текстовый блок',
+    description: 'Блок для ввода и форматирования текста',
+    icon: '📝'
+  },
+  {
+    value: 'image',
+    label: 'Изображение',
+    description: 'Добавление изображений с подписями',
+    icon: '🖼️'
+  },
+  {
+    value: 'video',
+    label: 'Видео',
+    description: 'Вставка видео с YouTube или других платформ',
+    icon: '🎥'
+  },
+  {
+    value: 'code',
+    label: 'Код',
+    description: 'Блок для демонстрации кода с подсветкой синтаксиса',
+    icon: '💻'
+  },
+  {
+    value: 'quiz',
+    label: 'Тест',
+    description: 'Создание тестовых вопросов с вариантами ответов',
+    icon: '❓'
+  },
+  {
+    value: 'table',
+    label: 'Таблица',
+    description: 'Создание структурированных таблиц',
+    icon: '📊'
+  },
+  {
+    value: 'file',
+    label: 'Файл',
+    description: 'Загрузка файлов для скачивания',
+    icon: '📎'
+  }
+]
+
 export default {
   components: {
-    TextElement,
-    ImageElement,
-    VideoElement,
-    CodeElement,
-    QuizElement,
-    TableElement,
-    FileElement,
+    ContentBlock,
   },
 
   setup() {
@@ -267,6 +324,9 @@ export default {
     const toastMessage = ref('')
     const toastType = ref('success')
     const lastSavedAt = ref(null)
+    const showBlockModal = ref(false)
+    const selectedBlockType = ref('')
+    const blockTypes = ref(BLOCK_TYPES)
 
     const isContentReadOnly = computed(() => {
       return mode.value !== 'edit' || userStore.role !== 'admin'
@@ -665,6 +725,38 @@ export default {
       }
     }
 
+    const openBlockModal = () => {
+      showBlockModal.value = true
+      selectedBlockType.value = ''
+    }
+
+    const closeBlockModal = () => {
+      showBlockModal.value = false
+      selectedBlockType.value = ''
+    }
+
+    const selectBlockType = (type) => {
+      selectedBlockType.value = type
+    }
+
+    const addNewBlock = () => {
+      if (!selectedBlockType.value) return
+
+      const newContent = {
+        id: null,
+        type: selectedBlockType.value,
+        order: contents.value.length + 1,
+        ...JSON.parse(JSON.stringify(DEFAULT_CONTENT[selectedBlockType.value])),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+
+      contents.value.push(newContent)
+      changedIndices.value.add(contents.value.length - 1)
+      closeBlockModal()
+      showToast('Новый блок добавлен.', 'success')
+    }
+
     onMounted(() => {
       document.addEventListener('mouseup', handleGlobalTextSelection)
       window.addEventListener('beforeunload', beforeUnloadHandler)
@@ -718,108 +810,305 @@ export default {
       toggleMode,
       moveContentUp,
       moveContentDown,
+      showBlockModal,
+      selectedBlockType,
+      blockTypes,
+      openBlockModal,
+      closeBlockModal,
+      selectBlockType,
+      addNewBlock,
     }
   },
 }
 </script>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;600;700&display=swap');
+
 * {
   box-sizing: border-box;
 }
 
-.article-editor-container {
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 24px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+.main-content-container {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  min-width: 1480px;
+  background: #ebefef;
+}
+
+.center-column-box-layout {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+}
+
+.header-section {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: row;
+  gap: 8px;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 30px 29px 40px 99px;
+  background: #f5f9f8;
+}
+
+.main-title-text-style {
+  flex: 0 0 auto;
+  padding: 0;
+  margin: 0;
+  font: 400 36px Helvetica;
+  color: #24222f;
+}
+
+.navigation-bar {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: row;
+  gap: 29.5px;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.main-title-style {
+  flex: 0 0 auto;
+  padding: 0;
+  margin: 0;
+  font: 400 20px Raleway, sans-serif;
+  color: #24222f;
+}
+
+.vertical-divider {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 1px;
+  height: 29px;
+  border-left: 1px solid #24222f;
+}
+
+.course-info-panel {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  width: 52px;
+  padding-top: 9px;
+  padding-bottom: 4.5px;
+}
+
+.course-title-text-style {
+  flex: 0 0 auto;
+  align-self: center;
+  padding: 0;
+  margin: 0;
+  font: 400 20px Raleway, sans-serif;
+  color: #24222f;
+}
+
+.course-divider {
+  flex: 0 0 auto;
+  margin-top: 2.5px;
+  border-top: 1px solid #24222f;
+}
+
+.main-page-icon {
+  box-sizing: border-box;
+  display: block;
+  width: 42px;
+  max-width: initial;
+  height: 40px;
+  border: none;
+  object-fit: cover;
+}
+
+.central-content-container {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.main-content-container1 {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 43px;
+  align-items: stretch;
+  justify-content: flex-start;
+  min-width: 1043px;
+  padding-top: 91px;
+  padding-bottom: 157px;
+}
+
+.article-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 2rem;
+  background: #f5f9f8;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.article-title {
+  flex: 1;
+  font-size: 2rem;
+  font-weight: 600;
+  padding: 1rem;
+  border: none;
+  border-bottom: 2px solid #a094b8;
+  background: transparent;
+  color: #24222f;
+  outline: none;
+  transition: border-color 0.3s;
+  margin-right: 2rem;
+}
+
+.article-title:focus {
+  border-color: #575667;
+}
+
+.article-title:read-only {
+  border-color: transparent;
+  cursor: default;
+}
+
+.mode-controls {
+  display: flex;
+  gap: 1rem;
+}
+
+.mode-toggle-btn {
+  background: #a094b8;
+  color: #f5f9f8;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.mode-toggle-btn:hover {
+  background: #8b7ca5;
+  transform: translateY(-1px);
+}
+
+.mode-toggle-btn.active {
+  background: #575667;
+}
+
+.info-panel {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 40px;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 20px;
+  background: #f5f9f8;
+  border-radius: 8px;
 }
 
 .editor-header {
   display: flex;
-  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 32px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #e5e7eb;
-  width: 100%;
+  padding-right: 48px;
+  padding-left: 70px;
+  margin-bottom: 40px;
 }
 
-.editor-header h1 {
-  font-size: 32px;
-  font-weight: 700;
-  color: #1f2937;
+.main-heading-style {
+  flex: 0 0 auto;
+  padding: 0;
+  padding-right: 48px;
+  padding-left: 70px;
   margin: 0;
-  flex: 1 1 100%;
-  margin-bottom: 16px;
-}
-
-.header-controls {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  width: 100%;
-  justify-content: flex-end;
-}
-
-.mode-toggle-button,
-.back-button {
-  background: #6b7280;
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 16px;
-  transition: background 0.2s, transform 0.1s;
-  min-width: 120px;
-}
-
-.mode-toggle-button:hover,
-.back-button:hover {
-  background: #4b5563;
-  transform: translateY(-1px);
-}
-
-.back-button {
-  background: #a094b8;
-}
-
-.back-button:hover {
-  background: #8b7ca5;
+  font: 600 36px Raleway, sans-serif;
+  color: #24222f;
 }
 
 .editor-toolbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #f5f9f8;
+  padding: 16px;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+}
+
+.toolbar-content {
   display: flex;
   gap: 16px;
-  margin: 32px 0;
   align-items: center;
-  width: 100%;
-  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .content-type-select {
-  flex: 1;
-  padding: 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 16px;
+  padding: 12px 24px;
+  border: 1px solid #a094b8;
+  border-radius: 10px;
   background: #fff;
+  color: #24222f;
+  font-size: 16px;
+  font-family: 'Raleway', sans-serif;
   min-width: 200px;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.content-type-select:hover {
+  border-color: #8b7ca5;
+}
+
+.content-type-select:focus {
+  outline: none;
+  border-color: #575667;
+  box-shadow: 0 0 0 2px rgba(87, 86, 103, 0.2);
+}
+
+.add-content-btn,
+.save-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 400;
+  font-family: 'Raleway', sans-serif;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
 }
 
 .add-content-btn {
-  background: #10b981;
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 16px;
-  transition: background 0.2s, transform 0.1s;
-  min-width: 120px;
+  background: #a094b8;
+  color: #f5f9f8;
+}
+
+.add-content-btn:hover:not(:disabled) {
+  background: #8b7ca5;
+  transform: translateY(-1px);
 }
 
 .add-content-btn:disabled {
@@ -827,134 +1116,14 @@ export default {
   cursor: not-allowed;
 }
 
-.add-content-btn:hover:not(:disabled) {
-  background: #059669;
-  transform: translateY(-1px);
-}
-
-.contents-list {
-  margin: 32px 0;
-  width: 100%;
-}
-
-.editable-content,
-.preview-content {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  width: 100%;
-}
-
-.content-item {
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 20px;
-  background: #fff;
-  transition: transform 0.2s, box-shadow 0.2s;
-  width: 100%;
-}
-
-.content-item.editable {
-  border-color: #4a6fa5;
-  background: #f9fafb;
-}
-
-.content-toolbar {
-  display: flex;
-  align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #e5e7eb;
-  width: 100%;
-}
-
-.order-controls {
-  display: flex;
-  gap: 12px;
-  margin-right: 16px;
-}
-
-.order-btn {
-  background: #6b7280;
-  color: white;
-  border: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s, transform 0.1s;
-}
-
-.order-btn:disabled {
-  background: #d1d5db;
-  cursor: not-allowed;
-}
-
-.order-btn:hover:not(:disabled) {
-  background: #4b5563;
-  transform: translateY(-1px);
-}
-
-.content-type {
-  flex-grow: 1;
-  font-weight: 600;
-  color: #374151;
-  font-size: 16px;
-}
-
-.remove-content-btn {
-  background: #ef4444;
-  color: white;
-  border: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 18px;
-  line-height: 1;
-  transition: background 0.2s, transform 0.1s;
-}
-
-.remove-content-btn:hover {
-  background: #dc2626;
-  transform: translateY(-1px);
-}
-
-.preview-mode .content-item {
-  border: none;
-  padding: 16px 0;
-  background: transparent;
-}
-
-.preview-mode .content-toolbar {
-  display: none;
-}
-
-.editor-footer {
-  margin-top: 40px;
-  text-align: center;
-  width: 100%;
-}
-
 .save-button {
-  background: #a094b8;
-  color: white;
-  border: none;
-  padding: 14px 28px;
-  border-radius: 8px;
-  font-size: 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  transition: background 0.2s, transform 0.1s;
-  min-width: 200px;
-  margin: 0 auto;
+  background: #575667;
+  color: #f5f9f8;
+}
+
+.save-button:hover:not(:disabled) {
+  background: #4a4857;
+  transform: translateY(-1px);
 }
 
 .save-button:disabled {
@@ -962,18 +1131,137 @@ export default {
   cursor: not-allowed;
 }
 
-.save-button:hover:not(:disabled) {
-  background: #8b7ca5;
-  transform: translateY(-1px);
+.btn-icon {
+  font-size: 18px;
+  line-height: 1;
 }
 
 .changes-indicator {
   color: #ef4444;
-  font-weight: bold;
-  margin-left: 8px;
+  margin-left: 4px;
+  font-weight: 700;
 }
 
-.ai-modal {
+.dark-purple-flex-container {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding-right: 20.5px;
+  padding-left: 19.5px;
+  background: #575667;
+}
+
+.team-contacts-section1 {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  border-bottom: 1px solid #a094b8;
+}
+
+.team-contacts-section {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: flex-start;
+  justify-content: space-between;
+  min-width: 1282px;
+  padding-top: 45px;
+  padding-bottom: 61px;
+}
+
+.team-contact-info-container {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  max-width: 357px;
+}
+
+.team-contacts-heading {
+  flex: 0 0 auto;
+  padding: 0;
+  margin: 0;
+  font: 700 18px Raleway, sans-serif;
+  color: #f5f9f8;
+}
+
+.team-contact-info-display-style {
+  flex: 0 0 auto;
+  padding: 0;
+  margin: 0;
+  margin-top: 32px;
+  color: #a094b8;
+  text-align: left;
+}
+
+.contact-info-style {
+  font: 400 18px Raleway, sans-serif;
+  text-align: left;
+}
+
+.contact-info-link {
+  font: 400 18px Raleway, sans-serif;
+  color: #a094b8;
+  text-align: left;
+  text-decoration-line: underline;
+}
+
+.line-break-separator {
+  display: block;
+  line-height: 10px;
+}
+
+.partner-section1 {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 13px;
+}
+
+.partner-section {
+  flex: 0 0 auto;
+  margin-top: 49px;
+}
+
+.image-container {
+  box-sizing: border-box;
+  display: block;
+  width: 122px;
+  max-width: initial;
+  height: 53px;
+  border: none;
+  object-fit: cover;
+}
+
+.center-aligned-copyright-text {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 68px;
+}
+
+.purple-heading {
+  flex: 0 0 auto;
+  padding: 0;
+  margin: 0;
+  font: 700 12px Raleway, sans-serif;
+  color: #a094b8;
+}
+
+.ai-chat-modal {
   position: fixed;
   top: 0;
   left: 0;
@@ -986,24 +1274,37 @@ export default {
   z-index: 1000;
 }
 
-.ai-modal-content {
-  background: white;
-  padding: 32px;
-  border-radius: 12px;
+.ai-chat-container {
+  background: #f5f9f8;
+  border-radius: 20px;
   max-width: 800px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Raleway', sans-serif;
+}
+
+.ai-chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 30px 29px 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.main-heading-style {
+  font-size: 36px;
+  font-weight: 600;
+  color: #24222f;
+  margin: 0;
 }
 
 .ai-modal-close {
-  position: absolute;
-  top: 16px;
-  right: 16px;
   background: #ef4444;
-  color: white;
+  color: #f5f9f8;
   border: none;
   width: 32px;
   height: 32px;
@@ -1019,132 +1320,165 @@ export default {
   transform: translateY(-1px);
 }
 
-.selected-text-preview {
-  background: #f3f4f6;
-  padding: 16px;
-  border-radius: 8px;
-  margin: 20px 0;
-  font-style: italic;
-  border-left: 4px solid #4a6fa5;
-  color: #1f2937;
-  max-height: 150px;
-  overflow-y: auto;
+.ai-chat-content {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  padding: 40px 70px;
+}
+
+.selected-text-panel {
+  background: #ebefef;
+  padding: 20px;
+  border-radius: 10px;
+  border-left: 4px solid #a094b8;
+}
+
+.info-text {
+  font-size: 15px;
+  font-weight: 400;
+  color: #24222f;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.ai-prompt-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .ai-prompt-input {
   width: 100%;
   min-height: 120px;
   padding: 14px;
-  margin: 20px 0;
   border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-family: inherit;
+  border-radius: 10px;
+  font-family: 'Raleway', sans-serif;
+  font-size: 15px;
   resize: vertical;
-  font-size: 16px;
+  background: #fff;
 }
 
 .ai-quick-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
-  margin-bottom: 24px;
 }
 
 .ai-action-btn {
-  background: #4a6fa5;
-  color: white;
+  background: #a094b8;
+  color: #f5f9f8;
   border: none;
   padding: 12px 24px;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 16px;
+  font-weight: 400;
   transition: background 0.2s, transform 0.1s;
   min-width: 100px;
 }
 
 .ai-action-btn:hover {
-  background: #3a5a80;
+  background: #8b7ca5;
   transform: translateY(-1px);
 }
 
-.ai-loading {
+.ai-loading-panel {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: #6b7280;
+  color: #24222f;
   font-style: italic;
-  margin: 24px 0;
-  text-align: center;
 }
 
-.ai-error {
-  color: #dc2626;
-  margin: 24px 0;
-  padding: 16px;
+.ai-error-panel {
   background: #fef2f2;
-  border-radius: 8px;
+  padding: 20px;
+  border-radius: 10px;
+  border-left: 4px solid #ef4444;
 }
 
-.ai-response {
-  margin-top: 24px;
+.error-text {
+  font-size: 15px;
+  font-weight: 400;
+  color: #dc2626;
+  margin: 0;
+}
+
+.ai-response-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
   padding-top: 20px;
   border-top: 1px solid #e5e7eb;
 }
 
+.title-heading {
+  font-size: 24px;
+  font-weight: 600;
+  color: #24222f;
+  margin: 0;
+}
+
 .ai-response-content {
-  background: #f9fafb;
+  background: #ebefef;
   padding: 20px;
-  border-radius: 8px;
-  margin: 20px 0;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 400;
+  color: #24222f;
   white-space: pre-wrap;
-  font-size: 16px;
-  color: #1f2937;
 }
 
 .ai-response-actions {
   display: flex;
   gap: 16px;
-  margin-top: 20px;
 }
 
 .ai-insert-btn,
 .ai-copy-btn {
-  background: #10b981;
-  color: white;
+  background: #a094b8;
+  color: #f5f9f8;
   border: none;
   padding: 12px 24px;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
+  font-size: 16px;
+  font-weight: 400;
   transition: background 0.2s, transform 0.1s;
   min-width: 120px;
 }
 
 .ai-insert-btn:hover,
 .ai-copy-btn:hover {
-  background: #059669;
+  background: #8b7ca5;
   transform: translateY(-1px);
 }
 
 .ai-copy-btn {
-  background: #3b82f6;
+  background: #575667;
 }
 
 .ai-copy-btn:hover {
-  background: #2563eb;
+  background: #4a4857;
 }
 
-.ai-modal-footer {
-  margin-top: 24px;
+.ai-chat-footer {
+  padding: 20px 29px;
   text-align: right;
+  border-top: 1px solid #e5e7eb;
 }
 
 .ai-close-btn {
   background: #ef4444;
-  color: white;
+  color: #f5f9f8;
   border: none;
   padding: 12px 24px;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
+  font-size: 16px;
+  font-weight: 400;
   transition: background 0.2s, transform 0.1s;
   min-width: 120px;
 }
@@ -1156,20 +1490,21 @@ export default {
 
 .ai-floating-btn {
   position: absolute;
-  background: #4a6fa5;
-  color: white;
+  background: #a094b8;
+  color: #f5f9f8;
   border: none;
   padding: 12px 24px;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 16px;
+  font-weight: 400;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   z-index: 999;
   transition: background 0.2s, transform 0.1s;
 }
 
 .ai-floating-btn:hover {
-  background: #3a5a80;
+  background: #8b7ca5;
   transform: translateY(-1px);
 }
 
@@ -1187,33 +1522,35 @@ export default {
   color: #dc2626;
   background: #fef2f2;
   padding: 16px;
-  border-radius: 8px;
+  border-radius: 10px;
   margin-bottom: 24px;
   text-align: center;
-  font-size: 16px;
+  font-size: 15px;
   width: 100%;
 }
 
 .retry-button {
-  background: #4a6fa5;
-  color: white;
+  background: #a094b8;
+  color: #f5f9f8;
   border: none;
   padding: 12px 24px;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   margin-top: 16px;
+  font-size: 16px;
+  font-weight: 400;
   transition: background 0.2s, transform 0.1s;
   min-width: 120px;
 }
 
 .retry-button:hover {
-  background: #3a5a80;
+  background: #8b7ca5;
   transform: translateY(-1px);
 }
 
 .spinner {
   border: 3px solid #e5e7eb;
-  border-top: 3px solid #4a6fa5;
+  border-top: 3px solid #a094b8;
   border-radius: 50%;
   width: 24px;
   height: 24px;
@@ -1230,8 +1567,8 @@ export default {
   bottom: 32px;
   right: 32px;
   padding: 16px 24px;
-  border-radius: 8px;
-  color: white;
+  border-radius: 10px;
+  color: #f5f9f8;
   font-size: 16px;
   z-index: 1000;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
@@ -1242,7 +1579,7 @@ export default {
 }
 
 .toast.success {
-  background: #10b981;
+  background: #a094b8;
 }
 
 .toast.error {
@@ -1250,12 +1587,12 @@ export default {
 }
 
 .toast.info {
-  background: #3b82f6;
+  background: #575667;
 }
 
 .toast-close {
   background: transparent;
-  color: white;
+  color: #f5f9f8;
   border: none;
   font-size: 18px;
   cursor: pointer;
@@ -1263,28 +1600,27 @@ export default {
 }
 
 @media (max-width: 768px) {
-  .article-editor-container {
+  .main-content-container {
     padding: 16px;
   }
 
-  .editor-header {
+  .header-section {
     flex-direction: column;
     gap: 20px;
     align-items: flex-start;
   }
 
-  .editor-header h1 {
+  .header-section h1 {
     font-size: 28px;
   }
 
-  .header-controls {
+  .navigation-bar {
     flex-direction: column;
     align-items: stretch;
     width: 100%;
   }
 
-  .mode-toggle-button,
-  .back-button {
+  .main-title-style {
     width: 100%;
     padding: 12px;
   }
@@ -1300,10 +1636,14 @@ export default {
     padding: 12px;
   }
 
-  .ai-modal-content {
+  .ai-chat-container {
     padding: 24px;
     width: 95%;
     max-width: 95%;
+  }
+
+  .ai-chat-content {
+    padding: 24px;
   }
 
   .ai-quick-actions {
@@ -1334,7 +1674,7 @@ export default {
 }
 
 @media (max-width: 480px) {
-  .editor-header h1 {
+  .header-section h1 {
     font-size: 24px;
   }
 
@@ -1349,16 +1689,163 @@ export default {
     font-size: 16px;
   }
 
-  .ai-modal-content {
+  .ai-chat-content {
     padding: 16px;
   }
 
-  .ai-prompt-input {
+  .ai-prompt-input,
+  .info-text,
+  .ai-response-content {
     font-size: 14px;
   }
+}
 
-  .selected-text-preview {
-    font-size: 14px;
-  }
+.block-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.block-modal-container {
+  background: #f5f9f8;
+  border-radius: 20px;
+  max-width: 800px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.block-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 30px 29px 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-close {
+  background: #ef4444;
+  color: #f5f9f8;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.modal-close:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+
+.block-modal-content {
+  padding: 30px;
+}
+
+.block-type-selection {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.block-type-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background: #fff;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.block-type-card:hover {
+  border-color: #a094b8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.block-type-card.selected {
+  border-color: #575667;
+  background: #f5f9f8;
+}
+
+.block-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+.block-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #24222f;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.block-description {
+  font-size: 14px;
+  color: #6b7280;
+  text-align: center;
+}
+
+.block-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.add-block-btn {
+  background: #575667;
+  color: #f5f9f8;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 400;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.add-block-btn:hover:not(:disabled) {
+  background: #4a4857;
+  transform: translateY(-1px);
+}
+
+.add-block-btn:disabled {
+  background: #d1d5db;
+  cursor: not-allowed;
+}
+
+.cancel-btn {
+  background: #ef4444;
+  color: #f5f9f8;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 400;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.cancel-btn:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
 }
 </style>

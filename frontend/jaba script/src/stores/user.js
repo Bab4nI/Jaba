@@ -15,26 +15,34 @@ export const useUserStore = defineStore('user', {
     role: '',
     activeTab: 'Мой профиль',
     accessToken: localStorage.getItem('access_token') || null,
+    lastProfileFetch: null,
+    profileCacheDuration: 5 * 60 * 1000,
   }),
   actions: {
     setAccessToken(accessToken) {
       this.accessToken = accessToken;
     },
-    SET_USER_DATA(userData) {
-      this.first_name = userData.first_name || '';
-      this.last_name = userData.last_name || '';
-      this.middle_name = userData.middle_name || '';
-      this.email = userData.email || '';
-      this.newEmail = userData.email || '';
-      this.group = userData.group || '';
-      this.avatarBase64 = userData.avatar_base64 || '';
-      this.role = userData.role || '';
+    SET_USER_DATA(data) {
+      this.first_name = data.first_name;
+      this.last_name = data.last_name;
+      this.middle_name = data.middle_name;
+      this.email = data.email;
+      this.group = data.group;
+      this.avatarBase64 = data.avatar_base64;
+      this.role = data.role;
+      this.lastProfileFetch = Date.now();
     },
-    async fetchUserProfile() {
+    async fetchUserProfile(force = false) {
       try {
         const token = this.accessToken;
         if (!token) {
           console.error('❌ Отсутствует токен доступа');
+          return;
+        }
+
+        const now = Date.now();
+        if (!force && this.lastProfileFetch && (now - this.lastProfileFetch) < this.profileCacheDuration) {
+          console.log('✅ Используем кэшированные данные профиля');
           return;
         }
 
@@ -51,13 +59,15 @@ export const useUserStore = defineStore('user', {
           const refreshStore = useRefreshStore();
           await refreshStore.refreshToken();
 
-          // ✅ Если токен обновился — перезапрашиваем профиль
           if (refreshStore.accessToken) {
             this.setAccessToken(refreshStore.accessToken);
-            await this.fetchUserProfile();
+            await this.fetchUserProfile(true);
           }
         }
       }
+    },
+    async forceFetchProfile() {
+      await this.fetchUserProfile(true);
     },
     async updateAvatar(base64) {
       try {

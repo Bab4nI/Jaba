@@ -1,194 +1,349 @@
 <template>
   <div class="text-element" :class="{ 'read-only': readOnly }">
-    <textarea
-      v-if="!readOnly"
-      v-model="localContent.text"
-      class="text-element-input"
-      placeholder="Введите текст..."
-      @input="emitUpdate"
-    ></textarea>
-    <div v-else class="text-content" v-html="renderedText"></div>
     <div v-if="!readOnly" class="formatting-toolbar">
-      <button @click="insertMarkdown('**', '**')" title="Жирный">B</button>
-      <button @click="insertMarkdown('_', '_')" title="Курсив">I</button>
-      <button @click="insertMarkdown('[', '](url)')" title="Ссылка">🔗</button>
-      <select @change="insertHeader($event.target.value)" title="Заголовок">
-        <option value="">Заголовок</option>
-        <option value="# ">H1</option>
-        <option value="## ">H2</option>
-        <option value="### ">H3</option>
-        <option value="#### ">H4</option>
-        <option value="##### ">H5</option>
-      </select>
+      <button @click="formatText('bold')" title="Жирный">
+        <span class="icon-bold">B</span>
+      </button>
+      <button @click="formatText('italic')" title="Курсив">
+        <span class="icon-italic">I</span>
+      </button>
+      <button @click="formatText('underline')" title="Подчеркнутый">
+        <span class="icon-underline">U</span>
+      </button>
+      <div class="toolbar-divider"></div>
+      <button @click="formatText('justifyLeft')" title="Выровнять по левому краю">
+        <span class="icon-align-left">←</span>
+      </button>
+      <button @click="formatText('justifyCenter')" title="Выровнять по центру">
+        <span class="icon-align-center">↔</span>
+      </button>
+      <button @click="formatText('justifyRight')" title="Выровнять по правому краю">
+        <span class="icon-align-right">→</span>
+      </button>
+      <div class="toolbar-divider"></div>
+      <button @click="formatText('insertOrderedList')" title="Нумерованный список">
+        <span class="icon-ordered-list">1.</span>
+      </button>
+      <button @click="formatText('insertUnorderedList')" title="Маркированный список">
+        <span class="icon-unordered-list">•</span>
+      </button>
     </div>
+    <div
+      ref="editor"
+      class="text-editor"
+      :contenteditable="!readOnly"
+      :class="{ 'read-only': readOnly }"
+      @input="onInput"
+      @keydown="onKeyDown"
+      @paste="onPaste"
+      @mouseup="onSelectionChange"
+      @focus="onFocus"
+      @blur="onBlur"
+    ></div>
   </div>
 </template>
 
-<script setup>
-import { ref, watch, nextTick, computed } from 'vue';
-import { marked } from 'marked';
+<script>
+import { ref, onMounted, watch } from 'vue'
 
-const props = defineProps({
-  content: {
-    type: Object,
-    required: true,
-    default: () => ({ text: '' })
+export default {
+  name: 'TextElement',
+  props: {
+    content: {
+      type: Object,
+      required: true
+    },
+    readOnly: {
+      type: Boolean,
+      default: false
+    }
   },
-  readOnly: {
-    type: Boolean,
-    default: false
+  emits: ['update:content'],
+  setup(props, { emit }) {
+    const editor = ref(null)
+    const isFocused = ref(false)
+
+    const onInput = () => {
+      if (!editor.value) return
+      const html = editor.value.innerHTML
+      emit('update:content', { ...props.content, text: html })
+    }
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault()
+        document.execCommand('insertLineBreak')
+      }
+    }
+
+    const onPaste = (event) => {
+      event.preventDefault()
+      const text = event.clipboardData.getData('text/plain')
+      const html = event.clipboardData.getData('text/html')
+      
+      if (html) {
+        // Если есть HTML, вставляем его
+        const range = window.getSelection().getRangeAt(0)
+        range.deleteContents()
+        const div = document.createElement('div')
+        div.innerHTML = html
+        range.insertNode(div)
+      } else {
+        // Если нет HTML, вставляем как обычный текст
+        document.execCommand('insertText', false, text)
+      }
+    }
+
+    const onSelectionChange = () => {
+      if (!isFocused.value) return
+      const selection = window.getSelection()
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0)
+        const rect = range.getBoundingClientRect()
+        if (rect.top === 0 && rect.left === 0) {
+          // Если курсор в начале строки, восстанавливаем позицию
+          range.setStart(range.startContainer, range.startOffset)
+          range.setEnd(range.endContainer, range.endOffset)
+        }
+      }
+    }
+
+    const onFocus = () => {
+      isFocused.value = true
+    }
+
+    const onBlur = () => {
+      isFocused.value = false
+    }
+
+    const formatText = (command, value = null) => {
+      if (!editor.value) return
+      document.execCommand(command, false, value)
+      editor.value.focus()
+    }
+
+    const insertLink = (url) => {
+      if (!editor.value) return
+      const selection = window.getSelection()
+      if (selection.toString()) {
+        document.execCommand('createLink', false, url)
+      } else {
+        // Если ничего не выделено, вставляем URL как текст
+        document.execCommand('insertText', false, url)
+      }
+      editor.value.focus()
+    }
+
+    watch(() => props.content.text, (newText) => {
+      if (!editor.value) return
+      if (editor.value.innerHTML !== newText) {
+        editor.value.innerHTML = newText || ''
+      }
+    })
+
+    onMounted(() => {
+      if (editor.value) {
+        editor.value.innerHTML = props.content.text || ''
+      }
+    })
+
+    return {
+      editor,
+      onInput,
+      onKeyDown,
+      onPaste,
+      onSelectionChange,
+      onFocus,
+      onBlur,
+      formatText,
+      insertLink
+    }
   }
-});
-
-const emit = defineEmits(['update:content']);
-
-const localContent = ref({ ...props.content });
-
-const renderedText = computed(() => {
-  return marked(localContent.value.text || '');
-});
-
-watch(() => props.content, (newVal) => {
-  localContent.value = { ...newVal };
-}, { deep: true });
-
-const emitUpdate = () => {
-  if (props.readOnly) return;
-  emit('update:content', { ...localContent.value });
-};
-
-const insertMarkdown = (prefix, suffix) => {
-  if (props.readOnly) return;
-  const textarea = document.querySelector('.text-element-input');
-  const start = textarea.selectionStart;
-  const end = textarea.selectionEnd;
-  const selectedText = localContent.value.text.substring(start, end);
-
-  localContent.value.text =
-    localContent.value.text.substring(0, start) +
-    prefix +
-    selectedText +
-    suffix +
-    localContent.value.text.substring(end);
-
-  emitUpdate();
-
-  nextTick(() => {
-    textarea.focus();
-    textarea.setSelectionRange(
-      start + prefix.length,
-      end + prefix.length
-    );
-  });
-};
-
-const insertHeader = (prefix) => {
-  if (!prefix || props.readOnly) return;
-  const textarea = document.querySelector('.text-element-input');
-  const start = textarea.selectionStart;
-  const end = textarea.selectionEnd;
-  const selectedText = localContent.value.text.substring(start, end);
-
-  if (start === end) {
-    localContent.value.text =
-      localContent.value.text.substring(0, start) +
-      prefix +
-      localContent.value.text.substring(end);
-    
-    emitUpdate();
-
-    nextTick(() => {
-      textarea.focus();
-      textarea.setSelectionRange(
-        start + prefix.length,
-        start + prefix.length
-      );
-      textarea.closest('.text-element').querySelector('select').value = '';
-    });
-  } else {
-    localContent.value.text =
-      localContent.value.text.substring(0, start) +
-      prefix +
-      selectedText +
-      localContent.value.text.substring(end);
-
-    emitUpdate();
-
-    nextTick(() => {
-      textarea.focus();
-      textarea.setSelectionRange(
-        start + prefix.length,
-        end + prefix.length
-      );
-      textarea.closest('.text-element').querySelector('select').value = '';
-    });
-  }
-};
+}
 </script>
 
 <style scoped>
 .text-element {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.text-element-input {
   width: 100%;
-  min-height: 150px;
-  padding: 10px;
-  border: none;
-  border-radius: 4px;
-  font-family: inherit;
-  resize: vertical;
-  background: #f8f9fa;
-  outline: none;
-}
-
-.text-content {
-  padding: 10px;
-  color: #2c3e50;
-  line-height: 1.6;
-  border: none;
-}
-
-.read-only .text-content {
-  background: #ffffff;
+  min-height: 100px;
+  background: #f5f9f8;
   border-radius: 8px;
-  /* Убрана тень box-shadow */
+  overflow: hidden;
 }
 
 .formatting-toolbar {
   display: flex;
-  gap: 5px;
+  gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
+  padding: 8px;
+  background: #f5f9f8;
+  border-bottom: 1px solid #e5e7eb;
+  border-radius: 8px 8px 0 0;
 }
 
-.formatting-toolbar button, 
-.formatting-toolbar select {
-  background: #f0f0f0;
-  border: 1px solid #ddd;
-  border-radius: 3px;
-  padding: 3px 8px;
+.formatting-toolbar button {
+  background: #f5f9f8;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 8px 12px;
   cursor: pointer;
-  box-shadow: none; /* Убрана тень у кнопок */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  transition: all 0.2s;
 }
 
-.formatting-toolbar button:hover, 
-.formatting-toolbar select:hover {
-  background: #e0e0e0;
+.formatting-toolbar button:hover {
+  background: #e5e7eb;
 }
 
-.text-content h1 {
-  text-align: center;
-  text-shadow: none; /* Убрана тень у текста */
+.formatting-toolbar button.active {
+  background: #a094b8;
+  color: #f5f9f8;
+  border-color: #a094b8;
 }
-.text-content h2, 
-.text-content h3, 
-.text-content h4, 
-.text-content h5 {
+
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: #e5e7eb;
+  margin: 0 8px;
+}
+
+.icon-bold,
+.icon-italic,
+.icon-underline,
+.icon-align-left,
+.icon-align-center,
+.icon-align-right,
+.icon-ordered-list,
+.icon-unordered-list {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.icon-bold { font-weight: 900; }
+.icon-italic { font-style: italic; }
+.icon-underline { text-decoration: underline; }
+
+.text-editor {
+  width: 100%;
+  min-height: 100px;
+  padding: 16px;
+  font-family: 'Raleway', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #24222f;
+  outline: none;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  background: #f5f9f8;
+  border-radius: 0 0 8px 8px;
+  overflow-x: hidden;
+}
+
+.text-editor:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.text-editor.read-only {
+  background: #f5f9f8;
+  cursor: default;
+}
+
+.text-editor a {
+  color: #575667;
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.text-editor a:hover {
+  color: #24222f;
+}
+
+.text-editor p {
+  margin: 0 0 1em;
+}
+
+.text-editor p:last-child {
+  margin-bottom: 0;
+}
+
+.text-editor ul,
+.text-editor ol {
+  margin: 0 0 1em;
+  padding-left: 2em;
+}
+
+.text-editor li {
+  margin-bottom: 0.5em;
+}
+
+.text-editor li:last-child {
+  margin-bottom: 0;
+}
+
+.text-editor blockquote {
+  margin: 0 0 1em;
+  padding-left: 1em;
+  border-left: 4px solid #a094b8;
+  color: #575667;
+}
+
+.text-editor code {
+  font-family: monospace;
+  background: #e5e7eb;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.text-editor pre {
+  background: #e5e7eb;
+  padding: 1em;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 0 0 1em;
+}
+
+.text-editor pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.text-editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 1em 0;
+}
+
+.text-editor table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+}
+
+.text-editor th,
+.text-editor td {
+  border: 1px solid #e5e7eb;
+  padding: 0.5em;
   text-align: left;
-  margin: 1em 0 0.5em 0;
-  text-shadow: none; /* Убрана тень у текста */
+}
+
+.text-editor th {
+  background: #e5e7eb;
+  font-weight: 600;
+}
+
+.text-editor hr {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 1em 0;
 }
 </style>

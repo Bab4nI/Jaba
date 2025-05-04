@@ -129,7 +129,10 @@ const avatarSrc = computed(() => {
     : new URL('@/assets/images/default-avatar.png', import.meta.url).href;
 });
 
-const fetchUserProfile = () => userStore.fetchUserProfile();
+// Загружаем профиль при монтировании компонента
+onMounted(async () => {
+  await userStore.fetchUserProfile();
+});
 
 const handleAvatarUpload = (event) => {
   const file = event.target.files[0];
@@ -317,10 +320,6 @@ const resendCode = async () => {
     isResending.value = false;
   }
 };
-
-onMounted(() => {
-  fetchUserProfile();
-});
 </script>
 
 <style scoped>
