@@ -26,6 +26,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue';
+import { useThemeStore } from '@/stores/themeStore';
 
 const props = defineProps({
   content: {
@@ -44,6 +45,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['update:content']);
+const themeStore = useThemeStore();
 
 const localContent = ref({ ...props.content });
 const fileInput = ref(null);
@@ -86,16 +88,18 @@ const emitUpdate = () => {
 
 <style scoped>
 .upload-area {
-  border: 2px dashed #ccc;
+  border: 2px dashed var(--border-color);
   border-radius: 5px;
   padding: 30px;
   text-align: center;
   cursor: pointer;
-  transition: background 0.3s;
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+  color: var(--text-color);
+  background: var(--form-background);
 }
 
 .upload-area:hover {
-  background: #f5f5f5;
+  background: var(--hover-background);
 }
 
 .image-preview-container {
@@ -113,6 +117,7 @@ const emitUpdate = () => {
   display: block;
   margin: 0 auto;
   border-radius: 5px;
+  transition: border-radius 0.3s ease, box-shadow 0.3s ease;
 }
 
 .image-controls {
@@ -122,36 +127,43 @@ const emitUpdate = () => {
 }
 
 .replace-btn {
-  background: #4a90e2;
-  color: #fff;
+  background: var(--accent-color);
+  color: var(--footer-text);
   border: none;
   padding: 8px 12px;
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
+  transition: background-color 0.3s ease;
 }
 
 .replace-btn:hover {
-  background: #3a78c2;
+  background: var(--hover-accent);
 }
 
 .remove-btn {
-  background: #ff6b6b;
+  background: var(--error-color);
   color: white;
   border: none;
   padding: 8px 12px;
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
+  transition: background-color 0.3s ease;
 }
 
 .remove-btn:hover {
-  background: #e05555;
+  background: var(--hover-delete);
 }
 
 .read-only .image-preview {
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Additional dark mode specific styling */
+:root.dark-theme .read-only .image-preview {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 </style>
 ```

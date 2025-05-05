@@ -205,9 +205,10 @@ export default {
 .text-element {
   width: 100%;
   min-height: 100px;
-  background: #f5f9f8;
+  background: var(--form-background);
   border-radius: 8px;
   overflow: hidden;
+  transition: background-color 0.3s ease;
 }
 
 .formatting-toolbar {
@@ -216,14 +217,15 @@ export default {
   align-items: center;
   flex-wrap: wrap;
   padding: 8px;
-  background: #f5f9f8;
-  border-bottom: 1px solid #e5e7eb;
+  background: var(--form-background);
+  border-bottom: 1px solid var(--border-color);
   border-radius: 8px 8px 0 0;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .formatting-toolbar button {
-  background: #f5f9f8;
-  border: 1px solid #e5e7eb;
+  background: var(--form-background);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   padding: 8px 12px;
   cursor: pointer;
@@ -233,23 +235,25 @@ export default {
   min-width: 36px;
   height: 36px;
   transition: all 0.2s;
+  color: var(--text-color);
 }
 
 .formatting-toolbar button:hover {
-  background: #e5e7eb;
+  background: var(--button-hover);
 }
 
 .formatting-toolbar button.active {
-  background: #a094b8;
+  background: var(--accent-color);
   color: #f5f9f8;
-  border-color: #a094b8;
+  border-color: var(--accent-color);
 }
 
 .toolbar-divider {
   width: 1px;
   height: 24px;
-  background: #e5e7eb;
+  background: var(--border-color);
   margin: 0 8px;
+  transition: background-color 0.3s ease;
 }
 
 .icon-bold,
@@ -275,14 +279,15 @@ export default {
   font-family: 'Raleway', sans-serif;
   font-size: 16px;
   line-height: 1.6;
-  color: #24222f;
+  color: var(--text-color);
   outline: none;
   white-space: pre-wrap;
   word-wrap: break-word;
-  background: #f5f9f8;
+  background: var(--form-background);
   border-radius: 0 0 8px 8px;
   overflow-x: hidden;
   text-align: left;
+  transition: color 0.3s ease, background-color 0.3s ease;
 }
 
 .text-editor:focus {
@@ -291,18 +296,18 @@ export default {
 }
 
 .text-editor.read-only {
-  background: #f5f9f8;
+  background: var(--form-background);
   cursor: default;
 }
 
 .text-editor a {
-  color: #575667;
+  color: var(--accent-color);
   text-decoration: underline;
   transition: color 0.2s;
 }
 
 .text-editor a:hover {
-  color: #24222f;
+  color: var(--text-color);
 }
 
 .text-editor p {
@@ -326,24 +331,29 @@ export default {
 .text-editor blockquote {
   margin: 0 0 1em;
   padding-left: 1em;
-  border-left: 4px solid #a094b8;
-  color: #575667;
+  border-left: 4px solid var(--accent-color);
+  color: var(--secondary-text);
+  transition: color 0.3s ease, border-color 0.3s ease;
 }
 
 .text-editor code {
   font-family: monospace;
-  background: #e5e7eb;
+  background: var(--code-background);
   padding: 0.2em 0.4em;
   border-radius: 3px;
   font-size: 0.9em;
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .text-editor pre {
-  background: #e5f9f8;
+  background: var(--form-background);
   padding: 1em;
   border-radius: 4px;
   overflow-x: auto;
   margin: 0 0 1em;
+  border: 1px solid var(--border-color);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .text-editor pre code {
@@ -367,19 +377,22 @@ export default {
 
 .text-editor th,
 .text-editor td {
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   padding: 0.5em;
   text-align: left;
+  transition: border-color 0.3s ease;
 }
 
 .text-editor th {
-  background: #e5e7eb;
+  background: var(--table-header);
   font-weight: 600;
+  transition: background-color 0.3s ease;
 }
 
 .text-editor hr {
   border: none;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--border-color);
   margin: 1em 0;
+  transition: border-color 0.3s ease;
 }
 </style>

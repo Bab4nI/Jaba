@@ -6,8 +6,8 @@
         <div class="svg-container">
           <svg viewBox="0 0 24 24" x="0" y="0" fill="none" xmlns="http://www.w3.org/2000/svg">
             <g id="Group 65">
-              <circle id="Ellipse 7" cx="11" cy="9.5" r="8" stroke="#575667" />
-              <line id="Line 12" x1="15.88" y1="15.68" x2="21.88" y2="22.68" stroke="#575667" />
+              <circle id="Ellipse 7" cx="11" cy="9.5" r="8" stroke="currentColor" />
+              <line id="Line 12" x1="15.88" y1="15.68" x2="21.88" y2="22.68" stroke="currentColor" />
             </g>
           </svg>
         </div>
@@ -196,19 +196,101 @@ export default {
       },
     });
 
+    // Create cache helper functions
+    const cache = {
+      // Get data from cache
+      get: (key) => {
+        try {
+          const cachedData = localStorage.getItem(`cache_${key}`);
+          if (!cachedData) return null;
+          
+          const { data, expiry } = JSON.parse(cachedData);
+          
+          // Check if cache has expired
+          if (expiry < Date.now()) {
+            localStorage.removeItem(`cache_${key}`);
+            return null;
+          }
+          
+          return data;
+        } catch (error) {
+          console.error('Error reading from cache:', error);
+          return null;
+        }
+      },
+      
+      // Set data in cache with expiry time (default 5 minutes)
+      set: (key, data, expiryMinutes = 5) => {
+        try {
+          const expiry = Date.now() + (expiryMinutes * 60 * 1000);
+          localStorage.setItem(`cache_${key}`, JSON.stringify({ data, expiry }));
+        } catch (error) {
+          console.error('Error setting cache:', error);
+        }
+      },
+      
+      // Remove item from cache
+      remove: (key) => {
+        try {
+          localStorage.removeItem(`cache_${key}`);
+        } catch (error) {
+          console.error('Error removing from cache:', error);
+        }
+      },
+      
+      // Clear entire cache
+      clear: () => {
+        try {
+          Object.keys(localStorage)
+            .filter(key => key.startsWith('cache_'))
+            .forEach(key => localStorage.removeItem(key));
+        } catch (error) {
+          console.error('Error clearing cache:', error);
+        }
+      }
+    };
+
     api.interceptors.request.use(
       (config) => {
         const token = authStore.accessToken || localStorage.getItem('access_token');
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
+        
+        // Check cache for GET requests
+        if (config.method?.toLowerCase() === 'get' && !config.skipCache) {
+          const cacheKey = `${config.url}_${JSON.stringify(config.params || {})}`;
+          const cachedData = cache.get(cacheKey);
+          
+          if (cachedData) {
+            // Return a dummy promise that resolves with cached data
+            config.adapter = () => {
+              return Promise.resolve({
+                data: cachedData,
+                status: 200,
+                statusText: 'OK',
+                headers: {},
+                config,
+                request: {}
+              });
+            };
+          }
+        }
+        
         return config;
       },
       (error) => Promise.reject(error)
     );
 
     api.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        // Cache successful GET responses
+        if (response.config.method?.toLowerCase() === 'get' && !response.config.skipCache) {
+          const cacheKey = `${response.config.url}_${JSON.stringify(response.config.params || {})}`;
+          cache.set(cacheKey, response.data);
+        }
+        return response;
+      },
       async (error) => {
         const originalRequest = error.config;
         if (error.response?.status === 401 && !originalRequest._retry) {
@@ -232,6 +314,7 @@ export default {
       router,
       api,
       authStore,
+      cache
     };
   },
 
@@ -360,6 +443,9 @@ export default {
           },
         });
 
+        // Invalidate courses cache after creating a new course
+        this.cache.remove('cache_/courses/_{}');
+        
         this.courses.push(response.data);
         this.showCreateCourseModal = false;
         this.resetNewCourseForm();
@@ -445,6 +531,11 @@ export default {
           },
         });
 
+        // Invalidate course cache after updating
+        this.cache.remove(`cache_/courses/${this.editCourseForm.slug}/_{}`)
+        // Also invalidate courses list
+        this.cache.remove('cache_/courses/_{}');
+
         const index = this.courses.findIndex(course => course.slug === this.editCourseForm.slug);
         if (index !== -1) {
           this.courses[index] = response.data;
@@ -475,6 +566,12 @@ export default {
     async deleteCourse(course) {
       try {
         await this.api.delete(`/courses/${course.slug}/`);
+        
+        // Invalidate cache after deleting
+        this.cache.remove(`cache_/courses/${course.slug}/_{}`)
+        // Also invalidate courses list
+        this.cache.remove('cache_/courses/_{}');
+        
         this.courses = this.courses.filter(c => c.slug !== course.slug);
         this.showEditCourseModal = false;
         this.resetEditCourseForm();
@@ -530,232 +627,210 @@ export default {
 
 <style scoped>
 .course-editor-container {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  width: 1480px;
-  max-width: 1480px;
+  width: 100%;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 50px 20px 100px;
-  font-family: 'Raleway', sans-serif;
-  overflow-x: hidden;
+  padding: 20px;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Поиск */
 .search-section {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  margin-bottom: 40px;
+  gap: 15px;
 }
 
 .search-container {
+  flex: 1;
+  position: relative;
   display: flex;
   align-items: center;
-  flex-grow: 1;
-  height: 44px;
+  background-color: var(--form-background);
+  border-radius: 10px;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
   padding: 0 15px;
-  background: #f5f9f8;
-  border: 1px solid #c5c8cc;
-  border-radius: 20px;
+  transition: background-color 0.3s ease;
 }
 
 .svg-container {
-  display: flex;
-  flex: 0 0 auto;
   width: 24px;
   height: 24px;
   margin-right: 10px;
-}
-
-.svg-container svg {
-  width: 100%;
-  height: 100%;
+  color: var(--secondary-text);
 }
 
 .search-input {
   flex: 1;
-  background: transparent;
   border: none;
-  outline: none;
+  background: transparent;
+  padding: 15px 0;
   font: 400 16px Raleway, sans-serif;
-  color: #24222f;
+  color: var(--text-color);
+  width: 100%;
+  outline: none;
+  transition: color 0.3s ease;
+}
+
+.search-input::placeholder {
+  color: var(--secondary-text);
 }
 
 .search-button {
   display: block;
-  width: 111px;
+  width: 137px;
   height: 44px;
   font: 400 16px Raleway, sans-serif;
-  color: #f5f9f8;
+  color: var(--footer-text);
   cursor: pointer;
-  background: #a094b8;
+  background: var(--accent-color);
   border: none;
-  border-radius: 20px;
+  border-radius: 10px;
+  transition: background-color 0.3s ease;
 }
 
 .search-button:hover {
-  background: #8c84a8;
+  background: var(--hover-accent);
 }
 
 /* Список курсов */
 .courses-list {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  width: 100%;
-  margin-top: 20px;
+  margin-top: 40px;
 }
 
 .course-item {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 20px 28px;
-  margin: 20px;
-  background: #ebefef;
+  margin-bottom: 20px;
+  padding: 20px;
+  background-color: var(--form-background);
   border-radius: 20px;
-  box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
-  transition: background 0.3s;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, background-color 0.3s ease;
 }
 
 .course-item:hover {
-  background: #dde3e2;
+  transform: translateY(-5px);
 }
 
 .course-info {
   display: flex;
-  align-items: center;
   gap: 20px;
-  flex-grow: 1;
+  flex: 1;
+}
+
+.course-image {
+  width: 100px;
+  height: 100px;
+  border-radius: 10px;
+  overflow: hidden;
 }
 
 .course-image img {
-  width: 80px;
-  height: 80px;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  border-radius: 10px;
-  border: 1px solid #c5c8cc;
 }
 
 .course-details {
-  flex-grow: 1;
+  flex: 1;
 }
 
 .course-title {
-  font: 400 20px Raleway, sans-serif;
-  color: #24222f;
+  display: block;
+  margin-bottom: 5px;
+  font: 600 18px Raleway, sans-serif;
+  color: var(--text-color);
   text-decoration: none;
+  transition: color 0.3s ease;
 }
 
 .course-title:hover {
-  text-decoration: underline;
+  color: var(--accent-color);
 }
 
 .course-meta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 7px;
-}
-
-.course-meta span {
-  font: 400 12px Raleway, sans-serif;
-  color: #a094b8;
-  background: #f5f9f8;
-  padding: 2px 10px;
-  border-radius: 12px;
+  margin-bottom: 10px;
+  font: 400 14px Raleway, sans-serif;
+  color: var(--secondary-text);
+  transition: color 0.3s ease;
 }
 
 .course-description {
-  font: 300 14px Raleway, sans-serif;
-  color: #575667;
-  margin-top: 10px;
-  max-height: 60px;
+  font: 400 14px Raleway, sans-serif;
+  color: var(--secondary-text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  transition: color 0.3s ease;
 }
 
 .course-actions {
   display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   gap: 10px;
 }
 
-.edit-btn {
-  display: block;
-  width: 137px;
-  height: 44px;
-  font: 400 16px Raleway, sans-serif;
-  color: #24222f;
+.edit-btn, .continue-btn {
+  padding: 8px 15px;
+  font: 400 14px Raleway, sans-serif;
+  color: var(--footer-text);
   cursor: pointer;
-  background: #cff6c3;
+  background: var(--accent-color);
   border: none;
   border-radius: 10px;
+  transition: background-color 0.3s ease;
 }
 
-.edit-btn:hover {
-  background: #b8e0a8;
+.edit-btn:hover, .continue-btn:hover {
+  background: var(--hover-accent);
 }
 
 .delete-btn {
-  display: block;
-  width: 100px;
-  height: 44px;
-  font: 400 16px Raleway, sans-serif;
-  color: #fff;
+  padding: 8px 15px;
+  font: 400 14px Raleway, sans-serif;
+  color: white;
   cursor: pointer;
-  background: #ff6b6b;
+  background: var(--error-color);
   border: none;
   border-radius: 10px;
+  transition: background-color 0.3s ease;
 }
 
 .delete-btn:hover {
-  background: #e55a5a;
-}
-
-.continue-btn {
-  display: block;
-  width: 137px;
-  height: 44px;
-  font: 400 16px Raleway, sans-serif;
-  color: #f5f9f8;
-  cursor: pointer;
-  background: #a094b8;
-  border: none;
-  border-radius: 10px;
-}
-
-.continue-btn:hover {
-  background: #8c84a8;
+  background: var(--hover-delete);
 }
 
 .no-courses {
   text-align: center;
-  font: 400 16px Raleway, sans-serif;
-  color: #575667;
-  padding: 20px;
-  background: #f5f9f8;
+  padding: 40px;
+  font: 400 18px Raleway, sans-serif;
+  color: var(--secondary-text);
+  background-color: var(--form-background);
   border-radius: 20px;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* Кнопка создания курса */
 .create-course-btn {
   display: block;
   width: 200px;
   height: 44px;
   font: 400 16px Raleway, sans-serif;
-  color: #f5f9f8;
+  color: var(--footer-text);
   cursor: pointer;
-  background: #a094b8;
+  background: var(--accent-color);
   border: none;
   border-radius: 20px;
   margin-top: 40px;
+  transition: background-color 0.3s ease;
 }
 
 .create-course-btn:hover {
-  background: #8c84a8;
+  background: var(--hover-accent);
 }
 
 /* Модальное окно */
@@ -765,15 +840,17 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--modal-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  transition: background-color 0.3s ease;
 }
 
 .modal-content {
-  background: #fff;
+  background-color: var(--form-background);
+  color: var(--text-color);
   padding: 25px;
   border-radius: 10px;
   width: 600px;
@@ -781,12 +858,13 @@ export default {
   max-height: 80vh;
   overflow-y: auto;
   box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.25);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .modal-content h3 {
   margin: 0 0 20px;
   font: 400 20px Raleway, sans-serif;
-  color: #24222f;
+  color: var(--text-color);
 }
 
 .form-group {
@@ -797,23 +875,30 @@ export default {
   display: block;
   margin-bottom: 5px;
   font: 500 14px Raleway, sans-serif;
-  color: #575667;
+  color: var(--text-color);
+  transition: color 0.3s ease;
 }
 
 .form-control {
   width: 100%;
   padding: 10px;
-  border: 1px solid #c5c8cc;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   font: 400 14px Raleway, sans-serif;
-  color: #24222f;
+  color: var(--text-color);
   box-sizing: border-box;
+  background-color: var(--background-color);
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 .form-control:focus {
   outline: none;
-  border-color: #a094b8;
+  border-color: var(--accent-color);
   box-shadow: 0 0 5px rgba(160, 148, 184, 0.2);
+}
+
+.form-control::placeholder {
+  color: var(--secondary-text);
 }
 
 .fixed-textarea {
@@ -839,15 +924,16 @@ export default {
   width: 137px;
   height: 44px;
   font: 400 16px Raleway, sans-serif;
-  color: #24222f;
+  color: var(--text-color);
   cursor: pointer;
-  background: #cff6c3;
+  background: var(--accent-color);
   border: none;
   border-radius: 10px;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .save-btn:hover {
-  background: #b8e0a8;
+  background: var(--hover-accent);
 }
 
 .cancel-btn {
@@ -855,15 +941,16 @@ export default {
   width: 100px;
   height: 44px;
   font: 400 16px Raleway, sans-serif;
-  color: #fff;
+  color: var(--footer-text);
   cursor: pointer;
-  background: #ff6b6b;
+  background: var(--error-color);
   border: none;
   border-radius: 10px;
+  transition: background-color 0.3s ease;
 }
 
 .cancel-btn:hover {
-  background: #e55a5a;
+  background: var(--hover-delete);
 }
 
 /* Стили для загрузки изображений */
@@ -875,14 +962,16 @@ export default {
   display: inline-block;
   padding: 8px 16px;
   font: 400 14px Raleway, sans-serif;
-  color: #f5f9f8;
-  background: #a094b8;
+  color: var(--text-color);
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   cursor: pointer;
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 .image-upload-label:hover {
-  background: #8c84a8;
+  background-color: var(--hover-background);
 }
 
 .image-upload-input {
@@ -927,9 +1016,10 @@ export default {
   text-align: center;
   padding: 20px;
   font: 400 16px Raleway, sans-serif;
-  color: #575667;
-  background: #f5f9f8;
+  color: var(--secondary-text);
+  background: var(--form-background);
   border-radius: 20px;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 </style>
 ```

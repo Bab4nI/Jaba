@@ -24,6 +24,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue';
+import { useThemeStore } from '@/stores/themeStore';
 
 const props = defineProps({
   content: {
@@ -42,6 +43,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['update:content']);
+const themeStore = useThemeStore();
 
 const localContent = ref({ ...props.content });
 const fileInput = ref(null);
@@ -115,18 +117,18 @@ const emitUpdate = () => {
 }
 
 .file-upload-area {
-  border: none;
-  background: #f8f9fa;
+  border: 1px solid var(--border-color);
+  background: var(--form-background);
   border-radius: 5px;
   padding: 30px;
   text-align: center;
   cursor: pointer;
-  transition: background 0.3s;
-  color: #2c3e50;
+  transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+  color: var(--text-color);
 }
 
 .file-upload-area:hover {
-  background: #e9ecef;
+  background: var(--hover-background);
 }
 
 .file-preview-container {
@@ -140,8 +142,10 @@ const emitUpdate = () => {
   align-items: center;
   gap: 10px;
   padding: 10px;
-  background: #f5f5f5;
+  background: var(--form-background);
   border-radius: 5px;
+  border: 1px solid var(--border-color);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .read-only .file-info {
@@ -157,26 +161,39 @@ const emitUpdate = () => {
 .file-name {
   font-weight: normal;
   flex-grow: 1;
-  color: #2c3e50;
+  color: var(--text-color);
+  transition: color 0.3s ease;
 }
 
 .file-size {
-  color: #666;
+  color: var(--secondary-text);
   font-size: 0.9em;
+  transition: color 0.3s ease;
 }
 
 .download-btn {
   background: none;
   border: none;
-  padding: 0;
+  padding: 5px;
   cursor: pointer;
   line-height: 1;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+.download-btn:hover {
+  background-color: var(--hover-background);
 }
 
 .download-icon {
   width: 20px;
   height: 20px;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s ease, filter 0.3s ease;
+}
+
+/* Apply a filter for the download icon in dark mode */
+:root.dark-theme .download-icon {
+  filter: invert(1);
 }
 
 .download-btn:hover .download-icon {

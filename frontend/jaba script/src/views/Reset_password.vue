@@ -36,7 +36,7 @@
                 </p>
               </div>
             </div>
-            <img src="@/assets/images/login_day2.jpg" class="hero-image-container" />
+            <img :src="isDarkTheme ? loginNightImage : loginDayImage" class="hero-image-container" />
           </div>
         </div>
       </div>
@@ -45,15 +45,22 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
+import loginDayImage from '@/assets/images/login_day2.jpg';
+import loginNightImage from '@/assets/images/login_night2.jpg';
 
 const email = ref('');
 const errorMessage = ref('');
 const successMessage = ref('');
 const loading = ref(false);
 const router = useRouter();
+
+// Определение текущей темы
+const isDarkTheme = computed(() => {
+  return document.documentElement.classList.contains('dark-theme');
+});
 
 const sendResetLink = async () => {
   errorMessage.value = '';
@@ -89,13 +96,12 @@ const sendResetLink = async () => {
 </script>
 
 <style scoped>
-/* Ваши существующие стили */
 .primary-text-content-style {
     flex: 0 0 auto;
     padding: 0;
     margin: 0;
     font: 400 20px Raleway, sans-serif;
-    color: #24222f;
+    color: var(--text-color);
 }
 .primary-text-content-style:hover {
     text-decoration: underline;
@@ -109,7 +115,7 @@ const sendResetLink = async () => {
   align-items: stretch;
   justify-content: flex-start;
   min-width: 1480px;
-  background: #f5f9f8;
+  background: var(--background-color);
 }
 .center-aligned-flex-container {
   box-sizing: border-box;
@@ -129,14 +135,14 @@ const sendResetLink = async () => {
   align-items: flex-end;
   justify-content: space-between;
   padding: 30px 29px 40px 99px;
-  background: #f5f9f8;
+  background: var(--background-color);
 }
 .main-title-text-style {
   flex: 0 0 auto;
   padding: 0;
   margin: 0;
   font: 400 36px Helvetica;
-  color: #24222f;
+  color: var(--text-color);
 }
 .horizontal-flex-container {
   display: flex;
@@ -158,14 +164,14 @@ const sendResetLink = async () => {
   padding: 0;
   margin: 0;
   font: 400 20px Raleway, sans-serif;
-  color: #24222f;
+  color: var(--text-color);
 }
 .vertical-divider {
   box-sizing: border-box;
   flex: 0 0 auto;
   width: 1px;
   height: 29px;
-  border-left: 1px solid #24222f;
+  border-left: 1px solid var(--text-color);
 }
 .vertical-menu-container {
   box-sizing: border-box;
@@ -183,7 +189,7 @@ const sendResetLink = async () => {
   padding: 0;
   margin: 0;
   font: 400 20px Raleway, sans-serif;
-  color: #24222f;
+  color: var(--text-color);
 }
 .main-navigation-icon {
   box-sizing: border-box;
@@ -218,7 +224,7 @@ const sendResetLink = async () => {
   justify-content: space-between;
   width: 100%;
   padding: 29px 30px 30px 62px;
-  background: #ebefef;
+  background: var(--form-background);
   border-radius: 35px;
 }
 .login-container {
@@ -237,14 +243,14 @@ const sendResetLink = async () => {
   padding: 0;
   margin: 0;
   font: 700 32px Raleway, sans-serif;
-  color: #24222f;
+  color: var(--text-color);
 }
 .welcome-message1 {
   padding: 0;
   margin: 0;
   margin-top: 11px;
   font: 300 16px Raleway, sans-serif;
-  color: black;
+  color: var(--secondary-text);
 }
 .login-form-container {
   display: flex;
@@ -252,90 +258,105 @@ const sendResetLink = async () => {
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
-  margin-top: 80px;
+  margin-top: 29px;
 }
 .fullwidth-container {
   box-sizing: border-box;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   width: 100%;
 }
 .input-container {
   box-sizing: border-box;
   display: flex;
+  flex: 0 0 auto;
   flex-direction: row;
   align-items: center;
-  justify-content: start;
-  width: 100%;
-  height: 44px;
-  padding-left: 21px;
-  font: 100 20px Raleway, sans-serif;
-  color: black;
-  background: #f5f9f8;
-  border: none;
-  border-radius: 20px;
+  justify-content: flex-start;
+  padding: 15px 19px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
 }
 .transparent-input {
-  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-width: 0;
   width: 100%;
-  font: 100 20px Raleway, sans-serif;
-  background: transparent;
+  min-height: 26px;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  font: 400 16px Raleway, sans-serif;
+  color: var(--text-color);
+  background-color: transparent;
   border: none;
   outline: none;
 }
-.input-style-571bd002::placeholder {
-  color: black;
+.transparent-input::placeholder {
+  color: var(--secondary-text);
+  opacity: 0.7;
 }
 .login-button {
   box-sizing: border-box;
-  display: block;
+  display: flex;
   flex: 0 0 auto;
-  align-self: center;
-  width: 286px;
-  min-width: 286px;
-  height: 51px;
-  margin-top: 36px;
-  font: 400 20px Raleway, sans-serif;
-  color: #f5f9f8;
-  cursor: pointer;
-  background: #a094b8;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  height: 56px;
+  margin-top: 20px;
+  padding: 15px 19px;
+  font: 500 16px Raleway, sans-serif;
+  color: var(--footer-text);
+  background: var(--accent-color);
   border: none;
-  border-radius: 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
 }
 .login-button:hover {
-  background: #7c54ca;
-  transition: 0.5s ease;
+  background: var(--hover-accent);
+}
+.login-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 .hero-image-container {
   box-sizing: border-box;
-  display: block;
-  width: 407px;
+  flex: 0 0 auto;
+  width: 600px;
   max-width: initial;
-  height: 723px;
+  height: 488px;
   border: none;
   border-radius: 35px;
   object-fit: cover;
 }
+.success-message {
+  color: #10b981; /* green */
+  font-size: 14px;
+  margin-top: 10px;
+  text-align: center;
+}
+.error-message {
+  color: var(--error-color);
+  font-size: 14px;
+  margin-top: 10px;
+  text-align: center;
+}
 .back-to-login {
   text-align: center;
   margin-top: 20px;
-  font: 300 16px Raleway, sans-serif;
+  font: 300 14px Raleway, sans-serif;
+  color: var(--text-color);
 }
 .back-to-login a {
-  color: #a094b8;
-  text-decoration: underline;
+  color: var(--accent-color);
+  text-decoration: none;
 }
 .back-to-login a:hover {
-  color: #7c54ca;
-}
-.error-message {
-  color: #ff5252;
-  font: 300 16px Raleway, sans-serif;
-  margin-top: 15px;
-  text-align: center;
-}
-.success-message {
-  color: #4caf50;
-  font: 300 16px Raleway, sans-serif;
-  margin-top: 15px;
-  text-align: center;
+  text-decoration: underline;
 }
 </style>

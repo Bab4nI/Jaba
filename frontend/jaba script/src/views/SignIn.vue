@@ -41,7 +41,7 @@
                 <button class="login-button" @click="validateForm">Войти</button>
               </div>
             </div>
-            <img src="@/assets/images/login_day2.jpg" class="hero-image-container" />
+            <img :src="isDarkTheme ? loginNightImage : loginDayImage" class="hero-image-container" />
           </div>
         </div>
       </div>
@@ -54,18 +54,27 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
+import { useRefreshStore } from '@/stores/auth';
 
 // Иконки для пароля
 import eyeOpen from '@/assets/images/psswd_open.png';
 import eyeClosed from '@/assets/images/psswd_close.png';
+import loginDayImage from '@/assets/images/login_day2.jpg';
+import loginNightImage from '@/assets/images/login_night2.jpg';
 
 // Состояния
 const route = useRoute();
 const router = useRouter();
+const refreshStore = useRefreshStore();
 const isPasswordVisible = ref(false);
 const form = ref({
   email: '',
   password: '',
+});
+
+// Определение текущей темы
+const isDarkTheme = computed(() => {
+  return document.documentElement.classList.contains('dark-theme');
 });
 
 // Заполнение полей из query параметров
@@ -117,20 +126,60 @@ const checkAuth = () => {
 // Логин с JWT
 const login = async () => {
   try {
-    const response = await axios.post('http://localhost:8000/api/token/', {
-      email: form.value.email,
-      password: form.value.password,
-      timestamp: Date.now(),
-    });
+    console.log('Отправляем запрос на авторизацию...');
+    const response = await axios.post('http://localhost:8000/api/token/', 
+      {
+        email: form.value.email,
+        password: form.value.password,
+        timestamp: Date.now(),
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
 
-    // Сохраняем токены в localStorage
-    localStorage.setItem('access_token', response.data.access);
-    localStorage.setItem('refresh_token', response.data.refresh);
+    // Проверяем ответ сервера
+    if (!response.data) {
+      console.error('Ошибка при входе: ответ сервера пустой');
+      alert('Сервер вернул пустой ответ. Попробуйте позже.');
+      return;
+    }
+
+    if (!response.data.access || !response.data.refresh) {
+      console.error('Ошибка при входе: ответ сервера не содержит токены', response.data);
+      alert('Сервер вернул неполный ответ. Попробуйте позже.');
+      return;
+    }
+
+    // Сохраняем токены через refreshStore
+    console.log('Получены токены, сохраняем...');
+    console.log(`Access token: ${response.data.access.substring(0, 15)}...`);
+    console.log(`Refresh token: ${response.data.refresh.substring(0, 15)}...`);
+    
+    // Убедимся, что токены имеют правильный формат
+    if (typeof response.data.access !== 'string' || typeof response.data.refresh !== 'string') {
+      console.error('Ошибка при входе: токены имеют неверный формат');
+      alert('Получены токены в неверном формате. Попробуйте позже.');
+      return;
+    }
+
+    refreshStore.setAccessToken(response.data.access);
+    refreshStore.setRefreshToken(response.data.refresh);
+
+    // Инициализируем токены в refreshStore
+    await refreshStore.ready();
 
     // Перенаправление на страницу профиля
+    console.log('Авторизация успешна, перенаправляем на профиль');
     window.location.href = 'http://localhost:5173/profile';
   } catch (error) {
     console.error('Ошибка при входе:', error);
+    if (error.response) {
+      console.log('Статус ответа:', error.response.status);
+      console.log('Данные ответа:', error.response.data);
+    }
     alert('Неверный email или пароль');
   }
 };
@@ -143,7 +192,7 @@ const login = async () => {
     padding: 0;
     margin: 0;
     font: 400 20px Raleway, sans-serif;
-    color: #24222f;
+    color: var(--text-color);
 }
 .primary-text-content-style:hover {
     text-decoration: underline;
@@ -157,7 +206,7 @@ const login = async () => {
   align-items: stretch;
   justify-content: flex-start;
   min-width: 1480px;
-  background: #f5f9f8;
+  background: var(--background-color);
 }
 .center-aligned-flex-container {
   box-sizing: border-box;
@@ -177,14 +226,14 @@ const login = async () => {
   align-items: flex-end;
   justify-content: space-between;
   padding: 30px 29px 40px 99px;
-  background: #f5f9f8;
+  background: var(--background-color);
 }
 .main-title-text-style {
   flex: 0 0 auto;
   padding: 0;
   margin: 0;
   font: 400 36px Helvetica;
-  color: #24222f;
+  color: var(--text-color);
 }
 .horizontal-flex-container {
   display: flex;
@@ -206,14 +255,14 @@ const login = async () => {
   padding: 0;
   margin: 0;
   font: 400 20px Raleway, sans-serif;
-  color: #24222f;
+  color: var(--text-color);
 }
 .vertical-divider {
   box-sizing: border-box;
   flex: 0 0 auto;
   width: 1px;
   height: 29px;
-  border-left: 1px solid #24222f;
+  border-left: 1px solid var(--text-color);
 }
 .vertical-menu-container {
   box-sizing: border-box;
@@ -231,7 +280,7 @@ const login = async () => {
   padding: 0;
   margin: 0;
   font: 400 20px Raleway, sans-serif;
-  color: #24222f;
+  color: var(--text-color);
 }
 .main-navigation-icon {
   box-sizing: border-box;
@@ -266,7 +315,7 @@ const login = async () => {
   justify-content: space-between;
   width: 100%;
   padding: 29px 30px 30px 62px;
-  background: #ebefef;
+  background: var(--form-background);
   border-radius: 35px;
 }
 .login-container {
@@ -285,14 +334,14 @@ const login = async () => {
   padding: 0;
   margin: 0;
   font: 700 32px Raleway, sans-serif;
-  color: #24222f;
+  color: var(--text-color);
 }
 .welcome-message1 {
   padding: 0;
   margin: 0;
   margin-top: 11px;
   font: 300 16px Raleway, sans-serif;
-  color: black;
+  color: var(--secondary-text);
 }
 .login-form-container {
   display: flex;
@@ -300,112 +349,141 @@ const login = async () => {
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
-  margin-top: 80px;
+  margin-top: 29px;
 }
 .fullwidth-container {
   box-sizing: border-box;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   width: 100%;
 }
 .input-container {
   box-sizing: border-box;
   display: flex;
+  flex: 0 0 auto;
   flex-direction: row;
   align-items: center;
-  justify-content: start;
-  width: 100%;
-  height: 44px;
-  padding-left: 21px;
-  font: 100 20px Raleway, sans-serif;
-  color: black;
-  background: #f5f9f8;
-  border: none;
-  border-radius: 20px;
-}
-.transparent-input {
-  box-sizing: border-box;
-  width: 100%;
-  font: 100 20px Raleway, sans-serif;
+  justify-content: flex-start;
+  padding: 15px 19px;
   background: transparent;
-  border: none;
-  outline: none;
-}
-.input-style-571bd002::placeholder {
-  color: black;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
 }
 .password-prompt-container {
   box-sizing: border-box;
-  width: 100%;
-  margin-top: 27px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  margin-top: 20px;
 }
 .password-input-container {
   box-sizing: border-box;
   display: flex;
+  flex: 0 0 auto;
   flex-direction: row;
-  gap: 8px;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
-  height: 44px;
-  padding-right: 13px;
-  padding-left: 21px;
-  background: #f5f9f8;
-  border-radius: 20px;
+  padding: 15px 19px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
 }
-.password-input-label {
-  flex: 0 0 auto;
+.transparent-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  min-height: 26px;
+  height: 100%;
   padding: 0;
   margin: 0;
-  font: 100 20px Raleway, sans-serif;
-  color: black;
+  font: 400 16px Raleway, sans-serif;
+  color: var(--text-color);
+  background-color: transparent;
+  border: none;
+  outline: none;
+}
+.transparent-input::placeholder {
+  color: var(--secondary-text);
+  opacity: 0.7;
 }
 .password-input-icon {
   box-sizing: border-box;
-  display: block;
-  cursor: pointer;
+  flex: 0 0 auto;
   width: 24px;
   max-width: initial;
   height: 24px;
+  margin-left: 12px;
   border: none;
   object-fit: cover;
+  cursor: pointer;
 }
 .forgot-password-link {
-  padding: 0;
-  padding-right: 22px;
-  padding-left: 22px;
-  margin: 0;
-  margin-top: 19px;
-  font: 300 16px Raleway, sans-serif;
-  color: #a094b8;
-  text-decoration-line: underline;
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 8px;
+  margin-right: 8px;
+  font: 300 14px Raleway, sans-serif;
+  color: var(--text-color);
+}
+.forgot-password-link a {
+  color: var(--accent-color);
+  text-decoration: none;
+}
+.forgot-password-link a:hover {
+  text-decoration: underline;
 }
 .login-button {
   box-sizing: border-box;
-  display: block;
+  display: flex;
   flex: 0 0 auto;
-  align-self: center;
-  width: 286px;
-  min-width: 286px;
-  height: 51px;
-  margin-top: 36px;
-  font: 400 20px Raleway, sans-serif;
-  color: #f5f9f8;
-  cursor: pointer;
-  background: #a094b8;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  height: 56px;
+  margin-top: 20px;
+  margin-bottom: 30px;
+  padding: 15px 19px;
+  font: 500 16px Raleway, sans-serif;
+  color: var(--footer-text);
+  background: var(--accent-color);
   border: none;
-  border-radius: 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
 }
 .login-button:hover {
-  background: #7c54ca;
-  transition: 0.5s ease;
+  background: var(--hover-accent);
 }
 .hero-image-container {
   box-sizing: border-box;
-  display: block;
-  width: 407px;
+  flex: 0 0 auto;
+  width: 600px;
   max-width: initial;
-  height: 723px;
+  height: 488px;
   border: none;
   border-radius: 35px;
   object-fit: cover;
+}
+
+.success-message {
+  color: #10b981; /* green */
+  font-size: 14px;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.error-message {
+  color: var(--error-color);
+  font-size: 14px;
+  margin-top: 10px;
+  text-align: center;
 }
 </style>

@@ -10,12 +10,14 @@
     </div>
     <div v-if="localContent.video_url" class="video-preview-container">
       <div class="video-embed" v-html="embedCode"></div>
+      <button v-if="!readOnly" @click="removeVideo" class="remove-video-btn">Удалить видео</button>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue';
+import { useThemeStore } from '@/stores/themeStore';
 
 const props = defineProps({
   content: {
@@ -30,6 +32,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['update:content']);
+const themeStore = useThemeStore();
 
 const localContent = ref({ ...props.content });
 const videoUrl = ref('');
@@ -88,7 +91,7 @@ const emitUpdate = () => {
 <style scoped>
 .video-element {
   width: 100%;
-  max-width: 800px; /* Limit max width for larger screens */
+  max-width: 800px;
   margin: 0 auto;
 }
 
@@ -96,31 +99,45 @@ const emitUpdate = () => {
   display: flex;
   gap: 10px;
   width: 100%;
-  flex-wrap: wrap; /* Allow wrapping on smaller screens */
+  flex-wrap: wrap;
 }
 
 .video-url-input {
   flex-grow: 1;
   padding: 8px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   font-size: 16px;
-  min-width: 200px; /* Ensure input doesn't shrink too much */
+  min-width: 200px;
+  background-color: var(--form-background);
+  color: var(--text-color);
+  transition: border-color 0.3s ease, background-color 0.3s ease, color 0.3s ease;
+}
+
+.video-url-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
 }
 
 .add-video-btn {
-  background: #4CAF50;
-  color: white;
+  background: var(--accent-color);
+  color: var(--footer-text);
   border: none;
   padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
   font-size: 16px;
-  white-space: nowrap; /* Prevent button text from wrapping */
+  white-space: nowrap;
+  transition: background-color 0.3s ease;
+}
+
+.add-video-btn:hover:not(:disabled) {
+  background: var(--hover-accent);
 }
 
 .add-video-btn:disabled {
-  background: #ccc;
+  background: var(--secondary-text);
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -134,9 +151,11 @@ const emitUpdate = () => {
 .video-embed {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9; /* Maintain 16:9 aspect ratio */
+  aspect-ratio: 16 / 9;
   overflow: hidden;
   border-radius: 8px;
+  background-color: var(--background-color);
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .video-embed iframe {
@@ -149,11 +168,11 @@ const emitUpdate = () => {
 }
 
 .read-only .video-embed {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .remove-video-btn {
-  background: #ff6b6b;
+  background: var(--error-color);
   color: white;
   border: none;
   padding: 8px 12px;
@@ -161,6 +180,16 @@ const emitUpdate = () => {
   cursor: pointer;
   align-self: flex-start;
   font-size: 16px;
+  transition: background-color 0.3s ease;
+}
+
+.remove-video-btn:hover {
+  background: var(--hover-delete);
+}
+
+/* Dark theme specific adjustments */
+:root.dark-theme .read-only .video-embed {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 /* Responsive adjustments */
@@ -176,7 +205,7 @@ const emitUpdate = () => {
   }
 
   .video-element {
-    padding: 0 10px; /* Add some padding on smaller screens */
+    padding: 0 10px;
   }
 }
 </style>

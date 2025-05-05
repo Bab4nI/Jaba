@@ -27,8 +27,8 @@
           v-for="(form, formIndex) in customForms" 
           :key="'form-'+formIndex" 
           class="custom-form-container"
-          :class="{ 'active-form': activeFormIndex === formIndex }"
-          @click="selectForm(formIndex, $event)"
+          :class="{ 'active-form': activeFormIndex === formIndex && mode === 'edit' }"
+          @click="mode === 'edit' ? selectForm(formIndex, $event) : null"
         >
           <div class="form-header">
             <input 
@@ -62,7 +62,7 @@
               @remove="removeFormContent(formIndex, elementIndex)"
             />
           </div>
-          <div v-else class="preview-content" @click.stop="activeFormIndex = formIndex">
+          <div v-else class="preview-content">
             <ContentBlock
               v-for="(element, elementIndex) in form.contents"
               :key="element.id || elementIndex"
@@ -119,33 +119,7 @@
     </div>
 
     <div class="dark-purple-flex-container">
-      <div class="team-contacts-section1">
-        <div class="team-contacts-section">
-          <div class="team-contact-info-container">
-            <p class="team-contacts-heading">Контакты команды</p>
-            <p class="team-contact-info-display-style">
-              <span class="contact-info-style">Email: jabascript</span>
-              <a href="mailto:team@example.com" class="contact-info-link">@sfedu.com</a>
-              <span class="line-break-separator"><br /></span>
-              <span class="contact-info-style">Телефон: </span>
-              <a href="tel:+1234567890" class="contact-info-link">+7-(938)-100-16-77</a>
-              <span class="line-break-separator"><br /></span>
-              <span class="contact-info-style">Адрес: пер. Некрасовский, 44, г. Таганрог</span>
-            </p>
-          </div>
-          <div class="partner-section1">
-            <p class="team-contacts-heading">Партнёры</p>
-            <div class="partner-section">
-              <img src="@/assets/images/ictis.png" class="image-container" />
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="central-content-container">
-        <div class="center-aligned-copyright-text">
-          <p class="purple-heading">© 2024 NetLab AI. Все права защищены.</p>
-        </div>
-      </div>
+      <Footer />
     </div>
 
     <!-- Error Message for Content Loading -->
@@ -260,6 +234,7 @@ import { useAIStore } from '@/stores/aiStore'
 import api from '@/api'
 import { debounce } from 'lodash-es'
 import ContentBlock from '@/components/article/ContentBlock.vue'
+import Footer from '@/components/Footer.vue'
 
 const CONTENT_TYPES = {
   text: 'TEXT',
@@ -342,6 +317,7 @@ const useLocalStorage = ref(true) // Set to false when backend endpoints are rea
 export default {
   components: {
     ContentBlock,
+    Footer,
   },
 
   setup() {
@@ -874,6 +850,10 @@ export default {
             // Restore original contents array
             contents.value = originalContentsBackup
             originalContents.value = JSON.parse(JSON.stringify(contents.value))
+            
+            // Invalidate relevant caches after saving
+            api.invalidateContentCache();
+            
             showToast('Все изменения успешно сохранены!', 'success')
           }
         }
@@ -893,8 +873,11 @@ export default {
       }
 
       try {
+        // Генерируем уникальный ключ запроса для кэширования
+        const contentRequestUrl = `/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/`;
+        
         // Load article contents
-        const contentsResponse = await api.get(`/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/`)
+        const contentsResponse = await api.get(contentRequestUrl)
         contents.value = contentsResponse.data.sort((a, b) => a.order - b.order).map(item => ({
           ...item,
           filename: item.type === 'file' ? item.title : item.filename
@@ -905,7 +888,9 @@ export default {
         try {
           if (!useLocalStorage.value) {
             // Try loading from backend if endpoints exist
-            const formsResponse = await api.get(`/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/forms/`)
+            const formsRequestUrl = `/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/forms/`;
+            
+            const formsResponse = await api.get(formsRequestUrl)
             
             if (formsResponse.data && Array.isArray(formsResponse.data)) {
               customForms.value = formsResponse.data.map(form => ({
@@ -914,7 +899,7 @@ export default {
               }))
               
               // If we have forms but no active form, set the first one as active
-              if (customForms.value.length > 0 && activeFormIndex.value === -1) {
+              if (customForms.value.length > 0 && activeFormIndex.value === -1 && mode.value === 'edit') {
                 activeFormIndex.value = 0
               }
             } else {
@@ -926,7 +911,7 @@ export default {
             if (savedForms) {
               try {
                 customForms.value = JSON.parse(savedForms)
-                if (customForms.value.length > 0) {
+                if (customForms.value.length > 0 && mode.value === 'edit') {
                   activeFormIndex.value = 0
                 }
                 showToast('Формы загружены из локального хранилища.', 'info')
@@ -945,7 +930,7 @@ export default {
           if (savedForms) {
             try {
               customForms.value = JSON.parse(savedForms)
-              if (customForms.value.length > 0) {
+              if (customForms.value.length > 0 && mode.value === 'edit') {
                 activeFormIndex.value = 0
               }
               showToast('Формы загружены из локального хранилища.', 'info')
@@ -1012,6 +997,12 @@ export default {
     const toggleMode = () => {
       if (userStore.role === 'admin') {
         mode.value = mode.value === 'edit' ? 'preview' : 'edit'
+        
+        // Clear active form selection when switching to preview mode
+        if (mode.value === 'preview') {
+          activeFormIndex.value = -1;
+        }
+        
         showToast(`Режим изменен на ${mode.value === 'edit' ? 'редактирование' : 'предпросмотр'}.`, 'info')
       }
     }
@@ -1181,12 +1172,15 @@ export default {
     }
 
     const selectForm = (formIndex, event) => {
-      // Remove the class check, allowing any click within the form to select it
-      activeFormIndex.value = formIndex
-      
-      // Only show toast if it's a direct click on the form (not through child elements)
-      if (event.target.classList.contains('custom-form-container')) {
-        showToast(`Форма "${customForms.value[formIndex].title}" выбрана.`, 'info')
+      // Only allow form selection in edit mode
+      if (mode.value === 'edit') {
+        // Remove the class check, allowing any click within the form to select it
+        activeFormIndex.value = formIndex
+        
+        // Only show toast if it's a direct click on the form (not through child elements)
+        if (event.target.classList.contains('custom-form-container')) {
+          showToast(`Форма "${customForms.value[formIndex].title}" выбрана.`, 'info')
+        }
       }
     }
 
@@ -1217,7 +1211,12 @@ export default {
     onMounted(() => {
       document.addEventListener('mouseup', handleGlobalTextSelection)
       window.addEventListener('beforeunload', beforeUnloadHandler)
-      userStore.fetchUserProfile()
+      
+      // Only fetch user profile if not already loaded
+      if (!userStore.user || !userStore.user.id) {
+        userStore.fetchUserProfile()
+      }
+      
       if (!route.params.courseSlug || !route.params.moduleId || !route.params.lessonId) {
         loadError.value = 'Ошибка: отсутствуют необходимые параметры маршрута.'
         showToast('Ошибка маршрута.', 'error')
@@ -1306,7 +1305,8 @@ export default {
   align-items: stretch;
   justify-content: flex-start;
   min-width: 1480px;
-  background: #ebefef;
+  background: var(--background-color);
+  transition: background-color 0.3s ease;
 }
 
 .center-column-box-layout {
@@ -1427,9 +1427,10 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 0 2rem;
-  background: #f5f9f8;
+  background: var(--form-background);
   border-radius: 8px;
   padding: 1.5rem;
+  transition: background-color 0.3s ease;
 }
 
 .article-title {
@@ -1440,9 +1441,9 @@ export default {
   border: none;
   border-bottom: 2px solid #a094b8;
   background: transparent;
-  color: #24222f;
+  color: var(--text-color);
   outline: none;
-  transition: border-color 0.3s;
+  transition: border-color 0.3s, color 0.3s ease;
   margin-right: 2rem;
 }
 
@@ -1461,15 +1462,15 @@ export default {
 }
 
 .mode-toggle-btn {
-  background: #a094b8;
-  color: #f5f9f8;
+  background: var(--accent-color);
+  color: var(--footer-text);
   border: none;
   padding: 0.75rem 1.5rem;
   border-radius: 0.5rem;
   cursor: pointer;
   font-size: 1rem;
   font-weight: 500;
-  transition: all 0.2s;
+  transition: background-color 0.2s, transform 0.1s;
 }
 
 .mode-toggle-btn:hover {
@@ -1478,12 +1479,12 @@ export default {
 }
 
 .mode-toggle-btn.active {
-  background: #575667;
+  background: var(--secondary-text);
 }
 
 .create-form-btn {
-  background: #a094b8;
-  color: #f5f9f8;
+  background: var(--accent-color);
+  color: var(--footer-text);
   border: none;
   padding: 0.75rem 1.5rem;
   border-radius: 0.5rem;
@@ -1504,9 +1505,10 @@ export default {
 .custom-form-container {
   margin-top: 30px;
   padding: 20px;
-  background: #f5f9f8;
+  background: var(--form-background);
   border-radius: 8px;
   border: 2px dashed #a094b8;
+  transition: background-color 0.3s ease;
 }
 
 .form-header {
@@ -1516,19 +1518,20 @@ export default {
   margin-bottom: 20px;
   padding-bottom: 10px;
   padding-left: 5px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-color);
+  transition: border-color 0.3s ease;
 }
 
 .form-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #24222f;
+  color: var(--text-color);
   background: transparent;
   border: none;
   outline: none;
   width: 100%;
   padding: 5px;
-  transition: all 0.2s;
+  transition: all 0.2s, color 0.3s ease;
   border-radius: 4px;
 }
 
@@ -1591,10 +1594,11 @@ export default {
   bottom: 0;
   left: 0;
   right: 0;
-  background: #f5f9f8;
+  background: var(--form-background);
   padding: 16px;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
   z-index: 100;
+  transition: background-color 0.3s ease;
 }
 
 .toolbar-content {
@@ -1629,8 +1633,7 @@ export default {
   box-shadow: 0 0 0 2px rgba(87, 86, 103, 0.2);
 }
 
-.add-content-btn,
-.save-button {
+.add-content-btn {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1642,11 +1645,8 @@ export default {
   font-family: 'Raleway', sans-serif;
   cursor: pointer;
   transition: background 0.2s, transform 0.1s;
-}
-
-.add-content-btn {
-  background: #a094b8;
-  color: #f5f9f8;
+  background: var(--accent-color);
+  color: var(--footer-text);
 }
 
 .add-content-btn:hover:not(:disabled) {
@@ -1660,8 +1660,19 @@ export default {
 }
 
 .save-button {
-  background: #575667;
-  color: #f5f9f8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 400;
+  font-family: 'Raleway', sans-serif;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  background: var(--secondary-text);
+  color: var(--footer-text);
 }
 
 .save-button:hover:not(:disabled) {
@@ -1686,122 +1697,24 @@ export default {
 }
 
 .dark-purple-flex-container {
-  box-sizing: border-box;
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-start;
-  padding-right: 20.5px;
-  padding-left: 19.5px;
-  background: #575667;
+  width: 100%;
 }
 
-.team-contacts-section1 {
-  box-sizing: border-box;
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  border-bottom: 1px solid #a094b8;
-}
-
-.team-contacts-section {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: row;
-  gap: 8px;
-  align-items: flex-start;
-  justify-content: space-between;
-  min-width: 1282px;
-  padding-top: 45px;
-  padding-bottom: 61px;
-}
-
-.team-contact-info-container {
-  box-sizing: border-box;
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: center;
-  max-width: 357px;
-}
-
-.team-contacts-heading {
-  flex: 0 0 auto;
-  padding: 0;
-  margin: 0;
-  font: 700 18px Raleway, sans-serif;
-  color: #f5f9f8;
-}
-
-.team-contact-info-display-style {
-  flex: 0 0 auto;
-  padding: 0;
-  margin: 0;
-  margin-top: 32px;
-  color: #a094b8;
-  text-align: left;
-}
-
-.contact-info-style {
-  font: 400 18px Raleway, sans-serif;
-  text-align: left;
-}
-
-.contact-info-link {
-  font: 400 18px Raleway, sans-serif;
-  color: #a094b8;
-  text-align: left;
-  text-decoration-line: underline;
-}
-
-.line-break-separator {
-  display: block;
-  line-height: 10px;
-}
-
-.partner-section1 {
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
-  align-items: flex-end;
-  justify-content: center;
-  padding-bottom: 13px;
-}
-
-.partner-section {
-  flex: 0 0 auto;
-  margin-top: 49px;
-}
-
-.image-container {
-  box-sizing: border-box;
-  display: block;
-  width: 122px;
-  max-width: initial;
-  height: 53px;
-  border: none;
-  object-fit: cover;
-}
-
-.center-aligned-copyright-text {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 68px;
-}
-
+.team-contacts-section1,
+.team-contacts-section,
+.team-contact-info-container,
+.team-contacts-heading,
+.team-contact-info-display-style,
+.contact-info-style,
+.contact-info-link,
+.line-break-separator,
+.partner-section1,
+.partner-section,
+.image-container,
+.center-aligned-copyright-text,
 .purple-heading {
-  flex: 0 0 auto;
-  padding: 0;
-  margin: 0;
-  font: 700 12px Raleway, sans-serif;
-  color: #a094b8;
+  /* These styles are now in the Footer component */
+  display: none;
 }
 
 .ai-chat-modal {
@@ -1818,7 +1731,7 @@ export default {
 }
 
 .ai-chat-container {
-  background: #f5f9f8;
+  background: var(--form-background);
   border-radius: 20px;
   max-width: 800px;
   width: 100%;
@@ -2062,19 +1975,20 @@ export default {
 }
 
 .error-message {
-  color: #dc2626;
-  background: #fef2f2;
+  color: var(--error-color);
+  background: var(--error-background);
   padding: 16px;
   border-radius: 10px;
   margin-bottom: 24px;
   text-align: center;
   font-size: 15px;
   width: 100%;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .retry-button {
-  background: #a094b8;
-  color: #f5f9f8;
+  background: var(--accent-color);
+  color: var(--footer-text);
   border: none;
   padding: 12px 24px;
   border-radius: 10px;
@@ -2082,13 +1996,8 @@ export default {
   margin-top: 16px;
   font-size: 16px;
   font-weight: 400;
-  transition: background 0.2s, transform 0.1s;
+  transition: background-color 0.2s, transform 0.1s;
   min-width: 120px;
-}
-
-.retry-button:hover {
-  background: #8b7ca5;
-  transform: translateY(-1px);
 }
 
 .spinner {
@@ -2111,7 +2020,7 @@ export default {
   right: 32px;
   padding: 16px 24px;
   border-radius: 10px;
-  color: #f5f9f8;
+  color: var(--footer-text);
   font-size: 16px;
   z-index: 1000;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
@@ -2119,18 +2028,19 @@ export default {
   align-items: center;
   gap: 12px;
   max-width: 90%;
+  transition: background-color 0.3s ease;
 }
 
 .toast.success {
-  background: #a094b8;
+  background: var(--accent-color);
 }
 
 .toast.error {
-  background: #ef4444;
+  background: var(--error-color);
 }
 
 .toast.info {
-  background: #575667;
+  background: var(--secondary-text);
 }
 
 .toast-close {
@@ -2257,7 +2167,7 @@ export default {
 }
 
 .block-modal-container {
-  background: #f5f9f8;
+  background: var(--form-background);
   border-radius: 20px;
   max-width: 600px;
   width: 100%;
@@ -2265,6 +2175,7 @@ export default {
   overflow-y: auto;
   overflow-x: hidden;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  transition: background-color 0.3s ease;
 }
 
 .block-modal-header {
@@ -2272,16 +2183,18 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 30px 29px 20px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-color);
   position: relative;
+  transition: border-color 0.3s ease;
 }
 
 .main-heading-style {
   font-size: 36px;
   font-weight: 600;
-  color: #24222f;
+  color: var(--text-color);
   margin: 0;
   flex: 1;
+  transition: color 0.3s ease;
 }
 
 .modal-close {
@@ -2321,8 +2234,8 @@ export default {
 .block-type-card {
   box-sizing: border-box;
   padding: 20px;
-  background: #fff;
-  border: 2px solid #e5e7eb;
+  background: var(--background-color);
+  border: 2px solid var(--border-color);
   border-radius: 15px;
   cursor: pointer;
   transition: all 0.2s;
@@ -2334,35 +2247,39 @@ export default {
 }
 
 .block-type-card:hover {
-  border-color: #a094b8;
+  border-color: var(--accent-color);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .block-type-card.selected {
-  border-color: #575667;
-  background: #f5f9f8;
+  border-color: var(--secondary-text);
+  background: var(--form-background);
 }
 
 .block-icon {
   font-size: 24px;
   margin-bottom: 12px;
+  color: var(--text-color);
+  transition: color 0.3s ease;
 }
 
 .block-title {
   font-size: 14px;
   font-weight: 600;
-  color: #24222f;
+  color: var(--text-color);
   margin-bottom: 8px;
   text-align: center;
+  transition: color 0.3s ease;
 }
 
 .block-description {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--secondary-text);
   text-align: center;
   line-height: 1.4;
   padding: 0 10px;
+  transition: color 0.3s ease;
 }
 
 .block-modal-footer {
@@ -2413,8 +2330,8 @@ export default {
 }
 
 .preview-btn {
-  background: #a094b8;
-  color: #f5f9f8;
+  background: var(--accent-color);
+  color: var(--footer-text);
   border: none;
   padding: 12px 24px;
   border-radius: 10px;
@@ -2474,5 +2391,158 @@ export default {
   align-items: flex-start;
   width: 100%;
   gap: 20px;
+}
+
+.article-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: var(--form-background);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  transition: background-color 0.3s ease;
+}
+
+.editor-btn {
+  padding: 0.5rem 1rem;
+  background: #a094b8;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.editor-btn:hover {
+  background: #8275a0;
+  transform: translateY(-1px);
+}
+
+.add-content-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  background: #a094b8;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.2s, transform 0.1s;
+  margin-top: 1rem;
+}
+
+.add-content-btn:hover {
+  background: #8275a0;
+  transform: translateY(-1px);
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.block-modal-content {
+  padding: 20px;
+}
+
+.block-type-selection {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.ai-prompt-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ai-prompt-input {
+  width: 100%;
+  min-height: 120px;
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  font-family: 'Raleway', sans-serif;
+  font-size: 15px;
+  resize: vertical;
+  background: var(--background-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+.ai-action-btn {
+  background: var(--accent-color);
+  color: var(--footer-text);
+  border: none;
+  padding: 12px 24px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 400;
+  transition: background-color 0.2s, transform 0.1s;
+  min-width: 100px;
+}
+
+.ai-action-btn:hover {
+  background: #8b7ca5;
+  transform: translateY(-1px);
+}
+
+.ai-error-panel {
+  background: #fef2f2;
+  padding: 20px;
+  border-radius: 10px;
+  border-left: 4px solid #ef4444;
+}
+
+.ai-response-content {
+  background: var(--background-color);
+  padding: 20px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--text-color);
+  white-space: pre-wrap;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.ai-insert-btn {
+  background: var(--accent-color);
+  color: var(--footer-text);
+  border: none;
+  padding: 12px 24px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 400;
+  transition: background-color 0.2s, transform 0.1s;
+  min-width: 120px;
+}
+
+.ai-copy-btn {
+  background: var(--secondary-text);
+  color: var(--footer-text);
+  border: none;
+  padding: 12px 24px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 400;
+  transition: background-color 0.2s, transform 0.1s;
+  min-width: 120px;
 }
 </style>

@@ -57,6 +57,7 @@
 
 <script setup>
 import { ref, watch } from 'vue';
+import { useThemeStore } from '@/stores/themeStore';
 
 const props = defineProps({
   content: {
@@ -78,6 +79,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['update:content']);
+const themeStore = useThemeStore();
 
 const localContent = ref({ ...props.content });
 
@@ -133,111 +135,136 @@ const removeColumn = () => {
 }
 
 .control-btn {
-  background: #a094b8;
-  color: white;
+  background: var(--accent-color);
+  color: var(--footer-text);
   border: none;
   padding: 6px 12px;
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
-  transition: background-color 0.2s;
+  transition: background-color 0.3s ease;
 }
 
 .control-btn:hover {
-  background: #8a7ea3;
+  background: var(--hover-accent);
 }
 
 .control-btn:disabled {
-  background: #ccc;
+  background: var(--secondary-text);
   cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .table-wrapper {
   overflow-x: auto;
   width: 100%;
-  border: 1px solid #d1d5db; /* Slightly darker border for better visibility */
+  border: 1px solid var(--border-color);
   border-radius: 6px;
+  transition: border-color 0.3s ease, background-color 0.3s ease;
 }
 
 .read-only .table-wrapper {
-  border: none; /* Keep it borderless in read-only mode per Stepik style */
-  background: #ffffff;
+  border: none;
+  background: var(--form-background);
   padding: 10px;
 }
 
 .editable-table {
   width: 100%;
-  border-collapse: separate; /* Use separate to allow for spacing */
+  border-collapse: separate;
   border-spacing: 0;
 }
 
 .editable-table th,
 .editable-table td {
-  border: 1px solid #d1d5db; /* More pronounced borders for clarity */
-  padding: 12px; /* Increased padding for better readability */
+  border: 1px solid var(--border-color);
+  padding: 12px;
   text-align: left;
-  min-width: 120px; /* Ensure cells have a minimum width for better layout */
+  min-width: 120px;
+  transition: border-color 0.3s ease, background-color 0.3s ease, color 0.3s ease;
 }
 
 .read-only .editable-table th,
 .read-only .editable-table td {
-  border: 1px solid #e5e7eb; /* Subtle borders in read-only mode */
+  border: 1px solid var(--border-color);
+  border-opacity: 0.5;
 }
 
 .editable-table th {
-  background-color: #f3f4f6; /* Slightly darker header background for contrast */
+  background-color: var(--form-background);
   font-weight: 600;
-  color: #1f2937; /* Darker text for headers */
+  color: var(--text-color);
 }
 
 .read-only .editable-table th {
-  background-color: #f9fafb; /* Lighter header in read-only mode */
+  background-color: var(--background-color);
 }
 
 .header-input {
   width: 100%;
   padding: 6px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-color);
   border-radius: 3px;
   font-weight: bold;
   background: transparent;
+  color: var(--text-color);
+  transition: border-color 0.3s ease, background-color 0.3s ease, color 0.3s ease;
 }
 
 .header-text {
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-color);
+  transition: color 0.3s ease;
 }
 
 .cell-input {
   width: 100%;
   padding: 6px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   border-radius: 3px;
   background: transparent;
+  color: var(--text-color);
+  transition: border-color 0.3s ease, background-color 0.3s ease, color 0.3s ease;
 }
 
 .cell-text {
-  color: #374151;
+  color: var(--text-color);
+  transition: color 0.3s ease;
 }
 
 .cell-input:focus,
 .header-input:focus {
   outline: none;
-  border-color: #a094b8;
-  background: white;
+  border-color: var(--accent-color);
+  background: var(--form-background);
 }
 
 .empty-table-message {
   padding: 20px;
   text-align: center;
-  color: #666;
-  background: #f9f9f9;
+  color: var(--secondary-text);
+  background: var(--background-color);
   border-radius: 6px;
-  border: 1px dashed #ddd;
+  border: 1px dashed var(--border-color);
+  transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .read-only .empty-table-message {
-  background: #ffffff;
+  background: var(--form-background);
   border: none;
+}
+
+/* Dark mode specific overrides for better contrast */
+:root.dark-theme .editable-table th {
+  background-color: var(--hover-background);
+}
+
+:root.dark-theme .read-only .editable-table th {
+  background-color: var(--form-background);
+}
+
+:root.dark-theme .cell-input:focus,
+:root.dark-theme .header-input:focus {
+  background-color: var(--hover-background);
 }
 </style>

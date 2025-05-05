@@ -157,15 +157,17 @@ const submitForm = async () => {
   max-width: 800px;
   margin: 0 auto;
   padding: 20px;
-  background: #f5f9f8;
+  background: var(--form-background);
   border-radius: 20px;
+  transition: background-color 0.3s ease;
 }
 
 .invitation-heading {
   font: 600 24px Raleway, sans-serif;
-  color: #24222f;
+  color: var(--text-color);
   text-align: center;
   margin-bottom: 30px;
+  transition: color 0.3s ease;
 }
 
 .user-invite-form {
@@ -187,118 +189,59 @@ const submitForm = async () => {
 }
 
 .form-field-label {
-  font: 400 16px Raleway, sans-serif;
-  color: #24222f;
+  flex: 0 0 auto;
+  padding: 0;
+  padding-right: 15px;
+  padding-left: 15px;
+  margin: 0;
+  font: 400 20px Raleway, sans-serif;
+  color: var(--text-color);
+  transition: color 0.3s ease;
 }
 
 .form-input {
   padding: 10px;
   font: 400 16px Raleway, sans-serif;
-  color: #24222f;
-  background: #ebefef;
-  border: 1px solid #c5c8cc;
+  color: var(--text-color);
+  background: var(--background-color);
+  border: 1px solid var(--border-color);
   border-radius: 10px;
   outline: none;
+  transition: all 0.3s ease;
 }
 
 .form-input:focus {
-  border-color: #a094b8;
+  border-color: var(--accent-color);
 }
 
 .send-invite-button {
   padding: 10px 20px;
   font: 400 16px Raleway, sans-serif;
-  color: #f5f9f8;
-  background: #a094b8;
+  color: var(--footer-text);
+  background: var(--accent-color);
   border: none;
   border-radius: 10px;
   cursor: pointer;
   align-self: center;
   margin-top: 20px;
+  transition: background-color 0.3s ease;
 }
 
 .send-invite-button:hover {
-  background: #8a7fa3;
+  background: var(--hover-accent);
 }
 
 .success-message {
-  color: green;
+  color: #4caf50;
   text-align: center;
 }
 
 .error-message {
-  color: red;
+  color: var(--error-color);
   text-align: center;
+  transition: color 0.3s ease;
 }
 
-.new-user-invitation-form-container {
-  box-sizing: border-box;
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 20px;
-  background: #f5f9f8;
-  border-radius: 20px;
-}
-
-.invitation-heading {
-  font: 600 24px Raleway, sans-serif;
-  color: #24222f;
-  text-align: center;
-  margin-bottom: 30px;
-}
-
-.user-invite-form {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
-}
-
-.form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.form-field-label {
-  font: 400 16px Raleway, sans-serif;
-  color: #24222f;
-}
-
-.form-input {
-  padding: 10px;
-  font: 400 16px Raleway, sans-serif;
-  color: #24222f;
-  background: #ebefef;
-  border: 1px solid #c5c8cc;
-  border-radius: 10px;
-  outline: none;
-}
-
-.form-input:focus {
-  border-color: #a094b8;
-}
-
-.send-invite-button {
-  padding: 10px 20px;
-  font: 400 16px Raleway, sans-serif;
-  color: #f5f9f8;
-  background: #a094b8;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  align-self: center;
-  margin-top: 20px;
-}
-
-.send-invite-button:hover {
-  background: #8a7fa3;
-}
 .main-content-container {
   box-sizing: border-box;
   display: flex;
@@ -306,8 +249,10 @@ const submitForm = async () => {
   align-items: stretch;
   justify-content: flex-start;
   min-width: 1480px;
-  background: #ebefef;
+  background: var(--background-color);
+  transition: background-color 0.3s ease;
 }
+
 .flex-column-centered {
   box-sizing: border-box;
   display: flex;
@@ -317,6 +262,7 @@ const submitForm = async () => {
   justify-content: center;
   box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
 }
+
 .header-section {
   box-sizing: border-box;
   display: flex;
@@ -326,15 +272,19 @@ const submitForm = async () => {
   align-items: flex-end;
   justify-content: space-between;
   padding: 30px 29px 40px 99px;
-  background: #f5f9f8;
+  background: var(--form-background);
+  transition: background-color 0.3s ease;
 }
+
 .main-title-text-style {
   flex: 0 0 auto;
   padding: 0;
   margin: 0;
   font: 400 36px Helvetica;
-  color: #24222f;
+  color: var(--text-color);
+  transition: color 0.3s ease;
 }
+
 .navigation-bar {
   box-sizing: border-box;
   display: flex;
@@ -345,20 +295,25 @@ const submitForm = async () => {
   justify-content: flex-start;
   min-width: 485px;
 }
+
 .main-section-title {
   flex: 0 0 auto;
   padding: 0;
   margin: 0;
   font: 400 20px Raleway, sans-serif;
-  color: #24222f;
+  color: var(--text-color);
+  transition: color 0.3s ease;
 }
+
 .vertical-divider {
   box-sizing: border-box;
   flex: 0 0 auto;
   width: 1px;
   height: 29px;
-  border-left: 1px solid #24222f;
+  border-left: 1px solid var(--border-color);
+  transition: border-color 0.3s ease;
 }
+
 .personal-info-container {
   display: flex;
   flex: 1 0 auto;
@@ -368,19 +323,24 @@ const submitForm = async () => {
   padding-top: 9px;
   padding-bottom: 5px;
 }
+
 .personal-cabinet-heading {
   flex: 0 0 auto;
   align-self: center;
   padding: 0;
   margin: 0;
   font: 400 20px Raleway, sans-serif;
-  color: #24222f;
+  color: var(--text-color);
+  transition: color 0.3s ease;
 }
+
 .personal-info-divider {
   flex: 0 0 auto;
   margin-top: 2px;
-  border-top: 1px solid #24222f;
+  border-top: 1px solid var(--border-color);
+  transition: border-color 0.3s ease;
 }
+
 .profile-image-placeholder {
   box-sizing: border-box;
   display: block;
@@ -390,6 +350,7 @@ const submitForm = async () => {
   border: none;
   object-fit: cover;
 }
+
 .user-profile-widget-container {
   box-sizing: border-box;
   display: flex;
@@ -398,12 +359,14 @@ const submitForm = async () => {
   align-items: center;
   justify-content: flex-start;
 }
+
 .user-invite-form-container {
   box-sizing: border-box;
   min-width: 1280px;
   padding-top: 84px;
   padding-bottom: 96px;
 }
+
 .user-profile-invitation-section {
   box-sizing: border-box;
   display: flex;
@@ -413,9 +376,11 @@ const submitForm = async () => {
   justify-content: flex-start;
   width: 100%;
   padding: 57px 32px 225px;
-  background: #f5f9f8;
+  background: var(--form-background);
   border-radius: 30px;
+  transition: background-color 0.3s ease;
 }
+
 .user-profile-sidebar-container {
   box-sizing: border-box;
   display: flex;
@@ -427,29 +392,36 @@ const submitForm = async () => {
   max-width: 214px;
   padding-top: 37px;
 }
+
 .user-profile-title-container {
   flex: 0 0 auto;
   padding-right: 17px;
   padding-left: 17px;
 }
+
 .user-profile-title-widget-style {
   padding: 0;
   margin: 0;
   font: 400 20px Raleway, sans-serif;
-  color: #575667;
+  color: var(--secondary-text);
   white-space: pre-wrap;
+  transition: color 0.3s ease;
 }
+
 .user-profile-title-margin-top {
   margin-top: 35px;
 }
+
 .user-profile-title-widget-style:first-child {
   margin-top: 0px;
 }
+
 .course-statistics-heading {
   box-sizing: border-box;
   width: 100%;
   text-align: left;
 }
+
 .user-invite-container {
   display: flex;
   flex: 0 0 auto;
@@ -458,28 +430,34 @@ const submitForm = async () => {
   justify-content: center;
   margin-top: 31px;
 }
+
 .user-invite-card {
   box-sizing: border-box;
   flex: 0 0 auto;
   height: 54px;
-  background: #a094b8;
+  background: var(--accent-color);
   border-radius: 15px;
+  transition: background-color 0.3s ease;
 }
+
 .user-invite-card1 {
   flex: 0 0 auto;
   padding-right: 17px;
   padding-left: 17px;
   margin-top: -50px;
 }
+
 .user-invitation-text-style {
   box-sizing: border-box;
   max-width: 197px;
   padding: 0;
   margin: 0;
   font: 400 20px Raleway, sans-serif;
-  color: #f5f9f8;
+  color: var(--footer-text);
   text-align: left;
+  transition: color 0.3s ease;
 }
+
 .account-logout-button-text-style {
   flex: 0 0 auto;
   padding: 0;
@@ -488,106 +466,51 @@ const submitForm = async () => {
   margin: 0;
   margin-top: 66px;
   font: 400 20px Raleway, sans-serif;
-  color: #da1f38;
+  color: var(--error-color);
+  transition: color 0.3s ease;
 }
+
 .sidebar-divider {
   box-sizing: border-box;
   flex: 0 0 auto;
   width: 3px;
   height: 716px;
-  border-left: 3px solid #ebefef;
+  border-left: 3px solid var(--border-color);
+  transition: border-color 0.3s ease;
 }
-.new-user-invitation-form-container {
-  box-sizing: border-box;
-  flex: 0 0 829px;
-  padding-top: 12.5px;
-}
-.invitation-heading {
-  padding: 0;
-  margin: 0;
-  font: 600 24px Raleway, sans-serif;
-  color: #24222f;
-}
-.user-invite-form {
-  box-sizing: border-box;
-  width: 100%;
-  padding-right: 16px;
-  padding-left: 16px;
-  margin-top: 95px;
-}
-.user-form-layout {
-  box-sizing: border-box;
-  width: 100%;
-}
-.personal-info-form-layout {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: row;
-  gap: 8px;
-  align-items: flex-start;
-  justify-content: space-between;
-  width: 100%;
-}
-.vertical-flex-container {
-  box-sizing: border-box;
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: center;
-  width: 322px;
-}
-.form-field-label {
-  flex: 0 0 auto;
+
+.info-text {
   padding: 0;
   padding-right: 15px;
   padding-left: 15px;
   margin: 0;
   font: 400 20px Raleway, sans-serif;
-  color: #24222f;
+  color: var(--text-color);
+  transition: color 0.3s ease;
 }
+
+.student-info-card {
+  box-sizing: border-box;
+  width: 322px;
+  height: 53px;
+  margin-top: 5px;
+  background: var(--background-color);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
 .profile-info-box {
   box-sizing: border-box;
   flex: 0 0 auto;
   height: 53px;
   margin-top: 5px;
-  background: #ebefef;
-  border: 1px solid #c5c8cc;
+  background: var(--background-color);
+  border: 1px solid var(--border-color);
   border-radius: 20px;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
-.flex-row-with-spacing {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: row;
-  gap: 8px;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  margin-top: 26px;
-}
-.role-container {
-  box-sizing: border-box;
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: center;
-  min-width: 322px;
-}
-.option-list-container {
-  flex: 0 0 auto;
-  margin-top: 5px;
-}
-.fullwidth-container {
-  box-sizing: border-box;
-  width: 100%;
-}
-.option-container {
-  display: flex;
-  flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
-}
+
 .select-options-container {
   box-sizing: border-box;
   display: flex;
@@ -598,44 +521,92 @@ const submitForm = async () => {
   height: 53px;
   padding-right: 18px;
   padding-left: 18px;
-  background: #ebefef;
-  border: 1px solid #c5c8cc;
+  background: var(--background-color);
+  border: 1px solid var(--border-color);
   border-radius: 20px;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
+
+.new-user-invitation-form-container {
+  box-sizing: border-box;
+  flex: 0 0 829px;
+  padding-top: 12.5px;
+}
+
+.user-invite-form {
+  box-sizing: border-box;
+  width: 100%;
+  padding-right: 16px;
+  padding-left: 16px;
+  margin-top: 95px;
+}
+
+.user-form-layout {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.personal-info-form-layout {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: flex-start;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.vertical-flex-container {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  width: 322px;
+}
+
+.flex-row-with-spacing {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 26px;
+}
+
+.role-container {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  min-width: 322px;
+}
+
+.option-list-container {
+  flex: 0 0 auto;
+  margin-top: 5px;
+}
+
+.fullwidth-container {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.option-container {
+  display: flex;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+}
+
 .vertical-section-heading {
   box-sizing: border-box;
   width: 100%;
   margin-top: 27px;
-}
-.info-text {
-  padding: 0;
-  padding-right: 15px;
-  padding-left: 15px;
-  margin: 0;
-  font: 400 20px Raleway, sans-serif;
-  color: #24222f;
-}
-.student-info-card {
-  box-sizing: border-box;
-  width: 322px;
-  height: 53px;
-  margin-top: 5px;
-  background: #ebefef;
-  border: 1px solid #c5c8cc;
-  border-radius: 20px;
-}
-.send-invite-button {
-  box-sizing: border-box;
-  display: block;
-  width: 378px;
-  min-width: 378px;
-  height: 51px;
-  margin-top: 109px;
-  font: 400 20px Raleway, sans-serif;
-  color: #f5f9f8;
-  cursor: pointer;
-  background: #a094b8;
-  border: none;
-  border-radius: 20px;
 }
 </style>

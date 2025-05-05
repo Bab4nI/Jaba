@@ -108,9 +108,9 @@ const removeBlock = () => {
   flex-direction: column;
   gap: 12px;
   padding: 16px 16px 16px 5px;
-  background: #f5f9f8;
+  background: var(--form-background);
   border-radius: 8px;
-  transition: all 0.2s ease;
+  transition: all 0.2s ease, background-color 0.3s ease;
   max-width: 100%;
   margin: 0;
 }
@@ -128,8 +128,9 @@ const removeBlock = () => {
   justify-content: space-between;
   align-items: center;
   padding: 8px;
-  background: #f5f9f8;
+  background: var(--form-background);
   border-radius: 6px;
+  transition: background-color 0.3s ease;
 }
 
 .block-controls {
@@ -139,8 +140,8 @@ const removeBlock = () => {
 
 .block-controls button,
 .remove-btn {
-  background: #f5f9f8;
-  border: 1px solid #d1d5db;
+  background: var(--form-background);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   padding: 6px 10px;
   cursor: pointer;
@@ -150,11 +151,12 @@ const removeBlock = () => {
   min-width: 32px;
   height: 32px;
   transition: all 0.2s;
+  color: var(--text-color);
 }
 
 .block-controls button:hover:not(:disabled),
 .remove-btn:hover {
-  background: #e5e7eb;
+  background: var(--button-hover);
 }
 
 .block-controls button:disabled {
@@ -164,8 +166,9 @@ const removeBlock = () => {
 
 .block-type {
   font-weight: 600;
-  color: #24222f;
+  color: var(--text-color);
   font-size: 14px;
+  transition: color 0.3s ease;
 }
 
 .remove-btn {
@@ -183,9 +186,10 @@ const removeBlock = () => {
   max-height: 600px;
   overflow-y: auto;
   padding: 8px 8px 8px 5px;
-  background: #f5f9f8;
+  background: var(--form-background);
   width: 100%;
   text-align: left;
+  transition: background-color 0.3s ease;
 }
 
 .read-only .block-toolbar {

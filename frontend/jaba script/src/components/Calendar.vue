@@ -190,6 +190,12 @@ const closeModal = () => {
 
 .svg-container {
   cursor: pointer;
+  color: var(--text-color);
+  transition: color 0.3s ease;
+}
+
+.svg-container svg {
+  stroke: currentColor;
 }
 
 .small-icon svg {
@@ -199,7 +205,8 @@ const closeModal = () => {
 
 .majestic-heading {
   font: 700 20px Raleway, sans-serif;
-  color: #3b3a4a;
+  color: var(--text-color);
+  transition: color 0.3s ease;
 }
 
 .flex-calendar-row {
@@ -215,42 +222,49 @@ const closeModal = () => {
 
 .schedule-item {
   font: 400 14px Raleway, sans-serif;
-  color: #24222f;
+  color: var(--text-color);
   text-align: center;
   width: 31px;
+  transition: color 0.3s ease;
 }
 
 .weekend {
-  color: #da1f38;
+  color: var(--error-color);
   font: 400 20px Montserrat, sans-serif;
   text-align: center;
   width: 31px;
+  transition: color 0.3s ease;
 }
 
 .text-block {
   font: 400 20px Montserrat, sans-serif;
-  color: #24222f;
+  color: var(--text-color);
   text-align: center;
   width: 31px;
   cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.text-block:hover {
+  background-color: var(--hover-background);
+  border-radius: 50%;
 }
 
 .number-highlighted {
   font: 400 20px Montserrat, sans-serif;
-  color: #c5c8cc;
+  color: var(--border-color);
   text-align: center;
   width: 31px;
+  transition: color 0.3s ease;
 }
 
 /* Highlight for selected date */
 .selected-date {
-  background-color: #e0e0e0;
+  background-color: var(--hover-background);
   border-radius: 50%;
   font: 400 20px Montserrat, sans-serif;
-  color: #24222f;
-  text-align: center;
-  width: 31px;
-  cursor: pointer;
+  color: var(--text-color);
+  transition: all 0.3s ease;
 }
 
 /* Modal styles */
@@ -258,55 +272,66 @@ const closeModal = () => {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
+  right: 0;
+  bottom: 0;
+  background-color: var(--modal-overlay);
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   z-index: 1000;
 }
 
 .modal-content {
-  background: white;
-  padding: 20px;
+  background-color: var(--form-background);
   border-radius: 8px;
   width: 400px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  position: relative;
+  max-width: 90vw;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  transition: background-color 0.3s ease;
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #e0e0e0;
-  padding-bottom: 10px;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--border-color);
+  transition: border-color 0.3s ease;
 }
 
 .modal-header h3 {
   margin: 0;
-  font: 700 18px Raleway, sans-serif;
-  color: #3b3a4a;
+  font-size: 18px;
+  color: var(--text-color);
+  transition: color 0.3s ease;
 }
 
 .close-btn {
-  cursor: pointer;
   font-size: 24px;
-  color: #24222f;
+  font-weight: bold;
+  cursor: pointer;
+  color: var(--secondary-text);
+  transition: color 0.3s ease;
+}
+
+.close-btn:hover {
+  color: var(--text-color);
 }
 
 .modal-body {
-  margin-top: 10px;
+  padding: 20px;
+  color: var(--text-color);
+  transition: color 0.3s ease;
 }
 
 .modal-body p {
-  margin: 5px 0;
-  font: 400 14px Raleway, sans-serif;
-  color: #24222f;
+  margin: 0 0 10px;
+  line-height: 1.5;
 }
 
 .modal-body strong {
-  font-weight: 700;
+  font-weight: 600;
+  color: var(--text-color);
+  transition: color 0.3s ease;
 }
 </style>

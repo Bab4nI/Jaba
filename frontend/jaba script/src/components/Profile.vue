@@ -329,8 +329,9 @@ const resendCode = async () => {
 
 .profile-heading {
   font: 600 24px Raleway, sans-serif;
-  color: #24222f;
+  color: var(--text-color);
   margin-bottom: 20px;
+  transition: color 0.3s ease;
 }
 
 .student-profile-container {
@@ -341,10 +342,11 @@ const resendCode = async () => {
   display: flex;
   align-items: center;
   padding: 18px 25px;
-  background: #f5f9f8;
-  border: 2px solid #ebefef;
+  background: var(--form-background);
+  border: 2px solid var(--border-color);
   border-radius: 15px;
   margin-bottom: 25px;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .avatar-container {
@@ -353,8 +355,9 @@ const resendCode = async () => {
   height: 150px;
   border-radius: 50%;
   overflow: hidden;
-  border: 2px solid #ebefef;
+  border: 2px solid var(--border-color);
   flex-shrink: 0;
+  transition: border-color 0.3s ease;
 }
 
 .profile-image {
@@ -380,8 +383,9 @@ const resendCode = async () => {
 
 .main-title-text-style {
   font: 400 32px Raleway, sans-serif;
-  color: #24222f;
+  color: var(--text-color);
   margin: 0;
+  transition: color 0.3s ease;
 }
 
 .student-info-container {
@@ -390,14 +394,16 @@ const resendCode = async () => {
 
 .student-role-text-style {
   font: 400 20px Raleway, sans-serif;
-  color: #3b3a4a;
+  color: var(--secondary-text);
   margin: 0;
+  transition: color 0.3s ease;
 }
 
 .student-info-text-style {
   font: 400 16px Raleway, sans-serif;
-  color: #575667;
+  color: var(--secondary-text);
   margin-top: 15px;
+  transition: color 0.3s ease;
 }
 
 .profile-card1 {
@@ -407,10 +413,11 @@ const resendCode = async () => {
 .student-profile-card {
   display: flex;
   padding: 25px;
-  background: #f5f9f8;
-  border: 2px solid #ebefef;
+  background: var(--form-background);
+  border: 2px solid var(--border-color);
   border-radius: 15px;
   gap: 40px;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .student-info-card {
@@ -430,14 +437,16 @@ const resendCode = async () => {
 
 .email-label-text-style {
   font: 400 14px Raleway, sans-serif;
-  color: #575667;
+  color: var(--secondary-text);
   margin: 0;
+  transition: color 0.3s ease;
 }
 
 .email-link-text-style {
   font: 400 16px Raleway, sans-serif;
-  color: #24222f;
+  color: var(--text-color);
   margin: 0;
+  transition: color 0.3s ease;
 }
 
 .edit-button-container {
@@ -446,27 +455,34 @@ const resendCode = async () => {
   justify-content: center;
   height: 36px;
   padding: 0 12px;
-  background: #f5f9f8;
-  border: 2px solid #ebefef;
+  background: var(--form-background);
+  border: 2px solid var(--border-color);
   border-radius: 15px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
 }
 
 .edit-button-container:hover {
-  background: #ebefef;
+  background: var(--hover-background);
 }
 
 .edit-button-text-style {
   font: 400 14px Raleway, sans-serif;
-  color: #575667;
+  color: var(--secondary-text);
   margin: 0;
+  transition: color 0.3s ease;
 }
 
 .edit-icon {
   width: 15px;
   height: 15px;
   margin-left: 6px;
+  filter: brightness(1);
+  transition: filter 0.3s ease;
+}
+
+.dark-theme .edit-icon {
+  filter: brightness(2);
 }
 
 .email-edit-wrapper {
@@ -477,20 +493,22 @@ const resendCode = async () => {
   width: 100%;
   max-width: 400px;
   padding: 10px 15px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   font: 400 16px Raleway, sans-serif;
-  transition: border-color 0.2s;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  transition: all 0.3s ease;
 }
 
 .email-input:focus {
   outline: none;
-  border-color: #4caf50;
-  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(160, 148, 184, 0.2);
 }
 
 .error-message {
-  color: #e74c3c;
+  color: var(--error-color);
   font: 400 14px Raleway, sans-serif;
   margin-top: 8px;
 }
@@ -512,33 +530,39 @@ const resendCode = async () => {
 
 .education-details-text-style {
   font: 400 16px Raleway, sans-serif;
-  color: #24222f;
+  color: var(--text-color);
   margin-top: 8px;
+  transition: color 0.3s ease;
 }
 
 /* Verification section */
 .verification-section {
   margin-top: 20px;
   padding: 20px;
-  background-color: #f8f9fa;
+  background-color: var(--form-background);
   border-radius: 8px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-color);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .verification-info {
   font: 400 14px Raleway, sans-serif;
-  color: #575667;
+  color: var(--secondary-text);
   margin-bottom: 15px;
+  transition: color 0.3s ease;
 }
 
 .verification-input {
   width: 100%;
   max-width: 200px;
   padding: 10px 15px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   font: 400 16px Raleway, sans-serif;
   letter-spacing: 1px;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  transition: all 0.3s ease;
 }
 
 .verification-actions {
@@ -579,12 +603,12 @@ const resendCode = async () => {
 }
 
 .cancel-button {
-  background-color: #f44336;
+  background-color: var(--error-color);
   color: white;
 }
 
 .cancel-button:hover {
-  background-color: #d32f2f;
+  background-color: var(--hover-delete);
 }
 
 .resend-button {

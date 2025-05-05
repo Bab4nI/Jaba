@@ -48,11 +48,15 @@
         </select>
         <span v-else-if="localContent.interpreter && localContent.interpreter !== 'default'" class="interpreter-label">{{ interpreterLabel }}</span>
 
-        <select v-model="currentTheme" class="theme-selector" aria-label="Выбрать тему редактора">
+        <!-- Theme selector -->
+        <select v-if="manualThemeSelection" v-model="currentTheme" class="theme-selector" aria-label="Выбрать тему редактора">
           <option value="vs-light">VS Light</option>
           <option value="vs-dark">VS Dark</option>
           <option value="vs-high-contrast">VS High Contrast</option>
         </select>
+        <div v-else class="theme-info">
+          <span>{{ currentTheme === 'vs-dark' ? 'Dark Theme' : 'Light Theme' }}</span>
+        </div>
       </div>
 
       <div class="button-group">
@@ -120,6 +124,7 @@ import { ref, watch, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { useRouter } from 'vue-router'
 import { useRefreshStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/themeStore'
 
 const props = defineProps({
   content: {
@@ -130,12 +135,17 @@ const props = defineProps({
   readOnly: {
     type: Boolean,
     default: false
+  },
+  manualThemeSelection: {
+    type: Boolean,
+    default: false
   }
 })
 
 const emit = defineEmits(['update:content'])
 const router = useRouter()
 const refreshStore = useRefreshStore()
+const themeStore = useThemeStore()
 
 const localContent = ref({
   code: props.content.code || '',
@@ -148,11 +158,24 @@ const executionError = ref(false)
 const isRunning = ref(false)
 const isEditingPreview = ref(false)
 const editingCode = ref('')
-const currentTheme = ref('vs-dark')
+const currentTheme = computed(() => {
+  // Automatically use site theme if manualThemeSelection is false
+  if (!props.manualThemeSelection) {
+    return themeStore.isDarkMode ? 'vs-dark' : 'vs-light'
+  }
+  // Otherwise use the selected theme
+  return themeValue.value
+})
+const themeValue = ref('vs-dark') // For manual selection
 
 onMounted(() => {
   refreshStore.ready() // Initialize tokens
   loadSavedContent()
+  
+  // Initialize theme based on site preference
+  if (!props.manualThemeSelection) {
+    themeValue.value = themeStore.isDarkMode ? 'vs-dark' : 'vs-light'
+  }
 })
 
 const loadSavedContent = () => {
@@ -343,6 +366,13 @@ const runCode = async () => {
   }
 }
 
+// Watch for theme changes in themeStore
+watch(() => themeStore.isDarkMode, (isDark) => {
+  if (!props.manualThemeSelection) {
+    themeValue.value = isDark ? 'vs-dark' : 'vs-light'
+  }
+})
+
 watch(() => props.content, (newVal) => {
   const savedContent = localStorage.getItem('code-editor-content')
   if (!savedContent) {
@@ -397,14 +427,17 @@ const getValidInterpreters = (language) => {
 
 .code-element.vs-light {
   background: #f8fafc;
+  color: var(--text-color);
 }
 
 .code-element.vs-dark {
   background: #1a1a1a;
+  color: #e5e7eb;
 }
 
 .code-element.vs-high-contrast {
   background: #000000;
+  color: #ffffff;
 }
 
 .controls {
@@ -430,7 +463,16 @@ const getValidInterpreters = (language) => {
   background: #ffffff;
   font-size: 0.875rem;
   color: #374151;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.theme-info {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  background: var(--form-background);
+  color: var(--text-color);
+  transition: all 0.3s ease;
 }
 
 .read-only .language-selector {
@@ -439,7 +481,8 @@ const getValidInterpreters = (language) => {
 
 .vs-dark .language-selector,
 .vs-dark .interpreter-selector,
-.vs-dark .theme-selector {
+.vs-dark .theme-selector,
+.vs-dark .theme-info {
   background: #2d2d2d;
   color: #e5e7eb;
   border-color: #4b4b4b;
@@ -451,7 +494,8 @@ const getValidInterpreters = (language) => {
 
 .vs-high-contrast .language-selector,
 .vs-high-contrast .interpreter-selector,
-.vs-high-contrast .theme-selector {
+.vs-high-contrast .theme-selector,
+.vs-high-contrast .theme-info {
   background: #1a1a1a;
   color: #ffffff;
   border-color: #ffffff;
@@ -510,8 +554,8 @@ const getValidInterpreters = (language) => {
 }
 
 .run-button {
-  background: #3b82f6;
-  color: white;
+  background: var(--accent-color);
+  color: var(--footer-text);
 }
 
 .edit-button {
@@ -550,7 +594,7 @@ const getValidInterpreters = (language) => {
   background: #ffffff;
   color: #1f2937;
   resize: vertical;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, color 0.2s ease;
   box-sizing: border-box;
   word-break: break-all;
   overflow-x: hidden;
@@ -575,13 +619,15 @@ const getValidInterpreters = (language) => {
 }
 
 .code-preview {
+  position: relative;
   padding: 0.75rem;
   border-radius: 0.375rem;
-  overflow-x: hidden;
+  overflow-x: auto;
   font-family: 'Fira Code', monospace;
   font-size: 0.875rem;
   box-sizing: border-box;
   word-break: break-all;
+  transition: all 0.3s ease;
 }
 
 .code-preview pre {
@@ -589,10 +635,13 @@ const getValidInterpreters = (language) => {
   background: #1e293b;
   padding: 1rem;
   border-radius: 0.375rem;
+  overflow-x: auto;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .code-preview pre code {
   color: #e5e7eb;
+  transition: color 0.3s ease;
 }
 
 .vs-light .code-preview pre {
@@ -620,9 +669,17 @@ const getValidInterpreters = (language) => {
 }
 
 .code-element.read-only .code-preview {
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-color);
   padding: 1rem;
   border-radius: 0.5rem;
+  transition: border-color 0.3s ease;
+}
+
+.preview-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  justify-content: flex-end;
 }
 
 .execution-result {
@@ -633,6 +690,7 @@ const getValidInterpreters = (language) => {
   font-family: 'Fira Code', monospace;
   font-size: 0.875rem;
   word-break: break-all;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .vs-dark .execution-result {
@@ -648,6 +706,16 @@ const getValidInterpreters = (language) => {
 .execution-result.error {
   background: #fee2e2;
   color: #b91c1c;
+}
+
+.vs-dark .execution-result.error {
+  background: #4c1d1d;
+  color: #fca5a5;
+}
+
+.vs-high-contrast .execution-result.error {
+  background: #300000;
+  color: #ff8080;
 }
 
 .execution-result h4 {
@@ -668,10 +736,30 @@ const getValidInterpreters = (language) => {
   border-radius: 0.25rem;
   color: #92400e;
   font-size: 0.875rem;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.vs-dark .auth-warning {
+  background: #3f3000;
+  color: #fcd34d;
+}
+
+.vs-high-contrast .auth-warning {
+  background: #2a2000;
+  color: #fde68a;
 }
 
 .auth-warning a {
   color: #1d4ed8;
   text-decoration: underline;
+  transition: color 0.3s ease;
+}
+
+.vs-dark .auth-warning a {
+  color: #93c5fd;
+}
+
+.vs-high-contrast .auth-warning a {
+  color: #bfdbfe;
 }
 </style>

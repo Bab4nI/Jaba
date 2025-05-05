@@ -7,8 +7,8 @@
             <div class="svg-container">
               <svg viewBox="0 0 24 24" x="0" y="0" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <g id="Group 65" xmlns="http://www.w3.org/2000/svg">
-                  <circle id="Ellipse 7" cx="11" cy="9.5" r="8" stroke="#575667" />
-                  <line id="Line 12" x1="15.879999999999995" y1="15.675000000000011" x2="21.879999999999995" y2="22.67500000000001" stroke="#575667" />
+                  <circle id="Ellipse 7" cx="11" cy="9.5" r="8" stroke="currentColor" />
+                  <line id="Line 12" x1="15.879999999999995" y1="15.675000000000011" x2="21.879999999999995" y2="22.67500000000001" stroke="currentColor" />
                 </g>
               </svg>
             </div>
@@ -617,12 +617,10 @@ export default {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   justify-content: flex-start;
-  width: 1480px;
-  max-width: 1480px;
-  margin: 0 auto;
-  overflow-x: hidden;
+  background: var(--background-color);
+  transition: background-color 0.3s ease;
 }
 
 .main-content-section {
@@ -642,54 +640,61 @@ export default {
   width: 100%;
   height: 88px;
   padding: 0 28px 0 29px;
-  background: #ebefef;
+  background: var(--form-background);
   border-radius: 20px;
   box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
 }
 
 .module-title-container {
-  box-sizing: border-box;
   display: flex;
-  flex: 1;
   flex-direction: row;
+  gap: 16px;
   align-items: center;
   justify-content: flex-start;
-  height: 43px;
-  padding: 0 8.5px;
-  background: #f5f9f8;
-  border: 1px solid #c5c8cc;
-  border-radius: 20px;
+  padding: 16px;
+  background: var(--form-background);
+  border-radius: 8px;
+  transition: background-color 0.3s ease;
 }
 
 .svg-container {
-  display: flex;
-  flex: 0 0 auto;
   width: 24px;
   height: 24px;
+  margin-right: 10px;
+  color: var(--secondary-text);
+  transition: color 0.3s ease;
 }
 
 .search-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
   width: 100%;
-  margin-left: 13.5px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 16px;
+  color: var(--text-color);
+  background: var(--form-background);
+  transition: all 0.3s ease;
+}
+
+.search-input::placeholder {
+  color: var(--secondary-text);
 }
 
 .search-button {
-  box-sizing: border-box;
-  display: block;
-  flex: 0 0 auto;
-  width: 111px;
-  min-width: 111px;
-  height: 40px;
-  font: 400 16px Raleway, sans-serif;
-  color: #f5f9f8;
-  cursor: pointer;
-  background: #a094b8;
+  background: var(--accent-color);
+  color: var(--footer-text);
   border: none;
-  border-radius: 20px;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.search-button:hover {
+  background: #8b7ca5;
+  transform: translateY(-1px);
 }
 
 .main-content-container1 {
@@ -706,6 +711,11 @@ export default {
   justify-content: flex-start;
   width: 100%;
   margin-bottom: 40px;
+  padding: 20px;
+  background: var(--form-background);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.3s ease;
 }
 
 .save-button-container {
@@ -724,11 +734,12 @@ export default {
   min-width: 137px;
   height: 44px;
   font: 400 16px Raleway, sans-serif;
-  color: #24222f;
+  color: var(--footer-text);
   cursor: pointer;
-  background: #cff6c3;
+  background: var(--accent-color);
   border: none;
   border-radius: 10px;
+  transition: all 0.2s;
 }
 
 .delete-button {
@@ -737,11 +748,12 @@ export default {
   width: 100px;
   height: 44px;
   font: 400 16px Raleway, sans-serif;
-  color: #fff;
+  color: white;
   cursor: pointer;
-  background: #ff6b6b;
+  background: #ef4444;
   border: none;
   border-radius: 10px;
+  transition: all 0.2s;
 }
 
 .module-container3 {
@@ -758,12 +770,16 @@ export default {
 }
 
 .module-title-input {
-  background: transparent;
-  border: none;
-  outline: none;
   width: 100%;
-  font: 400 24px Raleway, sans-serif;
-  color: #24222f;
+  padding: 12px;
+  margin-bottom: 20px;
+  font-size: 24px;
+  font-weight: 600;
+  border: none;
+  border-bottom: 2px solid var(--border-color);
+  background: transparent;
+  color: var(--text-color);
+  transition: all 0.3s ease;
 }
 
 .articles-wrapper {
@@ -776,14 +792,12 @@ export default {
 
 .article-card {
   width: calc(33.333% - 14px);
-  background: #ebefef;
-  border-radius: 20px;
-  padding: 20px;
-  position: relative;
-  box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
-  min-height: 350px;
-  box-sizing: border-box;
+  background: var(--background-color);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   cursor: pointer;
+  transition: all 0.3s ease;
 }
 
 .article-thumbnail {
@@ -795,33 +809,30 @@ export default {
 }
 
 .article-content {
-  margin-top: 15px;
+  padding: 16px;
 }
 
 .article-content h3 {
-  margin: 0;
-  padding: 0;
-  font: 400 20px Raleway, sans-serif;
-  color: #24222f;
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: var(--text-color);
+  transition: color 0.3s ease;
 }
 
 .article-content p {
-  margin: 7px 0 0 0;
-  padding: 0;
-  font: 300 14px Raleway, sans-serif;
-  color: #575667;
-  height: 60px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--secondary-text);
+  transition: color 0.3s ease;
 }
 
 .article-meta {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 7px;
-  font: 400 12px Raleway, sans-serif;
-  color: #a094b8;
+  font-size: 12px;
+  color: var(--secondary-text);
+  transition: color 0.3s ease;
 }
 
 .article-meta .lesson-type {
@@ -848,8 +859,8 @@ export default {
 
 .add-article-card {
   width: calc(33.333% - 14px);
-  background: #ebefef;
-  border-radius: 20px;
+  background: var(--form-background);
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -857,12 +868,12 @@ export default {
   min-height: 350px;
   box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
   padding: 20px;
-  transition: background 0.3s;
+  transition: background-color 0.3s ease;
   box-sizing: border-box;
 }
 
 .add-article-card:hover {
-  background: #dde3e2;
+  background: var(--hover-background);
 }
 
 .add-article-image {
@@ -873,13 +884,13 @@ export default {
 
 .add-module-btn {
   cursor: pointer;
-  color: #a094b8;
+  color: var(--accent-color);
   text-align: center;
   padding: 10px;
-  border: 2px dashed #a094b8;
+  border: 2px dashed var(--accent-color);
   border-radius: 10px;
   margin-top: 40px;
-  transition: background 0.3s;
+  transition: color 0.3s ease;
   font: 400 16px Raleway, sans-serif;
 }
 
@@ -895,6 +906,8 @@ export default {
   display: block;
   margin-bottom: 5px;
   font-weight: 500;
+  color: var(--text-color);
+  transition: color 0.3s ease;
 }
 
 .form-group input[type="text"],
@@ -903,8 +916,11 @@ export default {
 .form-group textarea {
   width: 100%;
   padding: 8px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
+  background: var(--background-color);
+  color: var(--text-color);
+  transition: all 0.3s ease;
 }
 
 .form-group select {
@@ -927,7 +943,7 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -935,7 +951,7 @@ export default {
 }
 
 .modal-content {
-  background: white;
+  background: var(--form-background);
   padding: 20px;
   border-radius: 10px;
   width: 500px;
@@ -943,6 +959,8 @@ export default {
   max-height: 80vh;
   overflow-y: auto;
   box-sizing: border-box;
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .modal-actions {
@@ -954,20 +972,22 @@ export default {
 
 .save-btn {
   padding: 8px 16px;
-  background: #4CAF50;
-  color: white;
+  background: var(--accent-color);
+  color: var(--footer-text);
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
 .cancel-btn {
   padding: 8px 16px;
-  background: #f44336;
+  background: #ef4444;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
 .image-upload-container {

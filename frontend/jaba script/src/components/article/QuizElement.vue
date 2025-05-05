@@ -43,6 +43,7 @@
 
 <script setup>
 import { ref, watch } from 'vue';
+import { useThemeStore } from '@/stores/themeStore';
 
 const props = defineProps({
   content: {
@@ -57,6 +58,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['update:content']);
+const themeStore = useThemeStore();
 
 const localContent = ref({
   question: '',
@@ -109,18 +111,21 @@ const emitUpdate = () => {
 .question-input {
   width: 100%;
   padding: 12px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   font-size: 16px;
-  background: #f8f9fa;
+  background: var(--form-background);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
 .question-text {
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-color);
   padding: 8px 0;
-  border-bottom: 2px solid #f0f0f0;
+  border-bottom: 2px solid var(--border-color);
+  transition: color 0.3s ease, border-color 0.3s ease;
 }
 
 .answers-list {
@@ -135,45 +140,52 @@ const emitUpdate = () => {
   align-items: center;
   gap: 12px;
   padding: 8px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  background: #fff;
+  background: var(--form-background);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .correct-answer-radio {
   margin: 0;
   width: 18px;
   height: 18px;
+  accent-color: var(--accent-color);
 }
 
 .answer-input {
   flex-grow: 1;
   padding: 10px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   font-size: 15px;
-  background: #f8f9fa;
+  background: var(--background-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
 .answer-text {
   flex-grow: 1;
   padding: 10px;
-  color: #333;
+  color: var(--text-color);
   font-size: 15px;
+  transition: color 0.3s ease;
 }
 
 .answer-indicator {
   font-size: 18px;
   width: 24px;
   text-align: center;
+  color: var(--text-color);
+  transition: color 0.3s ease;
 }
 
 .correct-answer {
-  color: #2e7d32;
+  color: #4caf50;
 }
 
 .remove-answer-btn {
-  background: #ff4444;
+  background: var(--error-color);
   color: white;
   border: none;
   width: 26px;
@@ -184,6 +196,11 @@ const emitUpdate = () => {
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background-color 0.3s ease;
+}
+
+.remove-answer-btn:hover {
+  background: var(--hover-delete);
 }
 
 .quiz-controls {
@@ -194,33 +211,23 @@ const emitUpdate = () => {
 }
 
 .add-answer-btn {
-  background: #5c6bc0;
-  color: white;
+  background: var(--accent-color);
+  color: var(--footer-text);
   border: none;
   padding: 10px 16px;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.warning-text {
-  color: #ff4444;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-/* Улучшенные состояния при наведении */
-.question-input:hover,
-.answer-input:hover {
-  border-color: #bdbdbd;
+  font-size: 15px;
+  transition: background-color 0.3s ease;
 }
 
 .add-answer-btn:hover {
-  background: #3f51b5;
+  background: var(--hover-accent);
 }
 
-.remove-answer-btn:hover {
-  background: #cc0000;
+.warning-text {
+  color: var(--error-color);
+  font-size: 14px;
+  transition: color 0.3s ease;
 }
 </style>
