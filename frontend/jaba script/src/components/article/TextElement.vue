@@ -17,7 +17,7 @@
       <button @click="formatText('justifyCenter')" title="Выровнять по центру">
         <span class="icon-align-center">↔</span>
       </button>
-      <button @click="formatText('justifyRight')" title="Выровнять по правому краю">
+      <button @click="formatText('justifyRight')" title="Выровнять по правному краю">
         <span class="icon-align-right">→</span>
       </button>
       <div class="toolbar-divider"></div>
@@ -70,9 +70,35 @@ export default {
     }
 
     const onKeyDown = (event) => {
-      if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault()
-        document.execCommand('insertLineBreak')
+      if (event.key === 'Enter') {
+        const selection = window.getSelection()
+        const range = selection.getRangeAt(0)
+        const parentList = range.startContainer.parentElement.closest('ol, ul')
+
+        if (parentList) {
+          if (!event.shiftKey) {
+            event.preventDefault()
+            const listItem = range.startContainer.parentElement.closest('li')
+            const isAtStartOfListItem = range.startOffset === 0
+
+            if (isAtStartOfListItem) {
+              const newListItem = document.createElement('li')
+              listItem.parentNode.insertBefore(newListItem, listItem)
+              selection.removeAllRanges()
+              const newRange = document.createRange()
+              newRange.selectNodeContents(newListItem)
+              newRange.collapse(true)
+              selection.addRange(newRange)
+            } else if (listItem.textContent.trim() === '') {
+              document.execCommand('outdent')
+            } else {
+              document.execCommand('insertHTML', false, '<li></li>')
+            }
+          }
+        } else if (!event.shiftKey) {
+          event.preventDefault()
+          document.execCommand('insertLineBreak')
+        }
       }
     }
 
@@ -81,15 +107,30 @@ export default {
       const text = event.clipboardData.getData('text/plain')
       const html = event.clipboardData.getData('text/html')
       
+      // Проверяем наличие изображений в буфере обмена
+      if (event.clipboardData.files.length > 0) {
+        const file = event.clipboardData.files[0]
+        if (file.type.startsWith('image/')) {
+          // Создаем временную ссылку для изображения
+          const img = document.createElement('img')
+          img.src = URL.createObjectURL(file)
+          img.style.maxWidth = '100%'
+          img.style.height = 'auto'
+          
+          const range = window.getSelection().getRangeAt(0)
+          range.deleteContents()
+          range.insertNode(img)
+          return
+        }
+      }
+      
       if (html) {
-        // Если есть HTML, вставляем его
         const range = window.getSelection().getRangeAt(0)
         range.deleteContents()
         const div = document.createElement('div')
         div.innerHTML = html
         range.insertNode(div)
       } else {
-        // Если нет HTML, вставляем как обычный текст
         document.execCommand('insertText', false, text)
       }
     }
@@ -101,7 +142,6 @@ export default {
         const range = selection.getRangeAt(0)
         const rect = range.getBoundingClientRect()
         if (rect.top === 0 && rect.left === 0) {
-          // Если курсор в начале строки, восстанавливаем позицию
           range.setStart(range.startContainer, range.startOffset)
           range.setEnd(range.endContainer, range.endOffset)
         }
@@ -128,7 +168,6 @@ export default {
       if (selection.toString()) {
         document.execCommand('createLink', false, url)
       } else {
-        // Если ничего не выделено, вставляем URL как текст
         document.execCommand('insertText', false, url)
       }
       editor.value.focus()
@@ -243,6 +282,7 @@ export default {
   background: #f5f9f8;
   border-radius: 0 0 8px 8px;
   overflow-x: hidden;
+  text-align: left;
 }
 
 .text-editor:focus {
@@ -267,10 +307,6 @@ export default {
 
 .text-editor p {
   margin: 0 0 1em;
-}
-
-.text-editor p:last-child {
-  margin-bottom: 0;
 }
 
 .text-editor ul,
@@ -303,7 +339,7 @@ export default {
 }
 
 .text-editor pre {
-  background: #e5e7eb;
+  background: #e5f9f8;
   padding: 1em;
   border-radius: 4px;
   overflow-x: auto;

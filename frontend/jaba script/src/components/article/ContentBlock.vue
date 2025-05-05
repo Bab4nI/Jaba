@@ -107,12 +107,12 @@ const removeBlock = () => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 16px;
+  padding: 16px 16px 16px 5px;
   background: #f5f9f8;
   border-radius: 8px;
   transition: all 0.2s ease;
-  max-width: 800px;
-  margin: 0 auto;
+  max-width: 100%;
+  margin: 0;
 }
 
 .content-block:not(.read-only) {
@@ -182,8 +182,10 @@ const removeBlock = () => {
   min-height: 100px;
   max-height: 600px;
   overflow-y: auto;
-  padding: 8px;
+  padding: 8px 8px 8px 5px;
   background: #f5f9f8;
+  width: 100%;
+  text-align: left;
 }
 
 .read-only .block-toolbar {

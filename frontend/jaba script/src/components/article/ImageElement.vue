@@ -1,19 +1,26 @@
 ```vue
 <template>
   <div class="image-element" :class="{ 'read-only': readOnly }">
+    <!-- Upload area when no image -->
     <div v-if="!localContent.image && !readOnly" class="upload-area" @click="triggerFileInput">
       <span>Нажмите для загрузки изображения</span>
-      <input
-        type="file"
-        ref="fileInput"
-        accept="image/*"
-        @change="handleFileSelect"
-        style="display: none"
-      />
     </div>
-    <div v-if="localContent.image" class="image-preview-container">
+    <!-- Preview with replace/remove controls -->
+    <div v-else-if="localContent.image" class="image-preview-container">
       <img :src="imageUrl" class="image-preview" />
+      <div v-if="!readOnly" class="image-controls">
+        <button class="replace-btn" @click="triggerFileInput" title="Заменить изображение">Заменить</button>
+        <button class="remove-btn" @click="removeImage" title="Удалить изображение">Удалить</button>
+      </div>
     </div>
+    <!-- Always-available hidden file input -->
+    <input
+      type="file"
+      ref="fileInput"
+      accept="image/*"
+      @change="handleFileSelect"
+      style="display: none"
+    />
   </div>
 </template>
 
@@ -98,21 +105,34 @@ const emitUpdate = () => {
 }
 
 .image-preview {
-  max-width: 100%;
-  max-height: 300px;
+  width: auto;           /* don't force full width */
+  max-width: 80%;        /* scale to 80% of container width */
+  height: auto;          /* maintain aspect ratio */
+  max-height: 80vh;      /* scale to 80% of viewport height for tall images */
+  object-fit: contain;   /* ensure image fits within bounds */
   display: block;
   margin: 0 auto;
   border-radius: 5px;
 }
 
-.read-only .image-preview {
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
 .image-controls {
   display: flex;
   gap: 10px;
+  justify-content: center;
+}
+
+.replace-btn {
+  background: #4a90e2;
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.replace-btn:hover {
+  background: #3a78c2;
 }
 
 .remove-btn {
@@ -122,6 +142,16 @@ const emitUpdate = () => {
   padding: 8px 12px;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 14px;
+}
+
+.remove-btn:hover {
+  background: #e05555;
+}
+
+.read-only .image-preview {
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 </style>
 ```

@@ -8,7 +8,7 @@
             v-model="article.title"
             type="text"
             class="article-title"
-            placeholder="Название работы"
+            :placeholder="isEditMode ? 'Название работы' : ''"
             :readonly="!isEditMode"
           >
           <div class="mode-controls" v-if="userStore.role === 'admin'">
@@ -22,25 +22,50 @@
           </div>
         </div>
         
-        <div class="info-panel">
-          <div v-if="mode === 'edit' && userStore.role === 'admin'" class="editable-content">
+        <!-- Custom Forms Container -->
+        <div 
+          v-for="(form, formIndex) in customForms" 
+          :key="'form-'+formIndex" 
+          class="custom-form-container"
+          :class="{ 'active-form': activeFormIndex === formIndex }"
+          @click="selectForm(formIndex, $event)"
+        >
+          <div class="form-header">
+            <input 
+              v-model="form.title" 
+              class="form-title" 
+              :placeholder="isEditMode ? 'Название формы' : ''"
+              :readonly="!isEditMode"
+              :disabled="!isEditMode"
+              @click.stop
+              @input="onFormTitleChange(formIndex)"
+              @blur="onFormTitleBlur(formIndex)"
+              @focus="onFormTitleFocus(formIndex)"
+            />
+            <div class="form-controls" v-if="isEditMode">
+              <button @click.stop="removeForm(formIndex)" class="remove-form-btn" aria-label="Удалить форму">×</button>
+            </div>
+          </div>
+
+          <!-- Form Content Blocks -->
+          <div v-if="mode === 'edit' && userStore.role === 'admin'" class="editable-content" @click.stop="activeFormIndex = formIndex">
             <ContentBlock
-              v-for="(element, index) in contents"
-              :key="element.id || `temp-${index}`"
+              v-for="(element, elementIndex) in form.contents"
+              :key="element.id || `form-${formIndex}-element-${elementIndex}`"
               :content="element"
               :read-only="isContentReadOnly"
-              :is-first="index === 0"
-              :is-last="index === contents.length - 1"
-              @update:content="onContentUpdate(index, $event)"
-              @move-up="moveContentUp(index)"
-              @move-down="moveContentDown(index)"
-              @remove="removeContent(index)"
+              :is-first="elementIndex === 0"
+              :is-last="elementIndex === form.contents.length - 1"
+              @update:content="onFormContentUpdate(formIndex, elementIndex, $event)"
+              @move-up="moveFormContentUp(formIndex, elementIndex)"
+              @move-down="moveFormContentDown(formIndex, elementIndex)"
+              @remove="removeFormContent(formIndex, elementIndex)"
             />
           </div>
-          <div v-else class="preview-content">
+          <div v-else class="preview-content" @click.stop="activeFormIndex = formIndex">
             <ContentBlock
-              v-for="(element, index) in contents"
-              :key="element.id || index"
+              v-for="(element, elementIndex) in form.contents"
+              :key="element.id || elementIndex"
               :content="element"
               :read-only="true"
             />
@@ -52,10 +77,29 @@
             <button
               @click="openBlockModal"
               class="add-content-btn"
+              :class="{ 'form-selected': activeFormIndex >= 0 }"
               aria-label="Добавить новый элемент"
             >
               <span class="btn-icon">+</span>
-              Добавить элемент
+              {{ activeFormIndex >= 0 ? `Добавить в ${customForms[activeFormIndex]?.title ? '"' + customForms[activeFormIndex].title + '"' : 'форму'}` : 'Добавить элемент' }}
+            </button>
+
+            <button
+              @click="createNewForm" 
+              class="create-form-btn"
+              aria-label="Создать форму"
+            >
+              <span class="btn-icon">📋</span>
+              Создать форму
+            </button>
+
+            <button
+              @click="toggleMode"
+              class="preview-btn"
+              aria-label="Предпросмотр"
+            >
+              <span class="btn-icon">👁️</span>
+              Предпросмотр
             </button>
 
             <button
@@ -195,23 +239,12 @@
               v-for="type in blockTypes" 
               :key="type.value"
               class="block-type-card"
-              :class="{ 'selected': selectedBlockType === type.value }"
-              @click="selectBlockType(type.value)"
+              @click="addNewBlock(type.value)"
             >
               <span class="block-icon">{{ type.icon }}</span>
               <span class="block-title">{{ type.label }}</span>
               <span class="block-description">{{ type.description }}</span>
             </div>
-          </div>
-          <div class="block-modal-footer">
-            <button 
-              @click="addNewBlock" 
-              class="add-block-btn"
-              :disabled="!selectedBlockType"
-            >
-              Добавить блок
-            </button>
-            <button @click="closeBlockModal" class="cancel-btn">Отмена</button>
           </div>
         </div>
       </div>
@@ -236,16 +269,21 @@ const CONTENT_TYPES = {
   quiz: 'QUIZ',
   table: 'TABLE',
   file: 'FILE',
+  form: 'FORM',
 }
 
+// Add form type to our content types
+const FORM_TYPE = 'CUSTOM_FORM';
+
 const DEFAULT_CONTENT = {
-  text: { text: '', readOnly: true },
-  image: { image: null, readOnly: true },
-  video: { video_url: '', readOnly: true },
+  text: { text: '', readOnly: false },
+  image: { image: null, readOnly: false },
+  video: { video_url: '', readOnly: false },
   code: { code: '', language: 'javascript', readOnly: false },
-  quiz: { question: '', answers: ['', ''], correct_answer: null, readOnly: true },
-  table: { headers: ['Заголовок 1', 'Заголовок 2'], data: [['', ''], ['', '']], readOnly: true },
-  file: { file: null, filename: null, readOnly: true },
+  quiz: { question: '', answers: ['', ''], correct_answer: null, readOnly: false },
+  table: { headers: ['Заголовок 1', 'Заголовок 2'], data: [['', ''], ['', '']], readOnly: false },
+  file: { file: null, filename: null, readOnly: false },
+  form: { fields: [], readOnly: false },
 }
 
 const BLOCK_TYPES = [
@@ -293,6 +331,14 @@ const BLOCK_TYPES = [
   }
 ]
 
+// Function to generate a unique ID for forms and content
+const generateUniqueId = () => {
+  return 'temp_' + Date.now() + '_' + Math.floor(Math.random() * 1000000)
+}
+
+// Add mock backend support for forms since endpoints may not exist yet
+const useLocalStorage = ref(true) // Set to false when backend endpoints are ready
+
 export default {
   components: {
     ContentBlock,
@@ -327,9 +373,16 @@ export default {
     const showBlockModal = ref(false)
     const selectedBlockType = ref('')
     const blockTypes = ref(BLOCK_TYPES)
+    const customForms = ref([])
+    const currentFormIndex = ref(-1)
+    const activeFormIndex = ref(-1)
 
     const isContentReadOnly = computed(() => {
       return mode.value !== 'edit' || userStore.role !== 'admin'
+    })
+
+    const isEditMode = computed(() => {
+      return mode.value === 'edit' && userStore.role === 'admin'
     })
 
     const hasChanges = computed(() => {
@@ -437,6 +490,7 @@ export default {
         quiz: 'Тест',
         table: 'Таблица',
         file: 'Файл',
+        form: 'Форма',
       }
       return types[type] || type
     }
@@ -450,6 +504,7 @@ export default {
         quiz: 'QuizElement',
         table: 'TableElement',
         file: 'FileElement',
+        form: 'FormElement',
       }
       return components[type] || 'TextElement'
     }
@@ -548,7 +603,7 @@ export default {
     }
 
     const saveAllChanges = async () => {
-      if (!hasChanges.value) {
+      if (!hasChanges.value && customForms.value.length === 0) {
         showToast('Нет изменений для сохранения.', 'info')
         return
       }
@@ -557,94 +612,270 @@ export default {
       const errors = []
 
       try {
-        const indicesToSave = [...changedIndices.value]
-        const promises = indicesToSave.map(async (index) => {
-          const content = contents.value[index]
-
-          if (content.type === 'file' && content.file instanceof File) {
-            const formData = new FormData()
-            formData.append('file', content.file)
-            formData.append('lesson', article.value.id)
-            if (content.filename) formData.append('title', content.filename)
-
-            try {
-              const response = await api.post(`/api/lessons/${article.value.id}/files/`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-              })
-              return { success: true, data: response.data, index }
-            } catch (error) {
-              return { success: false, error, index }
-            }
-          } else {
-            const payload = {
-              lesson: article.value.id,
-              content_type: CONTENT_TYPES[content.type],
-              order: content.order,
-            }
-
-            if (content.type === 'text') {
-              payload.text = content.text || ''
-            } else if (content.type === 'image') {
-              payload.image = content.image
-            } else if (content.type === 'video') {
-              payload.video_url = content.video_url || ''
-            } else if (content.type === 'code') {
-              payload.text = content.code || ''
-              payload.code_language = content.language || 'javascript'
-            } else if (content.type === 'quiz') {
-              payload.quiz_data = {
-                question: content.question || '',
-                answers: content.answers || ['', ''],
-                correct_answer: content.correct_answer
-              }
-            } else if (content.type === 'table') {
-              payload.table_data = {
-                headers: content.headers || ['Заголовок 1', 'Заголовок 2'],
-                data: content.data || [['', ''], ['', '']]
-              }
-            } else if (content.type === 'file') {
-              payload.file = content.file
-              payload.title = content.filename
-            }
-
-            try {
-              const response = await (content.id
-                ? api.put(`/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/${content.id}/`, payload)
-                : api.post(`/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/`, payload)
-              )
-              return { success: true, data: response.data, index }
-            } catch (error) {
-              return { success: false, error, index }
-            }
+        // Generate IDs for forms that don't have one and ensure all forms have titles
+        customForms.value.forEach(form => {
+          if (!form.id) {
+            form.id = generateUniqueId()
+          }
+          // Set default title only when saving if title is empty
+          if (!form.title || form.title.trim() === '') {
+            form.title = 'Новая форма'
           }
         })
 
-        const results = await Promise.all(promises)
-        results.forEach((result) => {
-          if (result.success) {
-            const { data, index } = result
-            contents.value[index] = {
-              ...contents.value[index],
-              id: data.id,
-              file: data.file || contents.value[index].file,
-              filename: data.title || data.filename || contents.value[index].filename
+        // When using local storage (or when backend endpoints don't exist yet)
+        if (useLocalStorage.value) {
+          try {
+            // Save forms to localStorage
+            localStorage.setItem(`article_forms_${article.value.id}`, JSON.stringify(customForms.value))
+            
+            // Save individual content items if needed
+            let allContentSaved = true
+            for (const form of customForms.value) {
+              for (const content of form.contents) {
+                // Check if any content needs special handling (e.g., file uploads)
+                if ((content.type === 'file' && content.file instanceof File) || 
+                    (content.type === 'image' && content.image instanceof File)) {
+                  // Handle file upload errors - in local mode we just mark it as saved
+                  // In a real environment, you would handle the upload
+                  content.id = content.id || generateUniqueId()
+                  
+                  // If it's a local testing environment, simulate successful upload
+                  if (content.type === 'file') {
+                    // Store file name instead of the actual file
+                    content.filename = content.file.name
+                    content.file = URL.createObjectURL(content.file)
+                  } else if (content.type === 'image') {
+                    // Store image URL instead of the actual file
+                    content.image = URL.createObjectURL(content.image)
+                  }
+                } else if (!content.id) {
+                  // Assign ID to any content that doesn't have one
+                  content.id = generateUniqueId()
+                }
+              }
             }
-            changedIndices.value.delete(index)
-          } else {
-            const { error, index } = result
-            const errorMessage = error.response?.data?.detail || error.message
-            errors.push(`Элемент ${index + 1} (${getContentTypeName(contents.value[index].type)}): ${errorMessage}`)
+            
+            // Update localStorage again with processed content
+            localStorage.setItem(`article_forms_${article.value.id}`, JSON.stringify(customForms.value))
+            
+            if (allContentSaved) {
+              changedIndices.value.clear()
+              lastSavedAt.value = new Date()
+              showToast('Все изменения сохранены локально.', 'success')
+            } else {
+              showToast('Некоторые элементы не удалось сохранить.', 'warning')
+            }
+          } catch (error) {
+            console.error('Ошибка локального сохранения:', error)
+            showToast('Не удалось сохранить изменения локально.', 'error')
           }
-        })
-
-        if (errors.length > 0) {
-          showToast(`Ошибки при сохранении: ${errors.join('; ')}`, 'error')
         } else {
-          originalContents.value = JSON.parse(JSON.stringify(contents.value))
-          changedIndices.value.clear()
-          lastSavedAt.value = new Date()
-          await saveOrder()
-          showToast('Все изменения успешно сохранены!', 'success')
+          // Original backend saving code
+          // Step 1: Save form metadata and structure
+          try {
+            const formsToSave = customForms.value.map(form => ({
+              id: form.id,
+              title: form.title || 'Новая форма',
+              order: customForms.value.indexOf(form) + 1,
+              lesson: article.value.id
+            }))
+            
+            const formsResponse = await api.post(
+              `/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/forms/batch/`,
+              { forms: formsToSave }
+            )
+            
+            // Update the form IDs with what came back from the server
+            if (formsResponse.data && formsResponse.data.forms) {
+              formsResponse.data.forms.forEach((savedForm, index) => {
+                if (index < customForms.value.length) {
+                  customForms.value[index].id = savedForm.id
+                }
+              })
+            }
+          } catch (error) {
+            console.error('Ошибка сохранения форм:', error)
+            errors.push('Не удалось сохранить формы: ' + (error.response?.data?.detail || error.message))
+          }
+
+          // Step 2: Save all content from all forms
+          let formContentMap = new Map() // Map to track which form each content came from
+          let allFormContents = []
+          
+          customForms.value.forEach((form, formIndex) => {
+            form.contents.forEach((content, contentIndex) => {
+              // Create a deep copy to avoid reference issues
+              const contentCopy = JSON.parse(JSON.stringify(content))
+              
+              // Add form_id to content so we know where to place it later
+              contentCopy.form_id = form.id
+              contentCopy.order = contentIndex + 1 // Ensure proper ordering
+              
+              allFormContents.push(contentCopy)
+              
+              // Track which form this content belongs to
+              formContentMap.set(contentCopy, {
+                formIndex,
+                contentIndex
+              })
+            })
+          })
+          
+          // Store the original contents to restore later
+          const originalContentsBackup = JSON.parse(JSON.stringify(contents.value))
+          
+          // Set contents to the form contents for saving
+          contents.value = allFormContents
+          
+          const indicesToSave = [...Array(allFormContents.length).keys()] // Save all contents
+          const promises = indicesToSave.map(async (index) => {
+            const content = contents.value[index]
+            const isNewContent = !content.id
+            
+            // Handle file uploads (File and Image) using FormData
+            if ((content.type === 'file' && content.file instanceof File) || 
+                (content.type === 'image' && content.image instanceof File)) {
+              const formData = new FormData()
+              formData.append('lesson', article.value.id)
+              formData.append('content_type', CONTENT_TYPES[content.type])
+              formData.append('order', content.order)
+              
+              // Add form_id to the content
+              if (content.form_id) {
+                formData.append('form_id', content.form_id)
+              }
+
+              if (content.type === 'file') {
+                formData.append('file', content.file)
+                if (content.filename) formData.append('title', content.filename)
+              } else if (content.type === 'image') {
+                formData.append('image', content.image)
+              }
+
+              try {
+                const url = isNewContent
+                  ? `/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/`
+                  : `/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/${content.id}/`
+                const method = isNewContent ? 'post' : 'put'
+                
+                const response = await api[method](url, formData, {
+                  headers: { 'Content-Type': 'multipart/form-data' }
+                })
+                return { success: true, data: response.data, index }
+              } catch (error) {
+                return { success: false, error, index }
+              }
+            } else {
+              // Handle other content types or updates without file changes
+              const payload = {
+                lesson: article.value.id,
+                content_type: CONTENT_TYPES[content.type],
+                order: content.order,
+              }
+              
+              // Add form_id to the content
+              if (content.form_id) {
+                payload.form_id = content.form_id
+              }
+
+              if (content.type === 'text') {
+                payload.text = content.text || ''
+              } else if (content.type === 'image' && typeof content.image === 'string') {
+                // If image is a string (URL), don't send it again unless necessary
+              } else if (content.type === 'video') {
+                payload.video_url = content.video_url || ''
+              } else if (content.type === 'code') {
+                payload.text = content.code || ''
+                payload.code_language = content.language || 'javascript'
+              } else if (content.type === 'quiz') {
+                payload.quiz_data = {
+                  question: content.question || '',
+                  answers: content.answers || ['', ''],
+                  correct_answer: content.correct_answer
+                }
+              } else if (content.type === 'table') {
+                payload.table_data = {
+                  headers: content.headers || ['Заголовок 1', 'Заголовок 2'],
+                  data: content.data || [['', ''], ['', '']]
+                }
+              } else if (content.type === 'file' && typeof content.file === 'string') {
+                 // If file is a string (URL), don't send it again unless necessary
+              }
+
+              try {
+                const url = isNewContent
+                  ? `/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/`
+                  : `/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/${content.id}/`
+                const method = isNewContent ? 'post' : 'put'
+
+                const response = await api[method](url, payload)
+                return { success: true, data: response.data, index }
+              } catch (error) {
+                return { success: false, error, index }
+              }
+            }
+          })
+
+          const results = await Promise.all(promises)
+          const savedContents = []
+          
+          results.forEach((result) => {
+            if (result.success) {
+              const { data, index } = result
+              
+              contents.value[index] = {
+                ...contents.value[index],
+                id: data.id,
+                file: data.file || contents.value[index].file,
+                filename: data.title || data.filename || contents.value[index].filename
+              }
+              savedContents.push(contents.value[index])
+            } else {
+              const { error, index } = result
+              const contentInfo = formContentMap.get(contents.value[index])
+              
+              if (contentInfo) {
+                const { formIndex, contentIndex } = contentInfo
+                const content = customForms.value[formIndex].contents[contentIndex]
+                const errorMessage = error?.response?.data?.detail || error?.message || 'Неизвестная ошибка'
+                errors.push(`Форма ${formIndex + 1}, элемент ${contentIndex + 1} (${getContentTypeName(content.type)}): ${errorMessage}`)
+              } else {
+                const errorMessage = error.response?.data?.detail || error.message
+                errors.push(`Элемент ${index + 1} (${getContentTypeName(contents.value[index].type)}): ${errorMessage}`)
+              }
+            }
+          })
+
+          if (errors.length > 0) {
+            showToast(`Ошибки при сохранении: ${errors.join('; ')}`, 'error')
+            // Restore original contents if errors occurred
+            contents.value = originalContentsBackup
+          } else {
+            changedIndices.value.clear()
+            lastSavedAt.value = new Date()
+            
+            // Update each form's contents with the saved data
+            savedContents.forEach(savedContent => {
+              const contentInfo = formContentMap.get(savedContent)
+              if (contentInfo) {
+                const { formIndex, contentIndex } = contentInfo
+                
+                // Ensure we maintain the type and other important properties
+                const originalType = customForms.value[formIndex].contents[contentIndex].type
+                customForms.value[formIndex].contents[contentIndex] = {
+                  ...customForms.value[formIndex].contents[contentIndex],
+                  ...savedContent,
+                  type: originalType // Explicitly preserve original type
+                }
+              }
+            })
+            
+            // Restore original contents array
+            contents.value = originalContentsBackup
+            originalContents.value = JSON.parse(JSON.stringify(contents.value))
+            showToast('Все изменения успешно сохранены!', 'success')
+          }
         }
       } catch (error) {
         console.error('Ошибка сохранения работы:', error)
@@ -662,12 +893,71 @@ export default {
       }
 
       try {
-        const response = await api.get(`/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/`)
-        contents.value = response.data.sort((a, b) => a.order - b.order).map(item => ({
+        // Load article contents
+        const contentsResponse = await api.get(`/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/`)
+        contents.value = contentsResponse.data.sort((a, b) => a.order - b.order).map(item => ({
           ...item,
           filename: item.type === 'file' ? item.title : item.filename
         }))
         originalContents.value = JSON.parse(JSON.stringify(contents.value))
+        
+        // Load forms
+        try {
+          if (!useLocalStorage.value) {
+            // Try loading from backend if endpoints exist
+            const formsResponse = await api.get(`/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/forms/`)
+            
+            if (formsResponse.data && Array.isArray(formsResponse.data)) {
+              customForms.value = formsResponse.data.map(form => ({
+                ...form,
+                contents: form.contents || []
+              }))
+              
+              // If we have forms but no active form, set the first one as active
+              if (customForms.value.length > 0 && activeFormIndex.value === -1) {
+                activeFormIndex.value = 0
+              }
+            } else {
+              createDefaultForm()
+            }
+          } else {
+            // Load from localStorage if backend endpoints don't exist yet
+            const savedForms = localStorage.getItem(`article_forms_${article.value.id}`)
+            if (savedForms) {
+              try {
+                customForms.value = JSON.parse(savedForms)
+                if (customForms.value.length > 0) {
+                  activeFormIndex.value = 0
+                }
+                showToast('Формы загружены из локального хранилища.', 'info')
+              } catch (e) {
+                console.error('Ошибка парсинга сохраненных форм:', e)
+                createDefaultForm()
+              }
+            } else {
+              createDefaultForm()
+            }
+          }
+        } catch (error) {
+          console.error('Ошибка загрузки форм:', error)
+          // Fallback to localStorage if API fails
+          const savedForms = localStorage.getItem(`article_forms_${article.value.id}`)
+          if (savedForms) {
+            try {
+              customForms.value = JSON.parse(savedForms)
+              if (customForms.value.length > 0) {
+                activeFormIndex.value = 0
+              }
+              showToast('Формы загружены из локального хранилища.', 'info')
+            } catch (e) {
+              console.error('Ошибка парсинга сохраненных форм:', e)
+              createDefaultForm()
+            }
+          } else {
+            createDefaultForm()
+          }
+        }
+        
         changedIndices.value.clear()
         lastSavedAt.value = new Date()
         loadError.value = null
@@ -686,6 +976,21 @@ export default {
         showToast(loadError.value, 'error')
         contents.value = []
         originalContents.value = []
+        customForms.value = []
+      }
+    }
+
+    // Helper to create default form
+    const createDefaultForm = () => {
+      if (contents.value.length > 0) {
+        customForms.value = [{
+          id: generateUniqueId(),
+          title: 'Основная форма',
+          contents: contents.value,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }]
+        activeFormIndex.value = 0
       }
     }
 
@@ -726,6 +1031,13 @@ export default {
     }
 
     const openBlockModal = () => {
+      // Check if a form is currently selected and set currentFormIndex accordingly
+      if (activeFormIndex.value >= 0) {
+        currentFormIndex.value = activeFormIndex.value;
+        showToast(`Добавление элемента в форму "${customForms.value[activeFormIndex.value].title}"`, 'info');
+      } else {
+        currentFormIndex.value = -1; // Reset to ensure we're not adding to a form
+      }
       showBlockModal.value = true
       selectedBlockType.value = ''
     }
@@ -735,26 +1047,171 @@ export default {
       selectedBlockType.value = ''
     }
 
-    const selectBlockType = (type) => {
-      selectedBlockType.value = type
-    }
-
-    const addNewBlock = () => {
-      if (!selectedBlockType.value) return
-
+    const addNewBlock = (type) => {
+      if (!type) return
       const newContent = {
         id: null,
-        type: selectedBlockType.value,
+        type,
         order: contents.value.length + 1,
-        ...JSON.parse(JSON.stringify(DEFAULT_CONTENT[selectedBlockType.value])),
+        ...JSON.parse(JSON.stringify(DEFAULT_CONTENT[type])),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
-
-      contents.value.push(newContent)
-      changedIndices.value.add(contents.value.length - 1)
+      
+      if (currentFormIndex.value >= 0) {
+        const formIndex = currentFormIndex.value
+        newContent.order = customForms.value[formIndex].contents.length + 1
+        customForms.value[formIndex].contents.push(newContent)
+        updateFormContentOrder(formIndex)
+        showToast(`Элемент "${getContentTypeName(type)}" добавлен в форму "${customForms.value[formIndex].title}"`, 'success')
+        currentFormIndex.value = -1
+      } else {
+        contents.value.push(newContent)
+        changedIndices.value.add(contents.value.length - 1)
+        showToast(`Элемент "${getContentTypeName(type)}" добавлен`, 'success')
+      }
+      
       closeBlockModal()
-      showToast('Новый блок добавлен.', 'success')
+    }
+
+    const createNewForm = () => {
+      const newForm = {
+        id: generateUniqueId(),
+        title: 'Новая форма',
+        contents: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+      
+      customForms.value.push(newForm)
+      changedIndices.value.add(`form-${customForms.value.length - 1}`)
+      showToast('Новая форма создана.', 'success')
+      
+      // Automatically select the new form
+      activeFormIndex.value = customForms.value.length - 1
+    }
+
+    const removeForm = (formIndex) => {
+      if (!confirm('Вы уверены, что хотите удалить эту форму?')) return
+      
+      const form = customForms.value[formIndex]
+      
+      // If the form has an ID and we're not using localStorage, delete from server
+      if (form.id && !useLocalStorage.value) {
+        try {
+          api.delete(`/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/forms/${form.id}/`)
+            .then(() => {
+              showToast('Форма удалена на сервере.', 'success')
+            })
+            .catch(error => {
+              console.error('Ошибка удаления формы:', error)
+              showToast('Форма удалена локально, но возникла ошибка при удалении на сервере.', 'warning')
+            })
+        } catch (error) {
+          console.error('Ошибка удаления формы:', error)
+        }
+      }
+      
+      // Remove form locally
+      customForms.value.splice(formIndex, 1)
+      
+      // If we're using localStorage, update the stored forms
+      if (useLocalStorage.value) {
+        localStorage.setItem(`article_forms_${article.value.id}`, JSON.stringify(customForms.value))
+      }
+      
+      // If we deleted the active form, reset active form index
+      if (activeFormIndex.value === formIndex) {
+        activeFormIndex.value = customForms.value.length > 0 ? 0 : -1
+      } else if (activeFormIndex.value > formIndex) {
+        // If we deleted a form before the active form, adjust the index
+        activeFormIndex.value--
+      }
+      
+      showToast('Форма удалена.', 'success')
+    }
+
+    const onFormContentUpdate = debounce((formIndex, elementIndex, updatedContent) => {
+      const currentContent = customForms.value[formIndex].contents[elementIndex]
+      customForms.value[formIndex].contents[elementIndex] = {
+        ...currentContent,
+        ...updatedContent,
+        updated_at: new Date().toISOString()
+      }
+      changedIndices.value.add(`form-${formIndex}-${elementIndex}`)
+    }, 500)
+
+    const moveFormContentUp = (formIndex, elementIndex) => {
+      if (elementIndex > 0) {
+        const temp = customForms.value[formIndex].contents[elementIndex]
+        customForms.value[formIndex].contents[elementIndex] = customForms.value[formIndex].contents[elementIndex - 1]
+        customForms.value[formIndex].contents[elementIndex - 1] = temp
+        updateFormContentOrder(formIndex)
+      }
+    }
+
+    const moveFormContentDown = (formIndex, elementIndex) => {
+      if (elementIndex < customForms.value[formIndex].contents.length - 1) {
+        const temp = customForms.value[formIndex].contents[elementIndex]
+        customForms.value[formIndex].contents[elementIndex] = customForms.value[formIndex].contents[elementIndex + 1]
+        customForms.value[formIndex].contents[elementIndex + 1] = temp
+        updateFormContentOrder(formIndex)
+      }
+    }
+
+    const updateFormContentOrder = (formIndex) => {
+      customForms.value[formIndex].contents.forEach((content, index) => {
+        content.order = index + 1
+        changedIndices.value.add(`form-${formIndex}-${index}`)
+      })
+    }
+
+    const removeFormContent = (formIndex, elementIndex) => {
+      if (!confirm('Вы уверены, что хотите удалить этот элемент из формы?')) return
+      
+      customForms.value[formIndex].contents.splice(elementIndex, 1)
+      updateFormContentOrder(formIndex)
+      showToast('Элемент формы удален.', 'success')
+    }
+
+    const openFormBlockModal = (formIndex) => {
+      currentFormIndex.value = formIndex
+      showBlockModal.value = true
+      selectedBlockType.value = ''
+    }
+
+    const selectForm = (formIndex, event) => {
+      // Remove the class check, allowing any click within the form to select it
+      activeFormIndex.value = formIndex
+      
+      // Only show toast if it's a direct click on the form (not through child elements)
+      if (event.target.classList.contains('custom-form-container')) {
+        showToast(`Форма "${customForms.value[formIndex].title}" выбрана.`, 'info')
+      }
+    }
+
+    const onFormTitleChange = (formIndex) => {
+      const form = customForms.value[formIndex]
+      changedIndices.value.add(`form-${formIndex}`)
+      
+      // If using localStorage, update storage
+      if (useLocalStorage.value) {
+        localStorage.setItem(`article_forms_${article.value.id}`, JSON.stringify(customForms.value))
+      }
+    }
+
+    const onFormTitleBlur = (formIndex) => {
+      // No auto-replacement with default title here, let user input whatever they want
+      
+      // If using localStorage, update storage
+      if (useLocalStorage.value) {
+        localStorage.setItem(`article_forms_${article.value.id}`, JSON.stringify(customForms.value))
+      }
+    }
+
+    const onFormTitleFocus = (formIndex) => {
+      // This function is for any actions needed when the title input is focused
+      activeFormIndex.value = formIndex
     }
 
     onMounted(() => {
@@ -791,6 +1248,7 @@ export default {
       toastType,
       hasChanges,
       isContentReadOnly,
+      isEditMode,
       handleTextSelection,
       openAIModal,
       aiExplainText,
@@ -815,8 +1273,20 @@ export default {
       blockTypes,
       openBlockModal,
       closeBlockModal,
-      selectBlockType,
       addNewBlock,
+      customForms,
+      createNewForm,
+      removeForm,
+      onFormContentUpdate,
+      moveFormContentUp,
+      moveFormContentDown,
+      removeFormContent,
+      openFormBlockModal,
+      activeFormIndex,
+      selectForm,
+      onFormTitleChange,
+      onFormTitleBlur,
+      onFormTitleFocus,
     }
   },
 }
@@ -1011,7 +1481,78 @@ export default {
   background: #575667;
 }
 
-.info-panel {
+.create-form-btn {
+  background: #a094b8;
+  color: #f5f9f8;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.create-form-btn:hover {
+  background: #8b7ca5;
+  transform: translateY(-1px);
+}
+
+.custom-form-container {
+  margin-top: 30px;
+  padding: 20px;
+  background: #f5f9f8;
+  border-radius: 8px;
+  border: 2px dashed #a094b8;
+}
+
+.form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  padding-left: 5px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.form-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #24222f;
+  background: transparent;
+  border: none;
+  outline: none;
+  width: 100%;
+  padding: 5px;
+  transition: all 0.2s;
+  border-radius: 4px;
+}
+
+.form-title:not([readonly]):not([disabled]):focus {
+  background-color: #fff;
+  border: 1px solid #a094b8;
+  box-shadow: 0 0 5px rgba(160, 148, 184, 0.3);
+}
+
+.form-title:not([readonly]):not([disabled]):hover {
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+.form-title[readonly], .form-title[disabled] {
+  cursor: default;
+  opacity: 0.8;
+}
+
+.form-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.form {
   box-sizing: border-box;
   display: flex;
   flex: 0 0 auto;
@@ -1022,6 +1563,8 @@ export default {
   padding: 20px;
   background: #f5f9f8;
   border-radius: 8px;
+  margin-bottom: 30px;
+  position: relative;
 }
 
 .editor-header {
@@ -1716,10 +2259,11 @@ export default {
 .block-modal-container {
   background: #f5f9f8;
   border-radius: 20px;
-  max-width: 800px;
+  max-width: 600px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+  overflow-x: hidden;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
@@ -1729,6 +2273,15 @@ export default {
   align-items: center;
   padding: 30px 29px 20px;
   border-bottom: 1px solid #e5e7eb;
+  position: relative;
+}
+
+.main-heading-style {
+  font-size: 36px;
+  font-weight: 600;
+  color: #24222f;
+  margin: 0;
+  flex: 1;
 }
 
 .modal-close {
@@ -1742,6 +2295,11 @@ export default {
   font-size: 18px;
   line-height: 1;
   transition: background 0.2s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 20px;
+  position: static;
 }
 
 .modal-close:hover {
@@ -1750,26 +2308,29 @@ export default {
 }
 
 .block-modal-content {
-  padding: 30px;
+  padding: 20px;
 }
 
 .block-type-selection {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 20px;
-  margin-bottom: 30px;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
 .block-type-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  box-sizing: border-box;
   padding: 20px;
   background: #fff;
   border: 2px solid #e5e7eb;
-  border-radius: 10px;
+  border-radius: 15px;
   cursor: pointer;
   transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 150px;
 }
 
 .block-type-card:hover {
@@ -1784,12 +2345,12 @@ export default {
 }
 
 .block-icon {
-  font-size: 32px;
+  font-size: 24px;
   margin-bottom: 12px;
 }
 
 .block-title {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: #24222f;
   margin-bottom: 8px;
@@ -1797,9 +2358,11 @@ export default {
 }
 
 .block-description {
-  font-size: 14px;
+  font-size: 12px;
   color: #6b7280;
   text-align: center;
+  line-height: 1.4;
+  padding: 0 10px;
 }
 
 .block-modal-footer {
@@ -1847,5 +2410,69 @@ export default {
 .cancel-btn:hover {
   background: #dc2626;
   transform: translateY(-1px);
+}
+
+.preview-btn {
+  background: #a094b8;
+  color: #f5f9f8;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 400;
+  font-family: 'Raleway', sans-serif;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preview-btn:hover {
+  background: #8b7ca5;
+  transform: translateY(-1px);
+}
+
+.active-form {
+  border: 2px solid #575667;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.remove-form-btn {
+  background: #ef4444;
+  color: #f5f9f8;
+  border: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.remove-form-btn:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+
+.add-content-btn.form-selected {
+  background: #575667;
+  position: relative;
+}
+
+.add-content-btn.form-selected:hover:not(:disabled) {
+  background: #4a4857;
+}
+
+.editable-content,
+.preview-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  gap: 20px;
 }
 </style>
