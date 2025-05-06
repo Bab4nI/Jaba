@@ -1306,7 +1306,7 @@ export default {
   justify-content: flex-start;
   min-width: 1480px;
   background: var(--background-color);
-  transition: background-color 0.3s ease;
+  transition: background-color 0.6s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .center-column-box-layout {
@@ -1328,7 +1328,30 @@ export default {
   align-items: flex-end;
   justify-content: space-between;
   padding: 30px 29px 40px 99px;
-  background: #f5f9f8;
+  background: var(--form-background);
+  border-radius: 8px;
+  padding: 1.5rem;
+  transition: background-color 0.5s ease, box-shadow 0.4s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.header-section::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: var(--accent-color);
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform 0.5s ease-out;
+}
+
+.header-section:hover::after {
+  transform: scaleX(1);
 }
 
 .main-title-text-style {
@@ -1430,7 +1453,10 @@ export default {
   background: var(--form-background);
   border-radius: 8px;
   padding: 1.5rem;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.5s ease, box-shadow 0.4s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  position: relative;
+  overflow: hidden;
 }
 
 .article-title {
@@ -1443,12 +1469,13 @@ export default {
   background: transparent;
   color: var(--text-color);
   outline: none;
-  transition: border-color 0.3s, color 0.3s ease;
+  transition: border-color 0.4s, color 0.4s ease, transform 0.3s;
   margin-right: 2rem;
 }
 
 .article-title:focus {
   border-color: #575667;
+  transform: translateY(-2px);
 }
 
 .article-title:read-only {
@@ -1470,16 +1497,36 @@ export default {
   cursor: pointer;
   font-size: 1rem;
   font-weight: 500;
-  transition: background-color 0.2s, transform 0.1s;
+  transition: background-color 0.3s, transform 0.2s, box-shadow 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+.mode-toggle-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to right, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.2));
+  transform: translateX(-100%);
+  transition: transform 0.4s ease-out;
 }
 
 .mode-toggle-btn:hover {
   background: #8b7ca5;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.mode-toggle-btn:hover::before {
+  transform: translateX(0);
 }
 
 .mode-toggle-btn.active {
   background: var(--secondary-text);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
 }
 
 .create-form-btn {
@@ -1508,7 +1555,12 @@ export default {
   background: var(--form-background);
   border-radius: 8px;
   border: 2px dashed #a094b8;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.4s ease, border-color 0.4s ease, transform 0.3s ease, box-shadow 0.4s ease;
+}
+
+.custom-form-container:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-3px);
 }
 
 .form-header {
@@ -2352,7 +2404,7 @@ export default {
 
 .active-form {
   border: 2px solid #575667;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0 20px rgba(87, 86, 103, 0.2);
 }
 
 .remove-form-btn {
@@ -2432,7 +2484,6 @@ export default {
   cursor: pointer;
   font-size: 1rem;
   transition: background-color 0.2s, transform 0.1s;
-  margin-top: 1rem;
 }
 
 .add-content-btn:hover {
@@ -2544,5 +2595,15 @@ export default {
   font-weight: 400;
   transition: background-color 0.2s, transform 0.1s;
   min-width: 120px;
+}
+
+/* Add new styles for images */
+:deep(img) {
+  opacity: 0.85;
+  transition: opacity 0.3s ease, filter 0.3s ease;
+}
+
+:deep(.dark-theme img) {
+  filter: brightness(0.9);
 }
 </style>
