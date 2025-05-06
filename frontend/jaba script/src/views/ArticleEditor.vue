@@ -602,28 +602,67 @@ export default {
         // When using local storage (or when backend endpoints don't exist yet)
         if (useLocalStorage.value) {
           try {
-            // Save forms to localStorage
-            localStorage.setItem(`article_forms_${article.value.id}`, JSON.stringify(customForms.value))
+            // Process all image and file uploads first
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
             
-            // Save individual content items if needed
-            let allContentSaved = true
             for (const form of customForms.value) {
               for (const content of form.contents) {
                 // Check if any content needs special handling (e.g., file uploads)
                 if ((content.type === 'file' && content.file instanceof File) || 
                     (content.type === 'image' && content.image instanceof File)) {
-                  // Handle file upload errors - in local mode we just mark it as saved
-                  // In a real environment, you would handle the upload
+                  
                   content.id = content.id || generateUniqueId()
                   
-                  // If it's a local testing environment, simulate successful upload
-                  if (content.type === 'file') {
-                    // Store file name instead of the actual file
-                    content.filename = content.file.name
-                    content.file = URL.createObjectURL(content.file)
-                  } else if (content.type === 'image') {
-                    // Store image URL instead of the actual file
-                    content.image = URL.createObjectURL(content.image)
+                  try {
+                    // Upload file to Django media server
+                    const formData = new FormData()
+                    
+                    if (content.type === 'file') {
+                      formData.append('file', content.file)
+                      formData.append('lesson', article.value.id)
+                    } else if (content.type === 'image') {
+                      formData.append('image', content.image)
+                      formData.append('lesson', article.value.id)
+                    }
+                    
+                    // Upload to the media server
+                    const response = await fetch(`${apiUrl}/api/upload/`, {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                      },
+                      body: formData
+                    })
+                    
+                    if (response.ok) {
+                      const result = await response.json()
+                      
+                      // Update content with server-side paths
+                      if (content.type === 'file') {
+                        content.filename = content.file.name
+                        content.file = result.file_path // Path from the server
+                      } else if (content.type === 'image') {
+                        content.image = result.image_path // Path from the server
+                      }
+                    } else {
+                      console.error('Upload failed:', await response.text())
+                      // Fallback to object URL if server upload fails
+                      if (content.type === 'file') {
+                        content.filename = content.file.name
+                        content.file = URL.createObjectURL(content.file)
+                      } else if (content.type === 'image') {
+                        content.image = URL.createObjectURL(content.image)
+                      }
+                    }
+                  } catch (uploadError) {
+                    console.error('Error uploading to media server:', uploadError)
+                    // Fallback to object URL
+                    if (content.type === 'file') {
+                      content.filename = content.file.name
+                      content.file = URL.createObjectURL(content.file)
+                    } else if (content.type === 'image') {
+                      content.image = URL.createObjectURL(content.image)
+                    }
                   }
                 } else if (!content.id) {
                   // Assign ID to any content that doesn't have one
@@ -632,22 +671,18 @@ export default {
               }
             }
             
-            // Update localStorage again with processed content
+            // Save updated forms with server-side media paths
             localStorage.setItem(`article_forms_${article.value.id}`, JSON.stringify(customForms.value))
             
-            if (allContentSaved) {
-              changedIndices.value.clear()
-              lastSavedAt.value = new Date()
-              showToast('Все изменения сохранены локально.', 'success')
-            } else {
-              showToast('Некоторые элементы не удалось сохранить.', 'warning')
-            }
+            changedIndices.value.clear()
+            lastSavedAt.value = new Date()
+            showToast('Все изменения сохранены.', 'success')
           } catch (error) {
             console.error('Ошибка локального сохранения:', error)
             showToast('Не удалось сохранить изменения локально.', 'error')
           }
         } else {
-          // Original backend saving code
+          // Original backend saving code for when useLocalStorage is false
           // Step 1: Save form metadata and structure
           try {
             const formsToSave = customForms.value.map(form => ({
@@ -675,7 +710,61 @@ export default {
             errors.push('Не удалось сохранить формы: ' + (error.response?.data?.detail || error.message))
           }
 
-          // Step 2: Save all content from all forms
+          // Step 2: Process all image and file uploads first
+          const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+          
+          for (const form of customForms.value) {
+            for (const content of form.contents) {
+              // Check if any content needs special handling (e.g., file uploads)
+              if ((content.type === 'file' && content.file instanceof File) || 
+                  (content.type === 'image' && content.image instanceof File)) {
+                
+                content.id = content.id || generateUniqueId()
+                
+                try {
+                  // Upload file to Django media server
+                  const formData = new FormData()
+                  
+                  if (content.type === 'file') {
+                    formData.append('file', content.file)
+                    formData.append('lesson', article.value.id)
+                  } else if (content.type === 'image') {
+                    formData.append('image', content.image)
+                    formData.append('lesson', article.value.id)
+                  }
+                  
+                  // Upload to the media server
+                  const response = await fetch(`${apiUrl}/api/upload/`, {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                    },
+                    body: formData
+                  })
+                  
+                  if (response.ok) {
+                    const result = await response.json()
+                    
+                    // Update content with server-side paths
+                    if (content.type === 'file') {
+                      content.filename = content.file.name
+                      content.file = result.file_path // Path from the server
+                    } else if (content.type === 'image') {
+                      content.image = result.image_path // Path from the server
+                    }
+                  } else {
+                    console.error('Upload failed:', await response.text())
+                    errors.push(`Не удалось загрузить ${content.type === 'file' ? 'файл' : 'изображение'}: ${content.type === 'file' ? content.file.name : 'image'}`)
+                  }
+                } catch (uploadError) {
+                  console.error('Error uploading to media server:', uploadError)
+                  errors.push(`Ошибка при загрузке ${content.type === 'file' ? 'файла' : 'изображения'}: ${uploadError.message}`)
+                }
+              }
+            }
+          }
+
+          // Step 3: Save all form contents
           let formContentMap = new Map() // Map to track which form each content came from
           let allFormContents = []
           
@@ -709,87 +798,55 @@ export default {
             const content = contents.value[index]
             const isNewContent = !content.id
             
-            // Handle file uploads (File and Image) using FormData
-            if ((content.type === 'file' && content.file instanceof File) || 
-                (content.type === 'image' && content.image instanceof File)) {
-              const formData = new FormData()
-              formData.append('lesson', article.value.id)
-              formData.append('content_type', CONTENT_TYPES[content.type])
-              formData.append('order', content.order)
-              
-              // Add form_id to the content
-              if (content.form_id) {
-                formData.append('form_id', content.form_id)
-              }
+            // Create the payload
+            const payload = {
+              lesson: article.value.id,
+              content_type: CONTENT_TYPES[content.type],
+              order: content.order,
+            }
+            
+            // Add form_id to the content
+            if (content.form_id) {
+              payload.form_id = content.form_id
+            }
 
-              if (content.type === 'file') {
-                formData.append('file', content.file)
-                if (content.filename) formData.append('title', content.filename)
-              } else if (content.type === 'image') {
-                formData.append('image', content.image)
+            if (content.type === 'text') {
+              payload.text = content.text || ''
+            } else if (content.type === 'video') {
+              payload.video_url = content.video_url || ''
+            } else if (content.type === 'code') {
+              payload.text = content.code || ''
+              payload.code_language = content.language || 'javascript'
+            } else if (content.type === 'quiz') {
+              payload.quiz_data = {
+                question: content.question || '',
+                answers: content.answers || ['', ''],
+                correct_answer: content.correct_answer
               }
+            } else if (content.type === 'table') {
+              payload.table_data = {
+                headers: content.headers || ['Заголовок 1', 'Заголовок 2'],
+                data: content.data || [['', ''], ['', '']]
+              }
+            } else if (content.type === 'image') {
+              // For image, just pass the path that should already be updated
+              payload.image = content.image
+            } else if (content.type === 'file') {
+              // For file, just pass the path that should already be updated
+              payload.file = content.file
+              if (content.filename) payload.title = content.filename
+            }
 
-              try {
-                const url = isNewContent
-                  ? `/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/`
-                  : `/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/${content.id}/`
-                const method = isNewContent ? 'post' : 'put'
-                
-                const response = await api[method](url, formData, {
-                  headers: { 'Content-Type': 'multipart/form-data' }
-                })
-                return { success: true, data: response.data, index }
-              } catch (error) {
-                return { success: false, error, index }
-              }
-            } else {
-              // Handle other content types or updates without file changes
-              const payload = {
-                lesson: article.value.id,
-                content_type: CONTENT_TYPES[content.type],
-                order: content.order,
-              }
-              
-              // Add form_id to the content
-              if (content.form_id) {
-                payload.form_id = content.form_id
-              }
+            try {
+              const url = isNewContent
+                ? `/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/`
+                : `/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/${content.id}/`
+              const method = isNewContent ? 'post' : 'put'
 
-              if (content.type === 'text') {
-                payload.text = content.text || ''
-              } else if (content.type === 'image' && typeof content.image === 'string') {
-                // If image is a string (URL), don't send it again unless necessary
-              } else if (content.type === 'video') {
-                payload.video_url = content.video_url || ''
-              } else if (content.type === 'code') {
-                payload.text = content.code || ''
-                payload.code_language = content.language || 'javascript'
-              } else if (content.type === 'quiz') {
-                payload.quiz_data = {
-                  question: content.question || '',
-                  answers: content.answers || ['', ''],
-                  correct_answer: content.correct_answer
-                }
-              } else if (content.type === 'table') {
-                payload.table_data = {
-                  headers: content.headers || ['Заголовок 1', 'Заголовок 2'],
-                  data: content.data || [['', ''], ['', '']]
-                }
-              } else if (content.type === 'file' && typeof content.file === 'string') {
-                 // If file is a string (URL), don't send it again unless necessary
-              }
-
-              try {
-                const url = isNewContent
-                  ? `/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/`
-                  : `/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/${content.id}/`
-                const method = isNewContent ? 'post' : 'put'
-
-                const response = await api[method](url, payload)
-                return { success: true, data: response.data, index }
-              } catch (error) {
-                return { success: false, error, index }
-              }
+              const response = await api[method](url, payload)
+              return { success: true, data: response.data, index }
+            } catch (error) {
+              return { success: false, error, index }
             }
           })
 

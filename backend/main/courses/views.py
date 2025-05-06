@@ -17,6 +17,9 @@ from rest_framework.decorators import action
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.core.exceptions import ValidationError
+import os
+import uuid
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -351,3 +354,70 @@ class AIChatView(APIView):
         )
         
         return chat_response.choices[0].message.content
+
+class MediaUploadView(APIView):
+    """
+    API view for handling direct media uploads.
+    This endpoint allows users to upload images and files directly to the server's media directory.
+    """
+    parser_classes = [MultiPartParser, FormParser]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        """
+        Handle file upload and save it to the media directory.
+        Supported file types: image, file
+        """
+        if 'image' not in request.FILES and 'file' not in request.FILES:
+            return Response({
+                'error': 'No files found. Please upload an image or file.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        file_type = None
+        file_obj = None
+        
+        # Check if it's an image upload
+        if 'image' in request.FILES:
+            file_type = 'image'
+            file_obj = request.FILES['image']
+            # Verify it's an image
+            if not file_obj.content_type.startswith('image/'):
+                return Response({
+                    'error': 'Uploaded file is not an image.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check if it's a file upload
+        elif 'file' in request.FILES:
+            file_type = 'file'
+            file_obj = request.FILES['file']
+        
+        # Generate unique filename
+        ext = os.path.splitext(file_obj.name)[1].lower()
+        unique_filename = f"{uuid.uuid4().hex}{ext}"
+        
+        # Create year/month based folder structure
+        today = datetime.now()
+        folder_path = os.path.join(file_type, str(today.year), str(today.month))
+        full_folder_path = os.path.join(settings.MEDIA_ROOT, folder_path)
+        
+        # Ensure the directory exists
+        os.makedirs(full_folder_path, exist_ok=True)
+        
+        # Full path for the file
+        file_path = os.path.join(full_folder_path, unique_filename)
+        
+        # Save the file
+        with open(file_path, 'wb+') as destination:
+            for chunk in file_obj.chunks():
+                destination.write(chunk)
+        
+        # Path as it would be accessed from client via media URL
+        media_path = os.path.join(folder_path, unique_filename).replace('\\', '/')
+        
+        return Response({
+            'success': True,
+            'file_type': file_type,
+            'file_name': file_obj.name,
+            'file_path': f"/media/{media_path}",
+            'image_path': f"/media/{media_path}" if file_type == 'image' else None
+        }, status=status.HTTP_201_CREATED)

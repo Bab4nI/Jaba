@@ -1,7 +1,7 @@
 # main/courses/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import CourseViewSet, ModuleViewSet, LessonViewSet, LessonContentViewSet, CodeExecutionView, AIChatView
+from .views import CourseViewSet, ModuleViewSet, LessonViewSet, LessonContentViewSet, CodeExecutionView, AIChatView, MediaUploadView
 
 router = DefaultRouter()
 router.register(r'courses', CourseViewSet, basename='course')
@@ -53,4 +53,5 @@ urlpatterns = [
 
     path('execute-code/', CodeExecutionView.as_view(), name='execute-code'),
     path('ai/chat/', AIChatView.as_view(), name='ai-chat'),
+    path('upload/', MediaUploadView.as_view(), name='media-upload'),
 ]
