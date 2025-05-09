@@ -130,65 +130,12 @@
       </button>
     </div>
 
-    <!-- Floating AI Button -->
-    <transition name="fade">
-      <button
-        v-if="showAIButton && selectedText"
-        class="ai-floating-btn"
-        :style="aiButtonPosition"
-        @click="openAIModal"
-        aria-label="Открыть AI запрос"
-      >
-        AI Запрос
-      </button>
-    </transition>
-
-    <!-- AI Chat Modal -->
-    <div v-if="aiStore.modalVisible" class="ai-chat-modal" role="dialog" aria-labelledby="ai-modal-title">
-      <div class="ai-chat-container">
-        <div class="ai-chat-header">
-          <h3 id="ai-modal-title" class="main-heading-style">Работа с выделенным текстом</h3>
-          <button class="ai-modal-close" @click="closeAiModal" aria-label="Закрыть модальное окно">×</button>
-        </div>
-        <div class="ai-chat-content">
-          <div class="selected-text-panel">
-            <p class="info-text">{{ aiStore.selectedText || 'Выделите текст для обработки' }}</p>
-          </div>
-          <div class="ai-prompt-panel">
-            <textarea
-              v-model="aiUserPrompt"
-              placeholder="Уточните ваш запрос или выберите действие..."
-              class="ai-prompt-input"
-              aria-label="Поле для ввода запроса к AI"
-            ></textarea>
-            <div class="ai-quick-actions">
-              <button @click="aiExplainText" class="ai-action-btn">Объяснить</button>
-              <button @click="aiSimplifyText" class="ai-action-btn">Упростить</button>
-              <button @click="aiExpandText" class="ai-action-btn">Расширить</button>
-              <button @click="aiAskCustom" class="ai-action-btn">Спросить</button>
-            </div>
-          </div>
-          <div v-if="aiStore.isLoading" class="ai-loading-panel">
-            <span class="spinner"></span>
-            <p class="info-text">Идет обработка запроса...</p>
-          </div>
-          <div v-else-if="aiStore.error" class="ai-error-panel">
-            <p class="error-text">Ошибка AI: {{ aiStore.error }}</p>
-          </div>
-          <div v-else-if="aiStore.aiResponse" class="ai-response-panel">
-            <h4 class="title-heading">Ответ:</h4>
-            <p class="ai-response-content">{{ aiStore.aiResponse }}</p>
-            <div class="ai-response-actions">
-              <button @click="insertAiResponse" class="ai-insert-btn">Вставить в статью</button>
-              <button @click="copyAiResponse" class="ai-copy-btn">Копировать</button>
-            </div>
-          </div>
-        </div>
-        <div class="ai-chat-footer">
-          <button @click="closeAiModal" class="ai-close-btn">Закрыть</button>
-        </div>
-      </div>
-    </div>
+    <!-- AI Chat Component -->
+    <AIChat 
+      :selected-text="selectedText"
+      @show-toast="showToast"
+      @close-modal="closeAiModalButton"
+    />
 
     <!-- Toast Notifications -->
     <transition name="fade">
@@ -235,6 +182,7 @@ import api from '@/api'
 import { debounce } from 'lodash-es'
 import ContentBlock from '@/components/article/ContentBlock.vue'
 import Footer from '@/components/Footer.vue'
+import AIChat from '@/components/AiChat.vue'
 
 const CONTENT_TYPES = {
   text: 'TEXT',
@@ -318,6 +266,7 @@ export default {
   components: {
     ContentBlock,
     Footer,
+    AIChat,
   },
 
   setup() {
@@ -400,41 +349,16 @@ export default {
       }
     }
 
-    const openAIModal = () => {
-      aiStore.setSelectedText(selectedText.value)
-      showAIButton.value = false
-    }
-
-    const aiExplainText = () => {
-      aiStore.askAI('Объясни простыми словами')
-    }
-
-    const aiSimplifyText = () => {
-      aiStore.askAI('Упрости текст для лучшего понимания')
-    }
-
-    const aiExpandText = () => {
-      aiStore.askAI('Расширь и дополни текст')
-    }
-
-    const aiAskCustom = () => {
-      if (aiUserPrompt.value.trim()) {
-        aiStore.askAI(aiUserPrompt.value)
-      } else {
-        showToast('Введите запрос для AI.', 'error')
-      }
-    }
-
-    const insertAiResponse = () => {
+    const insertAiResponseFromComponent = (response) => {
       const activeTextElement = contents.value.find((c) => c.type === 'text')
       if (activeTextElement) {
-        activeTextElement.text += `\n\n${aiStore.aiResponse}`
+        activeTextElement.text += `\n\n${response}`
         const index = contents.value.indexOf(activeTextElement)
         changedIndices.value.add(index)
       } else {
         const newContent = {
           type: 'text',
-          text: aiStore.aiResponse,
+          text: response,
           order: contents.value.length + 1,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -442,8 +366,11 @@ export default {
         contents.value.push(newContent)
         changedIndices.value.add(contents.value.length - 1)
       }
-      closeAiModal()
       showToast('Ответ AI вставлен в статью.', 'success')
+    }
+
+    const closeAiModalButton = () => {
+      showAIButton.value = false
     }
 
     const copyAiResponse = () => {
@@ -1265,6 +1192,52 @@ export default {
       activeFormIndex.value = formIndex
     }
 
+    const openAIModal = () => {
+      aiStore.setSelectedText(selectedText.value)
+      aiStore.modalVisible = true
+    }
+
+    const aiExplainText = () => {
+      aiStore.askAI('Объясни простыми словами')
+    }
+
+    const aiSimplifyText = () => {
+      aiStore.askAI('Упрости текст для лучшего понимания')
+    }
+
+    const aiExpandText = () => {
+      aiStore.askAI('Расширь и дополни текст')
+    }
+
+    const aiAskCustom = () => {
+      if (aiUserPrompt.value.trim()) {
+        aiStore.askAI(aiUserPrompt.value)
+      } else {
+        showToast('Введите запрос для AI.', 'error')
+      }
+    }
+
+    const insertAiResponse = () => {
+      const activeTextElement = contents.value.find((c) => c.type === 'text')
+      if (activeTextElement) {
+        activeTextElement.text += `\n\n${aiStore.aiResponse}`
+        const index = contents.value.indexOf(activeTextElement)
+        changedIndices.value.add(index)
+      } else {
+        const newContent = {
+          type: 'text',
+          text: aiStore.aiResponse,
+          order: contents.value.length + 1,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+        contents.value.push(newContent)
+        changedIndices.value.add(contents.value.length - 1)
+      }
+      closeAiModal()
+      showToast('Ответ AI вставлен в статью.', 'success')
+    }
+
     onMounted(() => {
       document.addEventListener('mouseup', handleGlobalTextSelection)
       window.addEventListener('beforeunload', beforeUnloadHandler)
@@ -1307,13 +1280,8 @@ export default {
       isEditMode,
       handleTextSelection,
       openAIModal,
-      aiExplainText,
-      aiSimplifyText,
-      aiExpandText,
-      aiAskCustom,
-      insertAiResponse,
-      copyAiResponse,
-      closeAiModal,
+      closeAiModalButton,
+      insertAiResponseFromComponent,
       getContentTypeName,
       getContentComponent,
       addContent,
@@ -1343,6 +1311,13 @@ export default {
       onFormTitleChange,
       onFormTitleBlur,
       onFormTitleFocus,
+      closeAiModal,
+      copyAiResponse,
+      aiExplainText,
+      aiSimplifyText,
+      aiExpandText,
+      aiAskCustom,
+      insertAiResponse,
     }
   },
 }
@@ -1858,13 +1833,6 @@ export default {
   align-items: center;
   padding: 30px 29px 20px;
   border-bottom: 1px solid #e5e7eb;
-}
-
-.main-heading-style {
-  font-size: 36px;
-  font-weight: 600;
-  color: #24222f;
-  margin: 0;
 }
 
 .ai-modal-close {
