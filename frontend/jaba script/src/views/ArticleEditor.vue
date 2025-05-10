@@ -119,7 +119,7 @@
     </div>
 
     <div class="dark-purple-flex-container">
-      <Footer />
+      <Comments />
     </div>
 
     <!-- Error Message for Content Loading -->
@@ -181,7 +181,7 @@ import { useAIStore } from '@/stores/aiStore'
 import api from '@/api'
 import { debounce } from 'lodash-es'
 import ContentBlock from '@/components/article/ContentBlock.vue'
-import Footer from '@/components/Footer.vue'
+import Comments from '@/components/Comments.vue'
 import AIChat from '@/components/AiChat.vue'
 
 const CONTENT_TYPES = {
@@ -265,7 +265,7 @@ const useLocalStorage = ref(true) // Set to false when backend endpoints are rea
 export default {
   components: {
     ContentBlock,
-    Footer,
+    Comments,
     AIChat,
   },
 

@@ -1,7 +1,7 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-from .models import Course, Module, Lesson, LessonContent
-from .serializers import CourseSerializer, ModuleSerializer, LessonSerializer, LessonContentSerializer
+from .models import Course, Module, Lesson, LessonContent, Comment, CommentReaction
+from .serializers import CourseSerializer, ModuleSerializer, LessonSerializer, LessonContentSerializer, CommentSerializer, CommentReactionSerializer
 from django.shortcuts import get_object_or_404
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser  # Add JSONParser
 from django.db import transaction
@@ -16,7 +16,7 @@ import openai
 from rest_framework.decorators import action
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, PermissionDenied
 import os
 import uuid
 from datetime import datetime
@@ -421,3 +421,130 @@ class MediaUploadView(APIView):
             'file_path': f"/media/{media_path}",
             'image_path': f"/media/{media_path}" if file_type == 'image' else None
         }, status=status.HTTP_201_CREATED)
+
+class CommentViewSet(viewsets.ModelViewSet):
+    serializer_class = CommentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        lesson_id = self.kwargs.get('lesson_id')
+        if not lesson_id:
+            return Comment.objects.none()
+        
+        try:
+            lesson_id = int(lesson_id)
+            return Comment.objects.filter(
+                lesson_id=lesson_id,
+                parent=None
+            ).select_related('author').prefetch_related('replies', 'reactions')
+        except (ValueError, TypeError):
+            logger.error(f"Invalid lesson_id: {lesson_id}")
+            return Comment.objects.none()
+
+    def perform_create(self, serializer):
+        lesson_id = self.kwargs.get('lesson_id')
+        if not lesson_id:
+            raise ValidationError("lesson_id is required")
+        
+        try:
+            lesson_id = int(lesson_id)
+        except (ValueError, TypeError):
+            raise ValidationError(f"Invalid lesson_id: {lesson_id}")
+        
+        # Check if lesson exists
+        lesson = get_object_or_404(Lesson, id=lesson_id)
+        
+        parent_id = self.request.data.get('parent')
+        if parent_id:
+            try:
+                parent_id = int(parent_id)
+                parent = get_object_or_404(Comment, id=parent_id)
+                if parent.lesson_id != lesson_id:
+                    raise ValidationError("Parent comment must belong to the same lesson")
+            except (ValueError, TypeError):
+                raise ValidationError(f"Invalid parent_id: {parent_id}")
+        
+        serializer.save(
+            author=self.request.user,
+            lesson_id=lesson_id
+        )
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        if instance.author != self.request.user:
+            raise PermissionDenied("You can only edit your own comments.")
+        serializer.save(is_edited=True, lesson=instance.lesson)
+
+    def perform_destroy(self, instance):
+        if instance.author != self.request.user:
+            raise PermissionDenied("You can only delete your own comments.")
+        instance.delete()
+
+    @action(detail=False, methods=['GET'])
+    def lesson_comments(self, request):
+        lesson_id = request.query_params.get('lesson_id')
+        if not lesson_id:
+            raise ValidationError("lesson_id is required")
+        
+        try:
+            lesson_id = int(lesson_id)
+        except (ValueError, TypeError):
+            raise ValidationError(f"Invalid lesson_id: {lesson_id}")
+        
+        comment_type = request.query_params.get('type', 'COMMENT')
+        
+        # Check if lesson exists
+        lesson = get_object_or_404(Lesson, id=lesson_id)
+        
+        comments = Comment.objects.filter(
+            lesson_id=lesson_id,
+            parent=None,
+            comment_type=comment_type
+        )
+        serializer = self.get_serializer(comments, many=True)
+        return Response(serializer.data)
+
+class CommentReactionViewSet(viewsets.ModelViewSet):
+    serializer_class = CommentReactionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        comment_id = self.kwargs.get('comment_id')
+        if comment_id:
+            return CommentReaction.objects.filter(
+                comment_id=comment_id
+            ).select_related('user')
+        return CommentReaction.objects.none()
+
+    def perform_create(self, serializer):
+        comment_id = self.kwargs.get('comment_id')
+        if not comment_id:
+            raise ValidationError("comment_id is required")
+
+        # Remove existing reaction if any
+        CommentReaction.objects.filter(
+            comment_id=comment_id,
+            user=self.request.user
+        ).delete()
+
+        # Save the new reaction
+        reaction = serializer.save(
+            comment_id=comment_id,
+            user=self.request.user
+        )
+        
+        # Update likes count
+        reaction.comment.update_likes_count()
+
+    def perform_destroy(self, instance):
+        if instance.user != self.request.user:
+            raise PermissionDenied("You can only remove your own reactions.")
+        
+        # Store the comment before deleting the reaction
+        comment = instance.comment
+        
+        # Delete the reaction
+        instance.delete()
+        
+        # Update likes count
+        comment.update_likes_count()

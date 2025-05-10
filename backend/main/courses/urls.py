@@ -1,10 +1,19 @@
 # main/courses/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import CourseViewSet, ModuleViewSet, LessonViewSet, LessonContentViewSet, CodeExecutionView, AIChatView, MediaUploadView
+from .views import (
+    CourseViewSet, ModuleViewSet, LessonViewSet,
+    LessonContentViewSet, CommentViewSet, CommentReactionViewSet,
+    CodeExecutionView, AIChatView, MediaUploadView
+)
 
 router = DefaultRouter()
 router.register(r'courses', CourseViewSet, basename='course')
+router.register(r'modules', ModuleViewSet, basename='module')
+router.register(r'lessons', LessonViewSet, basename='lesson')
+router.register(r'lesson-contents', LessonContentViewSet, basename='lesson-content')
+router.register(r'comments', CommentViewSet, basename='comment')
+router.register(r'comment-reactions', CommentReactionViewSet, basename='comment-reaction')
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -49,6 +58,28 @@ urlpatterns = [
         'courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/contents/order/',
         LessonContentViewSet.as_view({'patch': 'update_order'}),
         name='content-order'
+    ),
+
+    path(
+        'courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/comments/',
+        CommentViewSet.as_view({'get': 'list', 'post': 'create'}),
+        name='lesson-comments'
+    ),
+    path(
+        'courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/comments/<int:pk>/',
+        CommentViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}),
+        name='comment-detail'
+    ),
+    
+    path(
+        'comments/<int:comment_id>/reactions/',
+        CommentReactionViewSet.as_view({'get': 'list', 'post': 'create'}),
+        name='comment-reactions'
+    ),
+    path(
+        'comments/<int:comment_id>/reactions/<int:pk>/',
+        CommentReactionViewSet.as_view({'get': 'retrieve', 'delete': 'destroy'}),
+        name='reaction-detail'
     ),
 
     path('execute-code/', CodeExecutionView.as_view(), name='execute-code'),

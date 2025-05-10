@@ -1,6 +1,9 @@
 from rest_framework import serializers
-from .models import Course, Module, Lesson, LessonContent
+from .models import Course, Module, Lesson, LessonContent, Comment, CommentReaction
 from rest_framework.exceptions import ValidationError
+import logging
+
+logger = logging.getLogger(__name__)
 
 class LessonContentSerializer(serializers.ModelSerializer):
     type = serializers.SerializerMethodField()
@@ -209,4 +212,82 @@ class CourseSerializer(serializers.ModelSerializer):
             'slug': {'read_only': True},
             'created_at': {'read_only': True},
             'updated_at': {'read_only': True}
-        }   
+        }
+
+class CommentReactionSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CommentReaction
+        fields = ['id', 'user', 'reaction_type', 'created_at']
+
+    def get_user(self, obj):
+        avatar_url = None
+        if hasattr(obj.user, 'avatar_base64') and obj.user.avatar_base64:
+            avatar_url = obj.user.avatar_base64
+        
+        return {
+            'id': obj.user.id,
+            'username': f"{obj.user.first_name} {obj.user.last_name}",
+            'avatar': avatar_url
+        }
+
+class CommentSerializer(serializers.ModelSerializer):
+    author = serializers.SerializerMethodField()
+    replies = serializers.SerializerMethodField()
+    reactions = CommentReactionSerializer(many=True, read_only=True)
+    current_user_reaction = serializers.SerializerMethodField()
+    likes_count = serializers.SerializerMethodField()
+    dislikes_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Comment
+        fields = [
+            'id', 'lesson', 'author', 'parent', 'text',
+            'comment_type', 'created_at', 'updated_at',
+            'is_edited', 'replies', 'reactions',
+            'likes_count', 'dislikes_count',
+            'current_user_reaction'
+        ]
+        read_only_fields = ['author', 'is_edited', 'created_at', 'updated_at']
+
+    def get_author(self, obj):
+        avatar_url = None
+        if hasattr(obj.author, 'avatar_base64') and obj.author.avatar_base64:
+            avatar_url = obj.author.avatar_base64
+        
+        return {
+            'id': obj.author.id,
+            'username': f"{obj.author.first_name} {obj.author.last_name}",
+            'avatar': avatar_url
+        }
+
+    def get_replies(self, obj):
+        replies = obj.replies.all()
+        return CommentSerializer(replies, many=True, context=self.context).data
+
+    def get_current_user_reaction(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            reaction = obj.reactions.filter(user=request.user).first()
+            if reaction:
+                return reaction.reaction_type
+        return None
+    
+    def get_likes_count(self, obj):
+        return obj.reactions.filter(reaction_type='LIKE').count()
+    
+    def get_dislikes_count(self, obj):
+        return obj.reactions.filter(reaction_type='DISLIKE').count()
+
+    def validate(self, data):
+        # Validate comment_type
+        comment_type = data.get('comment_type', 'COMMENT')
+        if comment_type not in dict(Comment.COMMENT_TYPES):
+            raise ValidationError({'comment_type': f"Invalid comment type. Choices are: {dict(Comment.COMMENT_TYPES).keys()}"})
+        
+        return data
+
+    def create(self, validated_data):
+        validated_data['author'] = self.context['request'].user
+        return super().create(validated_data)   

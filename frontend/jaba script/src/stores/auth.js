@@ -168,10 +168,8 @@ export const useRefreshStore = defineStore('refresh', {
         console.log('🔄 Отправляем запрос на обновление токена...');
         console.log(`Используем refresh token: ${this.refreshToken.substring(0, 15)}...`);
         
-        // Получаем API URL из переменных окружения или используем дефолтный
-        const apiUrl = import.meta.env.VITE_API_URL 
-          ? `${import.meta.env.VITE_API_URL}/token/refresh/` 
-          : 'http://localhost:8000/api/token/refresh/';
+        // Используем правильный URL для обновления токена
+        const apiUrl = 'http://localhost:8000/api/token/refresh/';
         
         console.log(`Отправляем запрос на URL: ${apiUrl}`);
         
