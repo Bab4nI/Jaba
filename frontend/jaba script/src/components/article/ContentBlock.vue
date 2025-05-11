@@ -172,13 +172,23 @@ const removeBlock = () => {
 }
 
 .remove-btn {
-  background: #fef2f2;
-  border-color: #fecaca;
-  color: #dc2626;
+  background: var(--error-background, #fef2f2);
+  border: 1px solid var(--error-border, #fecaca);
+  color: var(--error-color, #dc2626);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 
 .remove-btn:hover {
-  background: #fee2e2;
+  background: var(--hover-delete-bg, #fee2e2);
+  color: var(--error-color, #dc2626);
 }
 
 .block-content {
@@ -215,5 +225,19 @@ const removeBlock = () => {
     flex: 1;
     text-align: center;
   }
+}
+
+:root {
+  --error-background: #fef2f2;
+  --error-border: #fecaca;
+  --error-color: #dc2626;
+  --hover-delete-bg: #fee2e2;
+}
+
+.dark-theme {
+  --error-background: #3a1a1a;
+  --error-border: #ff6b6b;
+  --error-color: #ff6b6b;
+  --hover-delete-bg: #5a2323;
 }
 </style> 

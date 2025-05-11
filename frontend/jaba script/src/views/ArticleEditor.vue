@@ -2433,8 +2433,8 @@ export default {
 }
 
 .remove-form-btn {
-  background: #ef4444;
-  color: #f5f9f8;
+  background: var(--error-color, #ef4444);
+  color: var(--footer-text, #f5f9f8);
   border: none;
   width: 30px;
   height: 30px;
@@ -2448,8 +2448,18 @@ export default {
 }
 
 .remove-form-btn:hover {
-  background: #dc2626;
+  background: var(--hover-delete, #dc2626);
   transform: translateY(-1px);
+}
+
+:root {
+  --error-color: #ef4444;
+  --hover-delete: #dc2626;
+}
+
+.dark-theme {
+  --error-color: #ff6b6b;
+  --hover-delete: #e55a5a;
 }
 
 .add-content-btn.form-selected {

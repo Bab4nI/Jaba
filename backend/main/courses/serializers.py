@@ -240,6 +240,7 @@ class CommentSerializer(serializers.ModelSerializer):
     is_author = serializers.SerializerMethodField()
     likes_count = serializers.SerializerMethodField()
     dislikes_count = serializers.SerializerMethodField()
+    reply_to_author = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
@@ -248,7 +249,8 @@ class CommentSerializer(serializers.ModelSerializer):
             'comment_type', 'created_at', 'updated_at',
             'is_edited', 'replies', 'reactions',
             'likes_count', 'dislikes_count',
-            'current_user_reaction', 'is_author'
+            'current_user_reaction', 'is_author',
+            'reply_to_author'
         ]
         read_only_fields = ['author', 'created_at', 'updated_at', 'is_edited']
 
@@ -262,11 +264,35 @@ class CommentSerializer(serializers.ModelSerializer):
             'username': f"{obj.author.first_name} {obj.author.last_name}",
             'avatar': avatar_url
         }
+        
+    def get_reply_to_author(self, obj):
+        """
+        Get information about the author of the parent comment if this is a reply
+        """
+        if obj.parent and obj.parent.author:
+            parent_author = obj.parent.author
+            avatar_url = None
+            if hasattr(parent_author, 'avatar_base64') and parent_author.avatar_base64:
+                avatar_url = parent_author.avatar_base64
+            
+            return {
+                'id': parent_author.id,
+                'username': f"{parent_author.first_name} {parent_author.last_name}",
+                'avatar': avatar_url
+            }
+        return None
 
     def get_replies(self, obj):
+        """
+        Get direct replies to this comment, sorted by creation date
+        """
         if hasattr(obj, 'replies'):
-            replies = obj.replies.all().order_by('-created_at')
-            return CommentSerializer(replies, many=True, context=self.context).data
+            # Get direct replies only
+            direct_replies = obj.replies.all().order_by('-created_at')
+            
+            # Use a separate serializer for replies to avoid infinite recursion
+            serializer_context = {'request': self.context.get('request')}
+            return CommentSerializer(direct_replies, many=True, context=serializer_context).data
         return []
 
     def get_current_user_reaction(self, obj):
@@ -294,7 +320,6 @@ class CommentSerializer(serializers.ModelSerializer):
         comment_type = data.get('comment_type', 'COMMENT')
         if comment_type not in dict(Comment.COMMENT_TYPES):
             raise ValidationError({'comment_type': f"Invalid comment type. Choices are: {dict(Comment.COMMENT_TYPES).keys()}"})
-        
         return data
 
     def create(self, validated_data):

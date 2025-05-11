@@ -848,16 +848,28 @@ export default {
 }
 
 .article-actions button {
-  background: none;
+  background: var(--background-color);
   border: none;
   cursor: pointer;
-  padding: 0;
+  padding: 6px;
   margin: 0;
+  border-radius: 6px;
+  transition: background 0.2s, filter 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.article-actions button:hover {
+  background: var(--hover-background);
+  filter: brightness(1.1);
 }
 
 .article-actions button img {
   width: 20px;
   height: 20px;
+  filter: var(--icon-filter, none);
+  transition: filter 0.2s;
 }
 
 .add-article-card {
@@ -1038,5 +1050,13 @@ export default {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+}
+
+:root {
+  --icon-filter: none;
+}
+
+.dark-theme .article-actions button img {
+  filter: brightness(0.85) invert(0.85);
 }
 </style>
