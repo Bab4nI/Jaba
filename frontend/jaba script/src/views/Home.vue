@@ -1,6 +1,6 @@
 <!-- html -->
 <template>
-    <div style="display: inline-block; width: 1505px" data-ignore="used only for top most containter width">
+    <div style="width: 100%" data-ignore="container width adjusted to fix right margin issue">
       <router-view></router-view>
           <div class="netlab-ai-landing-page">
             <div class="course-details-container">
@@ -134,6 +134,9 @@
         box-sizing: border-box;
         background: var(--background-color);
         transition: background-color 0.3s ease;
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
       }
       .center-column-flex-box {
         box-sizing: border-box;
@@ -232,7 +235,8 @@
       .course-details-section {
         box-sizing: border-box;
         flex: 0 0 auto;
-        max-width: initial;
+        width: 100%;
+        max-width: 100%;
         height: 627px;
         padding-right: 48px;
         padding-left: 99px;
@@ -445,12 +449,17 @@
       .course-overview-container {
         flex: 0 0 auto;
         margin-top: 92px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
       }
       .course-info-container {
         display: flex;
         flex-direction: row;
         align-items: center;
-        justify-content: flex-start;
+        justify-content: center;
+        width: 100%;
       }
       .course-topic-container {
         box-sizing: border-box;
@@ -482,8 +491,12 @@
         flex-direction: row;
         align-items: center;
         justify-content: center;
-        padding-left: 90px;
         margin-top: 63px;
+        flex-wrap: wrap;
+        max-width: 100%;
+        gap: 30px;
+        padding-left: 0;
+        width: 100%;
       }
       .central-text-block {
         box-sizing: border-box;
@@ -499,10 +512,10 @@
       .featured-image-container {
         box-sizing: border-box;
         display: block;
-        width: 667px;
-        max-width: initial;
-        height: 444px;
-        margin-left: 123px;
+        width: 100%;
+        max-width: 667px;
+        height: auto;
+        margin-left: 0;
         border: none;
         border-radius: 5px;
         box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
@@ -543,6 +556,7 @@
         align-items: flex-start;
         justify-content: space-between;
         margin-top: 44px;
+        flex-wrap: wrap;
       }
       .article-container {
         box-sizing: border-box;
@@ -719,5 +733,55 @@
         font: 400 16px Raleway, sans-serif;
         color: var(--secondary-text);
         transition: color 0.3s ease;
+      }
+
+      @media (max-width: 1200px) {
+        .content-wrapper {
+            flex-direction: column;
+            padding-left: 20px;
+            padding-right: 20px;
+        }
+        
+        .central-text-block {
+            max-width: 90%;
+        }
+        
+        .course-details-section {
+            padding-left: 30px;
+            padding-right: 30px;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .article-card-container {
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .article-container {
+            width: 100%;
+        }
+        
+        .course-features-container {
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .flex-column-container {
+            width: 100%;
+            padding-right: 0;
+            margin-bottom: 30px;
+        }
+        
+        .interactive-assistant-section {
+            width: 100%;
+            flex-direction: column;
+            padding-left: 0;
+        }
+        
+        .practical-focus-container {
+            margin-left: 0;
+            margin-top: 30px;
+        }
       }
     </style>
