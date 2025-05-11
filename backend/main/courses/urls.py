@@ -72,6 +72,17 @@ urlpatterns = [
     ),
     
     path(
+        'comments/',
+        CommentViewSet.as_view({'get': 'list'}),
+        name='comments-list'
+    ),
+    path(
+        'comments/<int:pk>/',
+        CommentViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}),
+        name='comment-direct'
+    ),
+    
+    path(
         'comments/<int:comment_id>/reactions/',
         CommentReactionViewSet.as_view({'get': 'list', 'post': 'create'}),
         name='comment-reactions'
@@ -80,6 +91,11 @@ urlpatterns = [
         'comments/<int:comment_id>/reactions/<int:pk>/',
         CommentReactionViewSet.as_view({'get': 'retrieve', 'delete': 'destroy'}),
         name='reaction-detail'
+    ),
+    path(
+        'comments/<int:comment_id>/user-reaction/',
+        CommentReactionViewSet.as_view({'delete': 'delete_user_reaction'}),
+        name='delete-user-reaction'
     ),
 
     path('execute-code/', CodeExecutionView.as_view(), name='execute-code'),

@@ -237,6 +237,7 @@ class CommentSerializer(serializers.ModelSerializer):
     replies = serializers.SerializerMethodField()
     reactions = CommentReactionSerializer(many=True, read_only=True)
     current_user_reaction = serializers.SerializerMethodField()
+    is_author = serializers.SerializerMethodField()
     likes_count = serializers.SerializerMethodField()
     dislikes_count = serializers.SerializerMethodField()
 
@@ -247,9 +248,9 @@ class CommentSerializer(serializers.ModelSerializer):
             'comment_type', 'created_at', 'updated_at',
             'is_edited', 'replies', 'reactions',
             'likes_count', 'dislikes_count',
-            'current_user_reaction'
+            'current_user_reaction', 'is_author'
         ]
-        read_only_fields = ['author', 'is_edited', 'created_at', 'updated_at']
+        read_only_fields = ['author', 'created_at', 'updated_at', 'is_edited']
 
     def get_author(self, obj):
         avatar_url = None
@@ -263,8 +264,10 @@ class CommentSerializer(serializers.ModelSerializer):
         }
 
     def get_replies(self, obj):
-        replies = obj.replies.all()
-        return CommentSerializer(replies, many=True, context=self.context).data
+        if hasattr(obj, 'replies'):
+            replies = obj.replies.all().order_by('-created_at')
+            return CommentSerializer(replies, many=True, context=self.context).data
+        return []
 
     def get_current_user_reaction(self, obj):
         request = self.context.get('request')
@@ -273,7 +276,13 @@ class CommentSerializer(serializers.ModelSerializer):
             if reaction:
                 return reaction.reaction_type
         return None
-    
+
+    def get_is_author(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.author == request.user
+        return False
+
     def get_likes_count(self, obj):
         return obj.reactions.filter(reaction_type='LIKE').count()
     

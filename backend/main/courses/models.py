@@ -247,10 +247,6 @@ class Comment(models.Model):
     def __str__(self):
         return f"{self.author.first_name} {self.author.last_name} → {self.lesson.title}"
 
-    @property
-    def dislikes_count(self):
-        return self.reactions.filter(reaction_type='DISLIKE').count()
-
     def update_likes_count(self):
         self.likes_count = self.reactions.filter(reaction_type='LIKE').count()
         self.save(update_fields=['likes_count'])

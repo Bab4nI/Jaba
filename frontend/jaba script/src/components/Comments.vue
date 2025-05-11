@@ -48,17 +48,28 @@
                 <div class="comment-text">{{ comment.text }}</div>
                 <div class="comment-actions-row">
                   <button class="icon-btn" :class="{active: comment.current_user_reaction === 'LIKE'}" @click="likeComment(comment)">
-                    <span>👍</span> <span>{{ comment.likes_count }}</span>
+                    <span class="heart-icon">❤</span> <span>{{ comment.likes_count }}</span>
                   </button>
-                  <button class="icon-btn" :class="{active: comment.current_user_reaction === 'DISLIKE'}" @click="dislikeComment(comment)">
-                    <span>👎</span> <span>{{ comment.dislikes_count }}</span>
-                  </button>
-                  <button class="reply-btn" @click="startReply(comment.id)">Ответить</button>
+                  <button class="reply-btn" @click="startReply(comment.id, comment.author.username, comment.id)">Ответить</button>
                   <button v-if="comment.replies && comment.replies.length > 0" class="toggle-replies-btn" @click="toggleReplies(comment.id)">
                     {{ comment.showReplies !== false ? 'Скрыть ответы' : `Показать ответы (${comment.replies.length})` }}
                     <span class="arrow">{{ comment.showReplies !== false ? '▲' : '▼' }}</span>
                   </button>
-                  <span class="more-btn">...</span>
+                  
+                  <div class="menu-container">
+                    <!-- Always visible debug button -->
+                    <button class="more-btn" @click="toggleMenu(comment.id, $event)">
+                      <span class="dots">...</span>
+                    </button>
+                    <div v-if="activeMenu === comment.id" class="actions-menu" @click.stop>
+                      <button class="action-btn edit-btn" @click="startEdit(comment); toggleMenu(null)">
+                        <span class="action-icon">✎</span> Редактировать
+                      </button>
+                      <button class="action-btn delete-btn" @click="deleteComment(comment); toggleMenu(null)">
+                        <span class="action-icon">🗑</span> Удалить
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 <!-- Ответить поле -->
                 <div v-if="replyingId === comment.id" class="reply-input-row">
@@ -69,6 +80,16 @@
                     @keyup.enter="submitReply(comment.id)"
                   />
                   <button class="send-reply-btn" @click="submitReply(comment.id)" :disabled="!replyText.trim()">Отправить</button>
+                </div>
+                <!-- Редактирование комментария -->
+                <div v-if="editingId === comment.id" class="edit-input-row">
+                  <input
+                    class="edit-input"
+                    v-model="editText"
+                    @keyup.enter="submitEdit(comment)"
+                  />
+                  <button class="send-edit-btn" @click="submitEdit(comment)" :disabled="!editText.trim()">Сохранить</button>
+                  <button class="cancel-edit-btn" @click="cancelEdit()">Отмена</button>
                 </div>
                 <!-- Вложенные ответы -->
                 <div v-if="comment.showReplies !== false && comment.replies && comment.replies.length > 0" class="replies-list">
@@ -82,13 +103,34 @@
                       <div class="comment-text">{{ reply.text }}</div>
                       <div class="comment-actions-row">
                         <button class="icon-btn" :class="{active: reply.current_user_reaction === 'LIKE'}" @click="likeComment(reply)">
-                          <span>👍</span> <span>{{ reply.likes_count }}</span>
+                          <span class="heart-icon">❤</span> <span>{{ reply.likes_count }}</span>
                         </button>
-                        <button class="icon-btn" :class="{active: reply.current_user_reaction === 'DISLIKE'}" @click="dislikeComment(reply)">
-                          <span>👎</span> <span>{{ reply.dislikes_count }}</span>
-                        </button>
-                        <button class="reply-btn" @click="startReply(reply.id)">Ответить</button>
-                        <span class="more-btn">...</span>
+                        <button class="reply-btn" @click="startReply(comment.id, reply.author.username, reply.id)">Ответить</button>
+                
+                <div class="menu-container">
+                  <!-- Always visible debug button for replies -->
+                  <button class="more-btn" @click="toggleMenu(reply.id, $event)">
+                    <span class="dots">...</span>
+                  </button>
+                  <div v-if="activeMenu === reply.id" class="actions-menu" @click.stop>
+                    <button class="action-btn edit-btn" @click="startEdit(reply); toggleMenu(null)">
+                      <span class="action-icon">✎</span> Редактировать
+                    </button>
+                    <button class="action-btn delete-btn" @click="deleteComment(reply); toggleMenu(null)">
+                      <span class="action-icon">🗑</span> Удалить
+                    </button>
+                  </div>
+                </div>
+                      </div>
+                      <!-- Редактирование ответа -->
+                      <div v-if="editingId === reply.id" class="edit-input-row">
+                        <input
+                          class="edit-input"
+                          v-model="editText"
+                          @keyup.enter="submitEdit(reply)"
+                        />
+                        <button class="send-edit-btn" @click="submitEdit(reply)" :disabled="!editText.trim()">Сохранить</button>
+                        <button class="cancel-edit-btn" @click="cancelEdit()">Отмена</button>
                       </div>
                     </div>
                   </div>
@@ -107,7 +149,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useRefreshStore } from '@/stores/auth'
@@ -127,6 +169,10 @@ export default {
     const replyingId = ref(null)
     const replyText = ref('')
     const sortType = ref('popular')
+    const editingId = ref(null)
+    const editText = ref('')
+    const activeMenu = ref(null)
+    const replyToId = ref(null)
 
     const userAvatar = computed(() => userStore.avatarBase64 || userStore.user?.avatar_base64 || '/default-avatar.png')
     const courseSlug = computed(() => route.params.courseSlug)
@@ -264,57 +310,101 @@ export default {
 
     const likeComment = async (comment) => {
       try {
-        const url = `${apiUrl.value}${comment.id}/reactions/`
-        const reactionType = comment.current_user_reaction === 'LIKE' ? 'DISLIKE' : 'LIKE'
-        await api.post(url, { reaction_type: reactionType })
-        await loadComments()
-      } catch (err) {
-        if (err.response?.status === 401) {
-          // Try to refresh the token
-          try {
-            await authStore.refreshToken()
-            // If successful, try liking again
-            if (authStore.accessToken) {
-              return likeComment(comment)
-            } else {
-              alert('Необходима авторизация')
-            }
-          } catch (refreshError) {
-            console.error('Failed to refresh token:', refreshError)
-            alert('Необходима авторизация')
-          }
-        } else {
-          alert('Не удалось поставить лайк. Попробуйте позже.')
+        // First check if user is authenticated
+        if (!userStore.user) {
+          console.error('User not authenticated');
+          alert('Необходима авторизация для оценки комментариев');
+          return;
         }
-        console.error(err)
-      }
-    }
-
-    const dislikeComment = async (comment) => {
-      try {
-        const url = `${apiUrl.value}${comment.id}/reactions/`
-        const reactionType = comment.current_user_reaction === 'DISLIKE' ? 'LIKE' : 'DISLIKE'
-        await api.post(url, { reaction_type: reactionType })
-        await loadComments()
-      } catch (err) {
-        if (err.response?.status === 401) {
-          // Try to refresh the token
-          try {
-            await authStore.refreshToken()
-            // If successful, try disliking again
-            if (authStore.accessToken) {
-              return dislikeComment(comment)
-            } else {
-              alert('Необходима авторизация')
-            }
-          } catch (refreshError) {
-            console.error('Failed to refresh token:', refreshError)
-            alert('Необходима авторизация')
-          }
+        
+        // Direct comments API endpoint
+        const directUrl = `http://localhost:8000/api/comments/${comment.id}/reactions/`;
+        
+        console.log('Attempting to like comment with URL:', directUrl);
+        console.log('Current user:', userStore.user);
+        
+        const wasLiked = comment.current_user_reaction === 'LIKE';
+        
+        // Optimistically update UI
+        if (wasLiked) {
+          comment.current_user_reaction = null;
+          comment.likes_count = Math.max(0, comment.likes_count - 1);
         } else {
-          alert('Не удалось поставить дизлайк. Попробуйте позже.')
+          comment.current_user_reaction = 'LIKE';
+          comment.likes_count = (comment.likes_count || 0) + 1;
         }
-        console.error(err)
+        
+        // Resort comments if needed
+        if (sortType.value === 'popular') {
+          sortComments();
+        }
+        
+        try {
+          if (wasLiked) {
+            // Get all reactions for this comment
+            const getResponse = await api.get(directUrl);
+            console.log('Reactions:', getResponse.data);
+            
+            // Find the user's reaction by comparing email addresses
+            // This is more reliable than comparing IDs which might be in different formats
+            const userReaction = getResponse.data.find(r => 
+              r.user && r.user.email === userStore.user.email
+            );
+            
+            if (userReaction) {
+              // Delete the specific reaction by ID
+              console.log('Found reaction to delete:', userReaction.id);
+              await api.delete(`http://localhost:8000/api/comments/${comment.id}/reactions/${userReaction.id}/`);
+              console.log('Successfully deleted reaction');
+            } else {
+              // Alternative approach - try to delete by reaction type
+              console.log('No reaction found to delete by email, trying direct delete');
+              // Use a direct DELETE request to a custom endpoint
+              await api.delete(`http://localhost:8000/api/comments/${comment.id}/user-reaction/`, {
+                data: { user_id: userStore.user.id }
+              });
+              console.log('Successfully deleted reaction using direct method');
+            }
+          } else {
+            // Create new reaction
+            const response = await api.post(directUrl, { reaction_type: 'LIKE' });
+            console.log('Successfully created reaction:', response.data);
+          }
+        } catch (apiError) {
+          console.error('API error:', apiError);
+          
+          // Revert optimistic update on error
+          if (wasLiked) {
+            comment.current_user_reaction = 'LIKE';
+            comment.likes_count = (comment.likes_count || 0) + 1;
+          } else {
+            comment.current_user_reaction = null;
+            comment.likes_count = Math.max(0, comment.likes_count - 1);
+          }
+          
+          if (sortType.value === 'popular') {
+            sortComments();
+          }
+          
+          // Refresh comments to ensure UI is in sync
+          await loadComments();
+        }
+      } catch (err) {
+        console.error('Error in like operation:', err);
+        
+        // Revert optimistic update on error
+        if (comment.current_user_reaction === 'LIKE') {
+          comment.current_user_reaction = null;
+          comment.likes_count = Math.max(0, comment.likes_count - 1);
+        } else {
+          comment.current_user_reaction = 'LIKE';
+          comment.likes_count = (comment.likes_count || 0) + 1;
+        }
+        
+        // Resort comments if needed
+        if (sortType.value === 'popular') {
+          sortComments();
+        }
       }
     }
 
@@ -323,47 +413,62 @@ export default {
       if (c) c.showReplies = !c.showReplies
     }
 
-    const startReply = (id) => {
-      replyingId.value = id
-      replyText.value = ''
+    const startReply = (commentId, replyToUsername = null, replyToId = null) => {
+      // Find which comment we're replying to (main comment or reply)
+      let targetComment = comments.value.find(c => c.id === commentId);
+      
+      // If we're replying to a reply, we need to find its parent comment
+      if (!targetComment) {
+        // Look through all comments and their replies
+        for (const comment of comments.value) {
+          if (comment.replies) {
+            const reply = comment.replies.find(r => r.id === commentId);
+            if (reply) {
+              // We found the reply, so we'll reply to the parent comment
+              targetComment = comment;
+              break;
+            }
+          }
+        }
+      }
+      
+      if (targetComment) {
+        replyingId.value = targetComment.id;
+        // Include the username in the reply text if provided
+        replyText.value = replyToUsername ? `@${replyToUsername} ` : '';
+        // Store the ID of the comment we're replying to (for UI reference only)
+        replyToId.value = replyToId || null;
+      }
     }
 
-    const submitReply = async (id) => {
-      if (!replyText.value.trim()) return
+    const submitReply = async (commentId) => {
+      if (!replyText.value.trim()) return;
+      
       try {
-        const response = await api.post(apiUrl.value, {
+        // Include any @username mentions in the text itself since we don't have a reply_to field
+        const payload = {
           text: replyText.value,
-          parent: id,
+          parent: commentId,
           comment_type: 'COMMENT',
           lesson: parseInt(lessonId.value)
-        })
-        const parentComment = comments.value.find(c => c.id === id)
+        };
+        
+        const response = await api.post(apiUrl.value, payload);
+        
+        // Optimistically update UI
+        const parentComment = comments.value.find(c => c.id === commentId);
         if (parentComment) {
-          if (!parentComment.replies) parentComment.replies = []
-          parentComment.replies.push(response.data)
-          parentComment.replies.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+          if (!parentComment.replies) parentComment.replies = [];
+          parentComment.replies.unshift(response.data);
+          parentComment.showReplies = true; // Ensure replies are visible
         }
-        replyingId.value = null
-        replyText.value = ''
+        
+        replyingId.value = null;
+        replyText.value = '';
+        replyToId.value = null;
       } catch (err) {
-        if (err.response?.status === 401) {
-          // Try to refresh the token
-          try {
-            await authStore.refreshToken()
-            // If successful, try submitting reply again
-            if (authStore.accessToken) {
-              return submitReply(id)
-            } else {
-              alert('Необходима авторизация')
-            }
-          } catch (refreshError) {
-            console.error('Failed to refresh token:', refreshError)
-            alert('Необходима авторизация')
-          }
-        } else {
-          alert('Не удалось отправить ответ. Попробуйте позже.')
-        }
-        console.error(err)
+        console.error('Error submitting reply:', err);
+        alert('Не удалось отправить ответ. Попробуйте позже.');
       }
     }
 
@@ -395,8 +500,148 @@ export default {
     })
 
     const sortComments = () => {
-      // Trigger for recomputing sortedComments
+      // Force recomputation of sortedComments
+      if (sortType.value === 'popular') {
+        comments.value.sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0))
+      } else if (sortType.value === 'new') {
+        comments.value.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      } else if (sortType.value === 'old') {
+        comments.value.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+      }
     }
+
+    const startEdit = (comment) => {
+      editingId.value = comment.id
+      editText.value = comment.text
+    }
+
+    const cancelEdit = () => {
+      editingId.value = null
+      editText.value = ''
+    }
+
+    const submitEdit = async (comment) => {
+      if (!editText.value.trim()) return;
+      
+      // Store the original text before any changes
+      const originalText = comment.text;
+      
+      try {
+        // For both main comments and replies, use the direct API endpoint
+        const url = `http://localhost:8000/api/comments/${comment.id}/`;
+        
+        console.log('Editing comment with URL:', url);
+        
+        // Optimistically update UI
+        comment.text = editText.value;
+        comment.is_edited = true;
+        
+        // Make API call in background
+        await api.patch(url, {
+          text: editText.value
+        });
+        
+        editingId.value = null;
+        editText.value = '';
+      } catch (err) {
+        // Revert on error
+        comment.text = originalText;
+        
+        console.error('Error editing comment:', err);
+        alert('Не удалось отредактировать комментарий. Попробуйте позже.');
+      }
+    }
+
+    const deleteComment = async (comment) => {
+      if (!confirm('Вы уверены, что хотите удалить этот комментарий?')) return;
+      
+      try {
+        // For both main comments and replies, use the direct API endpoint
+        const url = `http://localhost:8000/api/comments/${comment.id}/`;
+        
+        console.log('Deleting comment with URL:', url);
+        
+        // Optimistically update UI
+        if (comment.parent) {
+          // It's a reply - find parent and remove from replies
+          const parentComment = comments.value.find(c => c.id === comment.parent);
+          if (parentComment && parentComment.replies) {
+            const index = parentComment.replies.findIndex(r => r.id === comment.id);
+            if (index !== -1) {
+              parentComment.replies.splice(index, 1);
+            }
+          }
+        } else {
+          // It's a main comment
+          const index = comments.value.findIndex(c => c.id === comment.id);
+          if (index !== -1) {
+            comments.value.splice(index, 1);
+          }
+        }
+        
+        // Make API call
+        await api.delete(url);
+        console.log('Successfully deleted comment');
+        
+        activeMenu.value = null;
+      } catch (err) {
+        console.error('Error deleting comment:', err);
+        // On error, reload comments
+        await loadComments();
+      }
+    }
+
+    // Function to check if user owns a comment
+    const userOwnsComment = (comment) => {
+      if (!comment) return false
+      
+      console.log('Checking ownership for comment:', comment.id, 'Author ID:', comment.author?.id, 'Current user ID:', userStore.user?.id)
+      
+      // First check if the API provided an is_author field
+      if (comment.is_author !== undefined) {
+        console.log('Using is_author field:', comment.is_author)
+        return comment.is_author === true
+      }
+      
+      // Fallback to comparing IDs
+      if (!userStore.user || !comment.author) {
+        console.log('Missing user or author data')
+        return false
+      }
+      
+      // Convert to strings for comparison to be safe
+      const userId = String(userStore.user.id)
+      const authorId = String(comment.author.id)
+      
+      const isOwner = userId === authorId
+      console.log('ID comparison result:', isOwner, 'User ID:', userId, 'Author ID:', authorId)
+      
+      return isOwner
+    }
+
+    const toggleMenu = (id, event) => {
+      if (event) {
+        event.stopPropagation()
+      }
+      activeMenu.value = activeMenu.value === id ? null : id
+    }
+
+    // Close menu when clicking outside
+    const handleOutsideClick = (event) => {
+      if (activeMenu.value !== null && 
+          !event.target.closest('.actions-dropdown') && 
+          !event.target.classList.contains('more-btn')) {
+        activeMenu.value = null
+      }
+    }
+
+    onMounted(() => {
+      document.addEventListener('click', handleOutsideClick)
+    })
+
+    onUnmounted(() => {
+      document.removeEventListener('click', handleOutsideClick)
+    })
 
     watch([courseSlug, moduleId, lessonId], () => {
       loadComments()
@@ -404,8 +649,9 @@ export default {
 
     return {
       userStore, authStore, userAvatar, comments, loading, error, newCommentText, activeTab,
-      replyingId, replyText, sortType, sortedComments,
-      addComment, likeComment, dislikeComment, toggleReplies, startReply, submitReply, formatDate, sortComments
+      replyingId, replyText, sortType, sortedComments, editingId, editText, activeMenu,
+      replyToId, addComment, likeComment, toggleReplies, startReply, submitReply, formatDate, sortComments,
+      startEdit, cancelEdit, submitEdit, deleteComment, userOwnsComment, toggleMenu
     }
   }
 }
@@ -541,11 +787,26 @@ export default {
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.2s, transform 0.1s;
+}
+.add-comment-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+.add-comment-btn:active {
+  transform: translateY(0);
 }
 .add-comment-btn:disabled {
-  background: #b7e1b7;
+  background: #dab7e1;
   cursor: not-allowed;
+  opacity: 0.7;
+}
+:root.dark-theme .add-comment-btn {
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+:root.dark-theme .add-comment-btn:disabled {
+  background: #6d5a70;
+  opacity: 0.5;
 }
 .comments-list-block {
   margin: 0;
@@ -605,6 +866,7 @@ export default {
   gap: 12px;
   font-size: 14px;
   color: var(--secondary-text);
+  position: relative;
 }
 .icon-btn {
   background: none;
@@ -615,13 +877,69 @@ export default {
   display: flex;
   align-items: center;
   gap: 3px;
-  padding: 0 4px;
-  border-radius: 4px;
-  transition: background 0.15s, color 0.15s;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
 }
-.icon-btn.active, .icon-btn:hover {
+.icon-btn:hover {
   color: var(--accent-color);
   background: var(--hover-background, #eafbe6);
+}
+.icon-btn:hover .heart-icon {
+  transform: scale(1.1);
+  color: #ff5c8d;
+}
+.icon-btn.active {
+  transform: scale(1.05);
+}
+.heart-icon {
+  transition: color 0.3s, transform 0.3s;
+  font-size: 18px;
+  position: relative;
+  display: inline-block;
+}
+.icon-btn.active .heart-icon {
+  color: transparent;
+  background: linear-gradient(45deg, #ff3366, #ff5c8d, #ff85b3, #ff3366);
+  background-size: 300% 300%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: rgb-pulse 3s ease infinite;
+  transform: scale(1.2);
+  text-shadow: 0 0 5px rgba(255, 51, 102, 0.3);
+}
+.icon-btn.active .heart-icon::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 50%;
+  z-index: -1;
+  background: radial-gradient(circle, rgba(255,51,102,0.2) 0%, rgba(255,51,102,0) 70%);
+  animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+}
+@keyframes rgb-pulse {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.3;
+  }
+  80%, 100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
 }
 .reply-btn {
   color: var(--accent-color);
@@ -657,10 +975,22 @@ export default {
   margin-left: 2px;
 }
 .more-btn {
-  color: #bbb;
-  font-size: 20px;
-  margin-left: 8px;
+  background: var(--button-bg, #f0f0f0);
+  border: 1px solid var(--border-color, #ddd);
   cursor: pointer;
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--secondary-text, #666);
+  padding: 2px 10px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  letter-spacing: 2px;
+  margin-left: 8px;
+}
+.more-btn:hover {
+  background-color: var(--hover-background, #e0e0ff);
+  color: var(--accent-color);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 .reply-input-row {
   display: flex;
@@ -678,7 +1008,7 @@ export default {
   background: var(--background-color);
   color: var(--text-color);
 }
-.send-reply-btn {
+.send-reply-btn, .send-edit-btn {
   background: var(--accent-color);
   color: var(--footer-text);
   border: none;
@@ -687,11 +1017,44 @@ export default {
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.2s, transform 0.1s;
 }
-.send-reply-btn:disabled {
-  background: #b7e1b7;
+.send-reply-btn:hover, .send-edit-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+.send-reply-btn:disabled, .send-edit-btn:disabled {
+  background: #dab7e1;
   cursor: not-allowed;
+  opacity: 0.7;
+}
+.cancel-edit-btn {
+  background: #f0f0f0;
+  color: var(--text-color);
+  border: none;
+  border-radius: 16px;
+  padding: 6px 16px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+.cancel-edit-btn:hover {
+  background: #e0e0e0;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+:root.dark-theme .cancel-edit-btn {
+  background: #393552;
+  color: var(--text-color);
+}
+:root.dark-theme .cancel-edit-btn:hover {
+  background: #2a263d;
+}
+:root.dark-theme .send-reply-btn:disabled, 
+:root.dark-theme .send-edit-btn:disabled {
+  background: #6d5a70;
+  opacity: 0.5;
 }
 .replies-list {
   margin-top: 10px;
@@ -723,7 +1086,8 @@ export default {
   color: var(--secondary-text, #b8b8b8);
 }
 :root.dark-theme .add-comment-input,
-:root.dark-theme .reply-input {
+:root.dark-theme .reply-input,
+:root.dark-theme .edit-input {
   background: var(--background-color, #232136);
   color: var(--text-color, #fff);
 }
@@ -744,5 +1108,111 @@ export default {
 }
 :root.dark-theme .comments-sort-row select:hover {
   background-color: var(--hover-background, #2a263d);
+}
+.dots {
+  display: inline-block;
+  transform: translateY(-3px);
+}
+.actions-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 5px);
+  background: var(--background-color, white);
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  z-index: 1000;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  padding: 5px 0;
+  overflow: visible;
+}
+.action-btn {
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 10px 15px;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--text-color);
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+}
+.action-icon {
+  margin-right: 10px;
+  font-size: 16px;
+}
+.action-btn:hover {
+  background-color: var(--hover-background, #f0f0ff);
+}
+.edit-btn {
+  color: var(--accent-color);
+}
+.delete-btn {
+  color: #ff3366;
+}
+.delete-btn:hover {
+  background-color: rgba(255, 51, 102, 0.1);
+}
+.edit-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+.edit-input {
+  flex: 1;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 7px 14px;
+  font-size: 15px;
+  outline: none;
+  background: var(--background-color);
+  color: var(--text-color);
+}
+.menu-container {
+  position: relative;
+  display: inline-block;
+}
+
+/* Dark theme overrides for heart icon */
+:root.dark-theme .icon-btn.active .heart-icon {
+  background: linear-gradient(45deg, #ff3366, #8c52ff, #5e9dff, #ff3366);
+  background-size: 300% 300%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: rgb-pulse 3s ease infinite;
+  text-shadow: 0 0 8px rgba(255, 92, 141, 0.5);
+}
+:root.dark-theme .icon-btn:hover .heart-icon {
+  color: #ff5c8d;
+}
+:root.dark-theme .icon-btn.active, 
+:root.dark-theme .icon-btn:hover {
+  background: rgba(255, 92, 141, 0.15);
+}
+:root.dark-theme .icon-btn.active .heart-icon::after {
+  background: radial-gradient(circle, rgba(140,82,255,0.2) 0%, rgba(140,82,255,0) 70%);
+}
+:root.dark-theme .action-btn.edit-btn {
+  color: var(--accent-color, #7cb342);
+}
+:root.dark-theme .action-btn.delete-btn {
+  color: #ff5c8d;
+}
+:root.dark-theme .action-btn.delete-btn:hover {
+  background-color: rgba(255, 92, 141, 0.15);
+}
+:root.dark-theme .more-btn {
+  background: var(--button-bg, #2a263d);
+  border-color: var(--border-color, #393552);
+  color: var(--secondary-text, #b8b8b8);
+}
+:root.dark-theme .more-btn:hover {
+  background-color: var(--hover-background, #393552);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 </style>

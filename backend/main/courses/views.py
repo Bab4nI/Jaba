@@ -427,7 +427,14 @@ class CommentViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        # Check if we're accessing via the lesson route or direct route
         lesson_id = self.kwargs.get('lesson_id')
+        
+        # If we have a specific comment ID but no lesson ID, we're using direct access
+        if 'pk' in self.kwargs and not lesson_id:
+            return Comment.objects.all()
+        
+        # Otherwise, filter by lesson ID if provided
         if not lesson_id:
             return Comment.objects.none()
         
@@ -455,6 +462,8 @@ class CommentViewSet(viewsets.ModelViewSet):
         lesson = get_object_or_404(Lesson, id=lesson_id)
         
         parent_id = self.request.data.get('parent')
+        
+        # Handle parent comment
         if parent_id:
             try:
                 parent_id = int(parent_id)
@@ -548,3 +557,41 @@ class CommentReactionViewSet(viewsets.ModelViewSet):
         
         # Update likes count
         comment.update_likes_count()
+        
+    @action(detail=False, methods=['DELETE'])
+    def delete_user_reaction(self, request, comment_id=None):
+        """
+        Delete a reaction by user and comment ID.
+        This is a custom endpoint to delete a reaction without knowing its specific ID.
+        """
+        if not comment_id:
+            return Response(
+                {"error": "comment_id is required"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # Get the comment
+        comment = get_object_or_404(Comment, id=comment_id)
+        
+        # Find and delete the user's reaction
+        reaction = CommentReaction.objects.filter(
+            comment_id=comment_id,
+            user=request.user
+        ).first()
+        
+        if reaction:
+            # Store the comment before deleting
+            comment = reaction.comment
+            
+            # Delete the reaction
+            reaction.delete()
+            
+            # Update likes count
+            comment.update_likes_count()
+            
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response(
+                {"error": "No reaction found"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
