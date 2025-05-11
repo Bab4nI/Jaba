@@ -85,10 +85,12 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
 }
 
-body {
-  background-color: var(--background-color);
-  color: var(--text-color);
-  transition: background-color 0.3s ease, color 0.3s ease;
+html, body {
+  background: var(--background-color, #1f1f2c) !important;
+  color: var(--text-color, #f5f9f8);
+  min-height: 100vh;
+  width: 100%;
+  transition: background-color 0.3s, color 0.3s;
 }
 
 /* Add transitions to commonly used elements */

@@ -48,6 +48,32 @@
         </select>
         <span v-else-if="localContent.interpreter && localContent.interpreter !== 'default'" class="interpreter-label">{{ interpreterLabel }}</span>
 
+        <!-- Score control in edit mode -->
+        <div v-if="!readOnly" class="score-container">
+          <label for="max-score">Баллы:</label>
+          <input 
+            id="max-score"
+            v-model.number="localContent.max_score" 
+            type="number" 
+            min="1" 
+            max="10"
+            class="score-input"
+            @input="emitUpdate" 
+          />
+        </div>
+        
+        <!-- Score display in view mode -->
+        <div v-else-if="showScore" class="score-display">
+          <template v-if="userScore !== null">
+            <span :class="{'score-success': userScore === localContent.max_score, 'score-fail': userScore < localContent.max_score}">
+              {{ userScore }}/{{ localContent.max_score }}
+            </span>
+          </template>
+          <template v-else>
+            <span class="score-pending">{{ localContent.max_score }} баллов</span>
+          </template>
+        </div>
+
         <!-- Theme selector -->
         <select v-if="manualThemeSelection" v-model="currentTheme" class="theme-selector" aria-label="Выбрать тему редактора">
           <option value="vs-light">VS Light</option>
@@ -67,6 +93,16 @@
           :disabled="isRunning || !refreshStore.isAuthenticated"
         >
           <span class="icon">▶️</span> {{ isRunning ? 'Running...' : 'Run' }}
+        </button>
+        
+        <!-- Submit button for score in view mode -->
+        <button
+          v-if="readOnly && canRunCode && !codeSubmitted && refreshStore.isAuthenticated"
+          @click="submitCode"
+          class="submit-button"
+          :disabled="isRunning"
+        >
+          <span class="icon">✓</span> Отправить на проверку
         </button>
       </div>
     </div>
@@ -116,6 +152,28 @@
       <h4>Execution Result:</h4>
       <pre>{{ executionResult }}</pre>
     </div>
+    
+    <!-- Score result after submission -->
+    <div v-if="codeSubmitted && userScore !== null" class="submission-result" :class="{ 'success': userScore === localContent.max_score, 'partial': userScore > 0 && userScore < localContent.max_score, 'fail': userScore === 0 }">
+      <h4>Результат проверки:</h4>
+      <div class="score-result">
+        <div class="score-value">{{ userScore }}/{{ localContent.max_score }}</div>
+        <div class="score-message">
+          <template v-if="userScore === localContent.max_score">
+            Отлично! Вы получили максимальный балл.
+          </template>
+          <template v-else-if="userScore > 0">
+            Неплохо, но можно лучше. Попробуйте улучшить ваше решение.
+          </template>
+          <template v-else>
+            Не засчитано. Ваше решение не соответствует требованиям.
+          </template>
+        </div>
+        <button v-if="codeSubmitted" @click="resetSubmission" class="retry-button">
+          Попробовать снова
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -130,7 +188,12 @@ const props = defineProps({
   content: {
     type: Object,
     required: true,
-    default: () => ({ language: 'javascript', code: '', interpreter: 'default' })
+    default: () => ({ 
+      language: 'javascript', 
+      code: '', 
+      interpreter: 'default',
+      max_score: 5
+    })
   },
   readOnly: {
     type: Boolean,
@@ -139,10 +202,14 @@ const props = defineProps({
   manualThemeSelection: {
     type: Boolean,
     default: false
+  },
+  showScore: {
+    type: Boolean,
+    default: true
   }
 })
 
-const emit = defineEmits(['update:content'])
+const emit = defineEmits(['update:content', 'answer-submitted'])
 const router = useRouter()
 const refreshStore = useRefreshStore()
 const themeStore = useThemeStore()
@@ -150,8 +217,14 @@ const themeStore = useThemeStore()
 const localContent = ref({
   code: props.content.code || '',
   language: props.content.language || 'javascript',
-  interpreter: props.content.interpreter || 'default'
+  interpreter: props.content.interpreter || 'default',
+  max_score: props.content.max_score || 5
 })
+
+// For code submission scoring
+const codeSubmitted = ref(false);
+const userScore = ref(null);
+
 const showPreview = ref(props.readOnly)
 const executionResult = ref(null)
 const executionError = ref(false)
@@ -176,7 +249,82 @@ onMounted(() => {
   if (!props.manualThemeSelection) {
     themeValue.value = themeStore.isDarkMode ? 'vs-dark' : 'vs-light'
   }
+  
+  // Load submission state from localStorage if in read-only mode
+  if (props.readOnly && props.content.id) {
+    const savedData = localStorage.getItem(`code_${props.content.id}`);
+    if (savedData) {
+      try {
+        const data = JSON.parse(savedData);
+        codeSubmitted.value = data.codeSubmitted;
+        userScore.value = data.userScore;
+      } catch (e) {
+        console.error('Error loading code submission state:', e);
+      }
+    }
+  }
 })
+
+// Submit code for scoring
+const submitCode = () => {
+  if (!localContent.value.code) return;
+  
+  // In a real app, this would send the code to a server for evaluation
+  // For this example, we'll use a simple scoring algorithm
+  const codeLength = localContent.value.code.length;
+  const hasComments = localContent.value.code.includes('//') || localContent.value.code.includes('/*');
+  const hasLogic = localContent.value.code.includes('if') || localContent.value.code.includes('for') || 
+                  localContent.value.code.includes('while') || localContent.value.code.includes('function');
+  
+  let score = 0;
+  
+  // Simple scoring logic - in a real app, this would be server-side
+  if (codeLength > 10) {
+    score += 1;
+  }
+  
+  if (hasComments) {
+    score += 2;
+  }
+  
+  if (hasLogic) {
+    score += 2;
+  }
+  
+  // Cap score at max_score
+  score = Math.min(score, localContent.value.max_score);
+  
+  // Update state
+  codeSubmitted.value = true;
+  userScore.value = score;
+  
+  // Save to localStorage
+  if (props.content.id) {
+    localStorage.setItem(`code_${props.content.id}`, JSON.stringify({
+      codeSubmitted: codeSubmitted.value,
+      userScore: userScore.value
+    }));
+  }
+  
+  // Emit event for parent components
+  emit('answer-submitted', {
+    contentId: props.content.id,
+    code: localContent.value.code,
+    score: userScore.value,
+    maxScore: localContent.value.max_score
+  });
+};
+
+// Reset submission to try again
+const resetSubmission = () => {
+  codeSubmitted.value = false;
+  userScore.value = null;
+  
+  // Clear saved state
+  if (props.content.id) {
+    localStorage.removeItem(`code_${props.content.id}`);
+  }
+};
 
 const loadSavedContent = () => {
   const savedContent = localStorage.getItem('code-editor-content')
@@ -186,7 +334,8 @@ const loadSavedContent = () => {
       localContent.value = {
         code: parsedContent.code || '',
         language: parsedContent.language || 'javascript',
-        interpreter: parsedContent.interpreter || 'default'
+        interpreter: parsedContent.interpreter || 'default',
+        max_score: parsedContent.max_score || 5
       }
       emitUpdate()
     } catch (error) {
@@ -379,7 +528,8 @@ watch(() => props.content, (newVal) => {
     localContent.value = {
       code: newVal.code || '',
       language: newVal.language || 'javascript',
-      interpreter: newVal.interpreter || 'default'
+      interpreter: newVal.interpreter || 'default',
+      max_score: newVal.max_score || 5
     }
   }
 }, { deep: true })
@@ -579,6 +729,11 @@ const getValidInterpreters = (language) => {
   cursor: not-allowed;
 }
 
+.run-button:disabled:hover {
+  cursor: not-allowed;
+  background-color: #444;
+}
+
 .icon {
   font-size: 1rem;
 }
@@ -761,5 +916,122 @@ const getValidInterpreters = (language) => {
 
 .vs-high-contrast .auth-warning a {
   color: #bfdbfe;
+}
+
+.score-container {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.score-input {
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+}
+
+.score-display {
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+}
+
+.score-success {
+  color: #15803d;
+}
+
+.score-fail {
+  color: #b91c1c;
+}
+
+.score-pending {
+  color: #6b7280;
+}
+
+.submission-result {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  background: #e5e7eb;
+  font-family: 'Fira Code', monospace;
+  font-size: 0.875rem;
+  word-break: break-all;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.vs-dark .submission-result {
+  background: #2d2d2d;
+  color: #e5e7eb;
+}
+
+.vs-high-contrast .submission-result {
+  background: #1a1a1a;
+  color: #ffffff;
+}
+
+.submission-result h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.score-result {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.score-value {
+  font-weight: 600;
+}
+
+.score-message {
+  margin-left: 0.5rem;
+}
+
+.retry-button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.375rem;
+  background: #6b7280;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.retry-button:hover {
+  background-color: #5b6370;
+}
+
+.submit-button {
+  padding: 0.6rem 1rem;
+  border: none;
+  border-radius: 0.375rem;
+  background: #10b981;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.submit-button:hover {
+  background-color: #059669;
+  transform: translateY(-1px);
+}
+
+.submit-button:disabled {
+  background-color: #6b7280;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.submit-button:disabled:hover {
+  cursor: not-allowed;
+  background-color: #6b7280;
+  transform: none;
 }
 </style>
