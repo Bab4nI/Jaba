@@ -628,6 +628,7 @@ export default {
   width: 100%;
   max-width: 1480px;
   padding: 50px 20px 101px;
+  margin: 0 auto;
 }
 
 .module-card-container {
@@ -655,6 +656,7 @@ export default {
   background: var(--form-background);
   border-radius: 8px;
   transition: background-color 0.3s ease;
+  width: 100%;
 }
 
 .svg-container {
@@ -667,6 +669,7 @@ export default {
 
 .search-input {
   width: 100%;
+  min-width: 300px;
   padding: 12px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
@@ -859,26 +862,28 @@ export default {
 
 .add-article-card {
   width: calc(33.333% - 14px);
-  background: var(--form-background);
+  background: var(--background-color);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   min-height: 350px;
-  box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   padding: 20px;
-  transition: background-color 0.3s ease;
+  transition: all 0.3s ease;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .add-article-card:hover {
-  background: var(--hover-background);
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
 }
 
 .add-article-image {
-  width: 55px;
-  height: 55px;
+  width: 80px;
+  height: 80px;
   object-fit: contain;
 }
 
@@ -890,12 +895,13 @@ export default {
   border: 2px dashed var(--accent-color);
   border-radius: 10px;
   margin-top: 40px;
-  transition: color 0.3s ease;
+  transition: all 0.3s ease;
   font: 400 16px Raleway, sans-serif;
 }
 
 .add-module-btn:hover {
-  background: #ebefef;
+  background: var(--hover-background);
+  color: var(--accent-color);
 }
 
 .form-group {

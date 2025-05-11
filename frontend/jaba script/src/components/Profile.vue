@@ -67,20 +67,14 @@
 
             <div class="vertical-section-divider">
               <div class="course-progress-container">
-                <p class="email-label-text-style">Уровень обучения</p>
-                <p class="education-details-text-style">{{ level }}</p>
               </div>
               <div class="group-info-block">
                 <p class="email-label-text-style">Группа</p>
                 <p class="education-details-text-style">{{ group }}</p>
               </div>
               <div class="group-info-block">
-                <p class="email-label-text-style">Направление обучения</p>
-                <p class="education-details-text-style">{{ course }}</p>
               </div>
               <div class="vertical-section-divider">
-                <p class="email-label-text-style">Кафедра</p>
-                <p class="education-details-text-style">{{ department }}</p>
               </div>
             </div>
           </div>
