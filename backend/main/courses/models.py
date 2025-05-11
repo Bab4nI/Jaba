@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 from django.utils.text import slugify
 from unidecode import unidecode
 import os
@@ -41,6 +42,27 @@ class Course(models.Model):
                 counter += 1
             self.slug = slug
         super().save(*args, **kwargs)
+    
+        
+    def lessons_count(self):
+        """Общее количество уроков в курсе"""
+        return Lesson.objects.filter(module__course=self).count()
+
+    def get_user_progress(self, user):
+        """Возвращает прогресс пользователя с аннотацией данных"""
+        if not user.is_authenticated:
+            return None
+            
+        return self.users_progress.filter(user=user).annotate(
+            total_lessons=models.Count('course__modules__lessons', distinct=True),
+            completed_lessons=models.Count(
+                models.Case(
+                    models.When(completed_lessons__is_completed=True, then=1),
+                    output_field=models.IntegerField()
+                ),
+                distinct=True
+            )
+        ).first()
 
 class Module(models.Model):
     course = models.ForeignKey(
@@ -121,6 +143,17 @@ class Lesson(models.Model):
             elif self.type == 'PRACTICE':
                 self.thumbnail = 'thumbnails/lessons/defaults/prac.png'
         super().save(*args, **kwargs)
+    
+    def is_completed_by(self, user):
+        """Проверяет, завершен ли урок пользователем"""
+        if not user.is_authenticated:
+            return False
+        return LessonCompletion.objects.filter(
+            progress__user=user,
+            progress__course=self.module.course,
+            lesson=self,
+            is_completed=True
+        ).exists()
 
 class ContentBase(models.Model):
     CONTENT_TYPES = [
@@ -204,3 +237,103 @@ class LessonContent(ContentBase):
     class Meta(ContentBase.Meta):
         verbose_name = 'Контент урока'
         verbose_name_plural = 'Контент уроков'
+
+
+
+
+
+
+
+
+
+
+
+
+class UserCourseProgress(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='courses_progress'
+    )
+    course = models.ForeignKey(
+        Course,
+        on_delete=models.CASCADE,
+        related_name='users_progress'
+    )
+    started_at = models.DateTimeField(auto_now_add=True)
+    last_accessed = models.DateTimeField(auto_now=True)
+    is_completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    last_lesson = models.ForeignKey(
+        'Lesson',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'course'],
+                name='unique_user_course_progress'
+            )
+        ]
+
+    def update_completion(self):
+        """Обновляет статус завершения курса"""
+        total = self.course.lessons_count()
+        completed = self.completed_lessons.filter(is_completed=True).count()
+        
+        if total > 0 and completed >= total:
+            self.is_completed = True
+            self.completed_at = timezone.now()
+        else:
+            self.is_completed = False
+            self.completed_at = None
+        self.save()
+
+    def completion_percentage(self):
+        if hasattr(self, 'total_lessons') and hasattr(self, 'completed_lessons'):
+            total = self.total_lessons
+            completed = self.completed_lessons
+        else:
+            total = self.course.lessons_count()
+            completed = self.completed_lessons.filter(is_completed=True).count()
+            
+        return round((completed / total) * 100) if total > 0 else 0
+
+class LessonCompletion(models.Model):
+    progress = models.ForeignKey(
+        UserCourseProgress,
+        on_delete=models.CASCADE,
+        related_name='completed_lessons'
+    )
+    lesson = models.ForeignKey(
+        'Lesson',
+        on_delete=models.CASCADE,
+        related_name='user_completions'
+    )
+    is_completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    last_accessed = models.DateTimeField(default=timezone.now)
+    score = models.PositiveSmallIntegerField(null=True, blank=True, default=0)
+    attempts = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['progress', 'lesson'],
+                name='unique_lesson_completion'
+            )
+        ]
+
+    def clean(self):
+        if self.is_completed and not self.completed_at:
+            self.completed_at = timezone.now()
+        if self.is_completed:
+            self.attempts += 1
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+        self.progress.update_completion()

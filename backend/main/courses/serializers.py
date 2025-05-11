@@ -1,5 +1,6 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import serializers
-from .models import Course, Module, Lesson, LessonContent
+from .models import Course, Module, Lesson, LessonContent, UserCourseProgress, LessonCompletion
 from rest_framework.exceptions import ValidationError
 
 class LessonContentSerializer(serializers.ModelSerializer):
@@ -25,7 +26,7 @@ class LessonContentSerializer(serializers.ModelSerializer):
         }
 
     def get_type(self, obj):
-        type_map = {
+        return {
             'TEXT': 'text',
             'IMAGE': 'image',
             'VIDEO': 'video',
@@ -33,29 +34,30 @@ class LessonContentSerializer(serializers.ModelSerializer):
             'CODE': 'code',
             'QUIZ': 'quiz',
             'TABLE': 'table',
-        }
-        return type_map.get(obj.content_type, 'text')
+        }.get(obj.content_type, 'text')
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        if instance.content_type == 'TEXT':
-            data['text'] = instance.text
-        elif instance.content_type == 'IMAGE':
-            data['url'] = instance.image.url if instance.image else None
-        elif instance.content_type == 'VIDEO':
-            data['url'] = instance.video_url
-        elif instance.content_type == 'FILE':
-            data['url'] = instance.file.url if instance.file else None
-        elif instance.content_type == 'CODE':
-            data['text'] = instance.text
-            data['language'] = instance.code_language
-        elif instance.content_type == 'QUIZ':
-            data['question'] = instance.quiz_data.get('question', '')
-            data['answers'] = instance.quiz_data.get('answers', [])
-            data['correct_answer'] = instance.quiz_data.get('correct_answer')
-        elif instance.content_type == 'TABLE':
-            data['headers'] = instance.table_data.get('headers', [])
-            data['data'] = instance.table_data.get('data', [])
+        content_representation = {
+            'TEXT': lambda: {'text': instance.text},
+            'IMAGE': lambda: {'url': instance.image.url if instance.image else None},
+            'VIDEO': lambda: {'url': instance.video_url},
+            'FILE': lambda: {'url': instance.file.url if instance.file else None},
+            'CODE': lambda: {
+                'text': instance.text,
+                'language': instance.code_language
+            },
+            'QUIZ': lambda: {
+                'question': instance.quiz_data.get('question', ''),
+                'answers': instance.quiz_data.get('answers', []),
+                'correct_answer': instance.quiz_data.get('correct_answer')
+            },
+            'TABLE': lambda: {
+                'headers': instance.table_data.get('headers', []),
+                'data': instance.table_data.get('data', [])
+            }
+        }
+        data.update(content_representation.get(instance.content_type, lambda: {})())
         return data
 
     def validate(self, data):
@@ -107,25 +109,38 @@ class LessonContentSerializer(serializers.ModelSerializer):
 
         return data
 
+
 class LessonSerializer(serializers.ModelSerializer):
     contents = LessonContentSerializer(many=True, read_only=True)
+    is_completed = serializers.SerializerMethodField()
     
     class Meta:
         model = Lesson
         fields = [
             'id', 'title', 'description', 'order', 'thumbnail',
-            'type', 'created_at', 'updated_at', 'duration', 'contents'
+            'type', 'created_at', 'updated_at', 'duration', 
+            'contents', 'is_completed'
         ]
         extra_kwargs = {
             'thumbnail': {'required': False, 'allow_null': True},
             'description': {'required': False, 'allow_null': True},
-            'type': {'required': True},
         }
+
+    def get_is_completed(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return LessonCompletion.objects.filter(
+                progress__user=request.user,
+                progress__course=obj.module.course,
+                lesson=obj,
+                is_completed=True
+            ).exists()
+        return False
 
     def validate(self, data):
         module_id = self.context['view'].kwargs.get('module_id')
         if not module_id:
-            raise serializers.ValidationError("Module ID is required")
+            raise ValidationError("Module ID is required")
         
         if 'title' in data:
             qs = Lesson.objects.filter(module_id=module_id, title=data['title'])
@@ -133,31 +148,10 @@ class LessonSerializer(serializers.ModelSerializer):
                 qs = qs.exclude(pk=self.instance.pk)
             if qs.exists():
                 raise ValidationError({
-                    'title': 'Урок с таким названием уже существует в этом модуле'
+                    'title': 'Lesson with this title already exists in this module'
                 })
         return data
 
-    def create(self, validated_data):
-        module_id = self.context['view'].kwargs['module_id']
-        validated_data['module_id'] = module_id
-        
-        return super().create(validated_data)
-
-    def update(self, instance, validated_data):
-        thumbnail = validated_data.pop('thumbnail', None)
-        
-        if thumbnail is not None:
-            if thumbnail == '':
-                instance.thumbnail.delete(save=False)
-                instance.thumbnail = None
-            else:
-                instance.thumbnail = thumbnail
-        
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-            
-        instance.save()
-        return instance
 
 class ModuleSerializer(serializers.ModelSerializer):
     lessons = LessonSerializer(many=True, read_only=True)
@@ -188,9 +182,10 @@ class ModuleSerializer(serializers.ModelSerializer):
                 qs = qs.exclude(pk=self.instance.pk)
             if qs.exists():
                 raise ValidationError({
-                    'title': 'Модуль с таким названием уже существует в этом курсе'
+                    'title': 'Module with this title already exists in this course'
                 })
         return data
+
 
 class CourseSerializer(serializers.ModelSerializer):
     modules = ModuleSerializer(many=True, read_only=True)
@@ -200,13 +195,69 @@ class CourseSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'slug', 'description',
             'author', 'thumbnail', 'is_published',
-            'modules', 'created_at', 'updated_at'
+            'modules',
+            'created_at', 'updated_at'
         ]
         extra_kwargs = {
             'thumbnail': {'required': False, 'allow_null': True},
             'description': {'required': False, 'allow_null': True},
             'author': {'read_only': True},
             'slug': {'read_only': True},
-            'created_at': {'read_only': True},
-            'updated_at': {'read_only': True}
-        }   
+        }
+
+    def get_user_progress(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            progress = UserCourseProgress.objects.filter(
+                user=request.user,
+                course=obj
+            ).first()
+            if progress:
+                return UserCourseProgressSerializer(progress, context=self.context).data
+        return None
+    
+
+class LessonCompletionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LessonCompletion
+        fields = ['id', 'lesson', 'is_completed', 'completed_at', 'last_accessed', 'score']
+        read_only_fields = fields
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['lesson'] = {
+            'id': instance.lesson.id,
+            'title': instance.lesson.title,
+            'module_id': instance.lesson.module.id
+        }
+        return data
+
+
+class UserCourseProgressSerializer(serializers.ModelSerializer):
+    course = serializers.SerializerMethodField()
+    progress = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserCourseProgress
+        fields = [
+            'id', 'started_at', 'last_accessed', 'is_completed', 'completed_at',
+            'course', 'progress'
+        ]
+        read_only_fields = fields
+
+    def get_course(self, obj):
+        return {
+            'id': obj.course.id,
+            'title': obj.course.title,
+            'slug': obj.course.slug,
+            'thumbnail': obj.course.thumbnail.url if obj.course.thumbnail else None
+        }
+
+    def get_progress(self, obj):
+        total = Lesson.objects.filter(module__course=obj.course).count()
+        completed = obj.completed_lessons.filter(is_completed=True).count()
+        return {
+            'completed': completed,
+            'total': total,
+            'percentage': round((completed / total) * 100) if total > 0 else 0
+        }

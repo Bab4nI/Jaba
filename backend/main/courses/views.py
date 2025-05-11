@@ -1,11 +1,12 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-from .models import Course, Module, Lesson, LessonContent
-from .serializers import CourseSerializer, ModuleSerializer, LessonSerializer, LessonContentSerializer
+
+from registration.models import User
+from .models import Course, Module, Lesson, LessonContent, UserCourseProgress
+from .serializers import CourseSerializer, ModuleSerializer, LessonSerializer, LessonContentSerializer, UserCourseProgressSerializer
 from django.shortcuts import get_object_or_404
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser  # Add JSONParser
 from django.db import transaction
-import json
 import logging
 import time
 from rest_framework.views import APIView
@@ -17,6 +18,13 @@ from rest_framework.decorators import action
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.core.exceptions import ValidationError
+from django.utils import timezone
+from django.db.models import Count, Q, Case, When, IntegerField, Max, F
+from rest_framework import viewsets, status
+from rest_framework.response import Response
+from rest_framework.decorators import action
+from django.shortcuts import get_object_or_404
+from .models import LessonCompletion
 
 logger = logging.getLogger(__name__)
 
@@ -351,3 +359,165 @@ class AIChatView(APIView):
         )
         
         return chat_response.choices[0].message.content
+    
+
+
+
+
+
+
+class UserProgressViewSet(viewsets.ModelViewSet):
+    serializer_class = UserCourseProgressSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return UserCourseProgress.objects.filter(
+            user=self.request.user
+        ).select_related('course', 'last_lesson').prefetch_related(
+            'completed_lessons__lesson__module'
+        ).annotate(
+            total_lessons_count=Count('course__modules__lessons', distinct=True),
+            completed_lessons_count=Count(
+                'completed_lessons',
+                filter=Q(completed_lessons__is_completed=True),
+                distinct=True
+            )
+        )
+
+    @action(detail=True, methods=['post'], url_path='complete-lesson')
+    def complete_lesson(self, request, pk=None):
+        """Отметить урок как завершенный"""
+        progress = self.get_object()
+        lesson_id = request.data.get('lesson_id')
+        score = request.data.get('score', 0)
+
+        if not lesson_id:
+            return Response(
+                {'error': 'lesson_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        lesson = get_object_or_404(Lesson, id=lesson_id)
+        
+        completion, created = LessonCompletion.objects.update_or_create(
+            progress=progress,
+            lesson=lesson,
+            defaults={
+                'is_completed': True,
+                'score': score,
+                'last_accessed': timezone.now(),
+                'completed_at': timezone.now()
+            }
+        )
+        
+        progress.last_lesson = lesson
+        progress.last_accessed = timezone.now()
+        progress.save()
+        
+        return Response({
+            'status': 'success',
+            'progress_id': progress.id,
+            'lesson_id': lesson.id,
+            'completed_at': completion.completed_at
+        })
+
+    @action(detail=True, methods=['post'], url_path='track-access')
+    def track_access(self, request, pk=None):
+        """Обновить время последнего доступа к уроку"""
+        progress = self.get_object()
+        lesson_id = request.data.get('lesson_id')
+        score = request.data.get('score') 
+        
+        if not lesson_id:
+            return Response(
+                {'error': 'lesson_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        lesson = get_object_or_404(Lesson, id=lesson_id)
+        LessonCompletion.objects.update_or_create(
+            progress=progress,
+            lesson=lesson,
+            defaults={
+                'is_completed': True,
+                'score': score,
+                'last_accessed': timezone.now(),
+                'completed_at': timezone.now()
+            }
+        )
+        
+        progress.last_accessed = timezone.now()
+        progress.last_lesson = lesson
+        progress.save()
+        
+        return Response({'status': 'access updated'})
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Получить статистику по всем курсам текущего пользователя"""
+        stats = self._get_user_stats(request.user)
+        return Response(stats)
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAdminUser])
+    def admin_stats(self, request):
+        """Статистика по всем пользователям (только для админа)"""
+        user_stats = []
+        for user in User.objects.all():
+            stats = self._get_user_stats(user)
+            user_stats.append({
+                'user_id': user.id,
+                'email': user.email,  # Используем email вместо username
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                **stats
+            })
+        
+        total_stats = UserCourseProgress.objects.aggregate(
+            total_courses=Count('id'),
+            completed_courses=Count(
+                Case(
+                    When(is_completed=True, then=1),
+                    output_field=IntegerField()
+                )
+            )
+        )
+        
+        return Response({
+            'users': user_stats,
+            'total_stats': {
+                **total_stats,
+                'completion_rate': round(
+                    total_stats['completed_courses'] / total_stats['total_courses'] * 100, 2
+                ) if total_stats['total_courses'] > 0 else 0
+            }
+        })
+
+    def _get_user_stats(self, user):
+        """Вспомогательный метод для получения статистики пользователя"""
+        completed_courses = UserCourseProgress.objects.filter(
+            user=user,
+            is_completed=True
+        ).select_related('course').annotate(
+            completion_date=F('completed_at')
+        ).values('course__id', 'course__title', 'completion_date')
+
+        stats = UserCourseProgress.objects.filter(
+            user=user
+        ).aggregate(
+            total_courses=Count('id'),
+            completed_courses=Count(
+                Case(
+                    When(is_completed=True, then=1),
+                    output_field=IntegerField()
+                )
+            ),
+            last_active=Max('last_accessed')
+        )
+        
+        return {
+            **stats,
+            'completion_rate': round(
+                stats['completed_courses'] / stats['total_courses'] * 100, 2
+            ) if stats['total_courses'] > 0 else 0,
+            'completed_courses_list': list(completed_courses)
+        }

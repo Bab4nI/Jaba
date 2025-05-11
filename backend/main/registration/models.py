@@ -54,4 +54,3 @@ class User(AbstractBaseUser, PermissionsMixin):
     def save(self, *args, **kwargs):
         self.role = 'admin' if self.is_staff else 'student'
         super().save(*args, **kwargs)
-
