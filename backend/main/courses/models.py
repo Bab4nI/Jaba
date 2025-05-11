@@ -4,6 +4,7 @@ from django.utils.text import slugify
 from unidecode import unidecode
 import os
 from django.core.exceptions import ValidationError
+import uuid
 
 class Course(models.Model):
     title = models.CharField(max_length=255, verbose_name="Название курса")
@@ -33,7 +34,15 @@ class Course(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
+            # Improved slug generation for Cyrillic characters
+            # First try to transliterate Cyrillic to Latin
             base_slug = slugify(unidecode(self.title))
+            
+            # If slug is empty after transliteration (can happen with some Cyrillic characters),
+            # use a more direct approach - just take the ID or use a random string
+            if not base_slug:
+                base_slug = str(uuid.uuid4())[:8]
+                
             slug = base_slug
             counter = 1
             while Course.objects.filter(slug=slug).exists():
@@ -41,6 +50,29 @@ class Course(models.Model):
                 counter += 1
             self.slug = slug
         super().save(*args, **kwargs)
+
+    @classmethod
+    def find_by_slug(cls, slug_value):
+        """
+        Find a course by slug, regardless of case sensitivity.
+        This helps with troubleshooting slug-related issues.
+        """
+        # First try exact match
+        try:
+            return cls.objects.get(slug=slug_value)
+        except cls.DoesNotExist:
+            # Try case-insensitive match
+            courses = cls.objects.filter(slug__iexact=slug_value)
+            if courses.exists():
+                return courses.first()
+            
+            # Try partial match (contains)
+            courses = cls.objects.filter(slug__contains=slug_value)
+            if courses.exists():
+                return courses.first()
+                
+            # No match found
+            return None
 
 class Module(models.Model):
     course = models.ForeignKey(

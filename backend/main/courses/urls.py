@@ -7,7 +7,8 @@ from .views import (
     CodeExecutionView, AIChatView, MediaUploadView
 )
 
-router = DefaultRouter()
+# Use trailing_slash=True to match Django's default behavior
+router = DefaultRouter(trailing_slash=True)
 router.register(r'courses', CourseViewSet, basename='course')
 router.register(r'modules', ModuleViewSet, basename='module')
 router.register(r'lessons', LessonViewSet, basename='lesson')
@@ -16,7 +17,32 @@ router.register(r'comments', CommentViewSet, basename='comment')
 router.register(r'comment-reactions', CommentReactionViewSet, basename='comment-reaction')
 
 urlpatterns = [
+    # Include the router URLs
     path('', include(router.urls)),
+    
+    # Add explicit course list endpoint with POST support
+    path(
+        'courses/',
+        CourseViewSet.as_view({'get': 'list', 'post': 'create'}),
+        name='course-list-with-slash'
+    ),
+    path(
+        'courses',
+        CourseViewSet.as_view({'get': 'list', 'post': 'create'}),
+        name='course-list-no-slash'
+    ),
+    
+    # Add explicit course detail endpoints
+    path(
+        'courses/<slug:slug>/',
+        CourseViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}),
+        name='course-detail-with-slash'
+    ),
+    path(
+        'courses/<slug:slug>',
+        CourseViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}),
+        name='course-detail-no-slash'
+    ),
     
     path(
         'courses/<slug:course_slug>/modules/',

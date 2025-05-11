@@ -20,6 +20,7 @@ from django.core.exceptions import ValidationError, PermissionDenied
 import os
 import uuid
 from datetime import datetime
+from django.http import Http404
 
 logger = logging.getLogger(__name__)
 
@@ -27,29 +28,99 @@ class CourseViewSet(viewsets.ModelViewSet):
     queryset = Course.objects.select_related('author').prefetch_related('modules')
     serializer_class = CourseSerializer
     lookup_field = 'slug'
-    parser_classes = [MultiPartParser, FormParser]  # Unchanged, as it handles file uploads
+    parser_classes = [MultiPartParser, FormParser, JSONParser]  # Add JSONParser for flexibility
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [permissions.IsAuthenticated()]
         return [permissions.AllowAny()]
 
+    def create(self, request, *args, **kwargs):
+        """
+        Override create method to add better error handling
+        """
+        try:
+            logger.info(f"Creating course with data: {request.data}")
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        except Exception as e:
+            logger.error(f"Error creating course: {str(e)}")
+            return Response(
+                {"detail": f"Failed to create course: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+        
+    def get_object(self):
+        """
+        Override to handle case-insensitive slug lookup and improve error handling
+        for Cyrillic characters in slugs
+        """
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        # Get the slug from the URL
+        slug = self.kwargs.get(self.lookup_field)
+        if not slug:
+            raise Http404("No slug provided")
+            
+        # Try to find the course using our custom method
+        obj = Course.find_by_slug(slug)
+        if not obj:
+            logger.warning(f"Course with slug '{slug}' not found")
+            raise Http404(f"No course found with slug: {slug}")
+            
+        # Check permissions
+        self.check_object_permissions(self.request, obj)
+        return obj
 
     def update(self, request, *args, **kwargs):
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
 
-        # Handle thumbnail deletion if empty string is passed
-        if 'thumbnail' in request.data and request.data['thumbnail'] in ['', None]:
-            if instance.thumbnail:
-                instance.thumbnail.delete(save=False)
-                instance.thumbnail = None
+            # Handle thumbnail deletion if empty string is passed
+            if 'thumbnail' in request.data and request.data['thumbnail'] in ['', None]:
+                if instance.thumbnail:
+                    instance.thumbnail.delete(save=False)
+                    instance.thumbnail = None
 
-        self.perform_update(serializer)
-        return Response(serializer.data)
+            self.perform_update(serializer)
+            return Response(serializer.data)
+        except Http404:
+            return Response(
+                {"detail": f"Course not found with slug: {kwargs.get('slug')}"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error updating course: {str(e)}")
+            return Response(
+                {"detail": f"Failed to update course: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+    def destroy(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            logger.info(f"Deleting course: {instance.title} (slug: {instance.slug})")
+            self.perform_destroy(instance)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Http404:
+            return Response(
+                {"detail": f"Course not found with slug: {kwargs.get('slug')}"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error deleting course: {str(e)}")
+            return Response(
+                {"detail": f"Failed to delete course: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
     @method_decorator(cache_page(60 * 15))  # Cache for 15 minutes
     def list(self, request, *args, **kwargs):

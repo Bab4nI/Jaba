@@ -24,13 +24,6 @@
         </button>
         <button 
            v-if="userRole === 'admin'"
-          :class="['sidebar-button', { 'active': activeTab === 'Домашние задания' }]" 
-          @click="setActiveTab('Домашние задания')"
-        >
-          Домашние задания
-        </button>
-        <button 
-           v-if="userRole === 'admin'"
           :class="['sidebar-button', { 'active': activeTab === 'Пригласить пользователя' }]" 
           @click="setActiveTab('Пригласить пользователя')"
         >

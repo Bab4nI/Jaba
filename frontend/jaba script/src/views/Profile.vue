@@ -22,7 +22,6 @@ import Sidebar from '@/components/Sidebar.vue';
 import Profile from '@/components/Profile.vue';
 import CourseProgress from '@/components/CourseProgress.vue';
 import CourseStatistics from '@/components/CourseStatistics.vue';
-import Homework from '@/components/Homework.vue';
 import InviteUser from '@/components/InviteUser.vue';
 import NewsManager from '@/components/NewsManager.vue';
 
@@ -33,7 +32,6 @@ const componentMap = {
   'Мой профиль': Profile,
   'Прогресс прохождения курса': CourseProgress,
   'Статистика прохождения курса': CourseStatistics,
-  'Домашние задания': Homework,
   'Пригласить пользователя': InviteUser,
   'Управление новостями': NewsManager,
 };

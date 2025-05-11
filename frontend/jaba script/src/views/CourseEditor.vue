@@ -263,6 +263,7 @@ export default {
           const cachedData = cache.get(cacheKey);
           
           if (cachedData) {
+            console.log('📦 Using cached data for:', config.url);
             // Return a dummy promise that resolves with cached data
             config.adapter = () => {
               return Promise.resolve({
@@ -275,6 +276,12 @@ export default {
               });
             };
           }
+        }
+        
+        // Ensure trailing slash for Django compatibility
+        if (config.url && !config.url.endsWith('/') && !config.url.includes('?')) {
+          config.url = `${config.url}/`;
+          console.log('🔧 Added trailing slash to URL:', config.url);
         }
         
         return config;
@@ -292,20 +299,48 @@ export default {
         return response;
       },
       async (error) => {
+        console.error('🔴 API Error:', error.message);
+        
+        if (error.response) {
+          console.error('Response status:', error.response.status);
+          console.error('Response data:', error.response.data);
+        }
+        
         const originalRequest = error.config;
+        
+        // Handle 401 Unauthorized errors
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
           try {
+            console.log('🔄 Attempting token refresh...');
             await authStore.refreshToken();
             originalRequest.headers.Authorization = `Bearer ${authStore.accessToken}`;
             return api(originalRequest);
           } catch (refreshError) {
-            console.error('❌ Не удалось обновить токен в интерцепторе:', refreshError);
+            console.error('❌ Token refresh failed:', refreshError);
             authStore.logout();
             router.push({ name: 'SignIn' });
             return Promise.reject(refreshError);
           }
         }
+        
+        // Handle 404 Not Found for DELETE requests - might be a trailing slash issue
+        if (error.response?.status === 404 && originalRequest.method === 'delete') {
+          const url = originalRequest.url;
+          
+          // Try with alternate URL format (with/without trailing slash)
+          const newUrl = url.endsWith('/') ? url.slice(0, -1) : `${url}/`;
+          console.log(`🔄 Retrying DELETE with alternate URL format: ${newUrl}`);
+          
+          try {
+            const retryConfig = { ...originalRequest, url: newUrl };
+            return await api(retryConfig);
+          } catch (retryError) {
+            console.error('❌ Retry with alternate URL failed:', retryError);
+            return Promise.reject(error); // Return original error if retry fails
+          }
+        }
+        
         return Promise.reject(error);
       }
     );
@@ -367,12 +402,36 @@ export default {
     async loadCourses() {
       this.isLoading = true;
       try {
-        const response = await this.api.get('/courses/');
-        this.courses = Array.isArray(response.data) ? response.data : [];
+        console.log('🔍 Loading courses...');
+        
+        // Skip cache to ensure we get the latest data
+        const response = await this.api.get('/courses/', {
+          skipCache: true,
+          params: {
+            // Add a timestamp to prevent caching
+            _t: new Date().getTime()
+          }
+        });
+        
+        if (Array.isArray(response.data)) {
+          this.courses = response.data;
+          console.log('✅ Courses loaded successfully:', this.courses.length);
+        } else {
+          console.error('❌ Invalid response format:', response.data);
+          this.courses = [];
+        }
       } catch (error) {
-        console.error('Ошибка загрузки курсов:', error);
+        console.error('❌ Error loading courses:', error);
+        console.error('Error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        });
+        
         this.courses = [];
+        
         if (error.response?.status === 401) {
+          console.warn('❌ Authentication error, redirecting to login');
           this.authStore.logout();
           this.router.push({ name: 'SignIn' });
         }
@@ -428,30 +487,51 @@ export default {
 
     async createNewCourse() {
       try {
+        console.log('Creating new course with data:', this.newCourseForm);
+        
         const formData = new FormData();
         formData.append('title', this.newCourseForm.title || 'Новый курс');
-        formData.append('description', this.newCourseForm.description);
+        formData.append('description', this.newCourseForm.description || '');
         formData.append('is_published', this.newCourseForm.is_published);
 
         if (this.newCourseForm.thumbnail instanceof File) {
           formData.append('thumbnail', this.newCourseForm.thumbnail);
         }
 
+        // Always use trailing slash for Django compatibility
         const response = await this.api.post('/courses/', formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
         });
 
+        console.log('✅ Course created successfully:', response.data);
+
         // Invalidate courses cache after creating a new course
-        this.cache.remove('cache_/courses/_{}');
+        if (this.cache && typeof this.cache.remove === 'function') {
+          this.cache.remove('cache_/courses/_{}');
+        }
         
         this.courses.push(response.data);
         this.showCreateCourseModal = false;
         this.resetNewCourseForm();
       } catch (error) {
-        console.error('Ошибка создания курса:', error);
-        alert('Не удалось создать новый курс: ' + (error.message || 'Неизвестная ошибка'));
+        console.error('❌ Error creating course:', error);
+        console.error('Error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        });
+        
+        let errorMessage = 'Неизвестная ошибка';
+        if (error.response?.data?.detail) {
+          errorMessage = error.response.data.detail;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        alert('Не удалось создать новый курс: ' + errorMessage);
+        
         if (error.response?.status === 401) {
           this.authStore.logout();
           this.router.push({ name: 'SignIn' });
@@ -513,9 +593,11 @@ export default {
 
     async updateCourse() {
       try {
+        console.log('Updating course with data:', this.editCourseForm);
+        
         const formData = new FormData();
-        formData.append('title', this.editCourseForm.title);
-        formData.append('description', this.editCourseForm.description);
+        formData.append('title', this.editCourseForm.title || 'Без названия');
+        formData.append('description', this.editCourseForm.description || '');
         formData.append('is_published', this.editCourseForm.is_published);
 
         // Only include thumbnail if it's a File or explicitly cleared
@@ -525,16 +607,21 @@ export default {
           formData.append('thumbnail', '');
         }
 
+        // Always use trailing slash for Django compatibility
         const response = await this.api.patch(`/courses/${this.editCourseForm.slug}/`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
         });
 
+        console.log('✅ Course updated successfully:', response.data);
+
         // Invalidate course cache after updating
-        this.cache.remove(`cache_/courses/${this.editCourseForm.slug}/_{}`)
-        // Also invalidate courses list
-        this.cache.remove('cache_/courses/_{}');
+        if (this.cache && typeof this.cache.remove === 'function') {
+          this.cache.remove(`cache_/courses/${this.editCourseForm.slug}/_{}`)
+          // Also invalidate courses list
+          this.cache.remove('cache_/courses/_{}');
+        }
 
         const index = this.courses.findIndex(course => course.slug === this.editCourseForm.slug);
         if (index !== -1) {
@@ -544,11 +631,22 @@ export default {
         this.showEditCourseModal = false;
         this.resetEditCourseForm();
       } catch (error) {
-        console.error('Ошибка обновления курса:', error);
-        if (error.response) {
-          console.error('Response data:', error.response.data);
+        console.error('❌ Error updating course:', error);
+        console.error('Error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        });
+        
+        let errorMessage = 'Неизвестная ошибка';
+        if (error.response?.data?.detail) {
+          errorMessage = error.response.data.detail;
+        } else if (error.message) {
+          errorMessage = error.message;
         }
-        alert('Не удалось обновить курс: ' + (error.message || 'Неизвестная ошибка'));
+        
+        alert('Не удалось обновить курс: ' + errorMessage);
+        
         if (error.response?.status === 401) {
           this.authStore.logout();
           this.router.push({ name: 'SignIn' });
@@ -565,19 +663,88 @@ export default {
 
     async deleteCourse(course) {
       try {
-        await this.api.delete(`/courses/${course.slug}/`);
+        console.log('🔍 Attempting to delete course:', course);
+        console.log('Course details - Title:', course.title, 'Slug:', course.slug);
         
-        // Invalidate cache after deleting
-        this.cache.remove(`cache_/courses/${course.slug}/_{}`)
-        // Also invalidate courses list
-        this.cache.remove('cache_/courses/_{}');
+        if (!course.slug) {
+          throw new Error('Course slug is missing');
+        }
         
-        this.courses = this.courses.filter(c => c.slug !== course.slug);
-        this.showEditCourseModal = false;
-        this.resetEditCourseForm();
+        // Always use trailing slash for Django compatibility
+        const url = `/courses/${course.slug}/`;
+        console.log('🔍 Deleting course with URL:', url);
+        
+        try {
+          await this.api.delete(url);
+          console.log('✅ Course deleted successfully');
+          
+          // Invalidate cache after deleting
+          if (this.cache && typeof this.cache.remove === 'function') {
+            this.cache.remove(`cache_/courses/${course.slug}/_{}`)
+            // Also invalidate courses list
+            this.cache.remove('cache_/courses/_{}');
+          }
+          
+          this.courses = this.courses.filter(c => c.slug !== course.slug);
+          this.showEditCourseModal = false;
+          this.resetEditCourseForm();
+          
+          // Reload courses list to ensure UI is in sync with backend
+          await this.loadCourses();
+        } catch (error) {
+          console.error('❌ Error deleting course:', error);
+          
+          // If the error is 404, try to get the course list to see if the course exists
+          if (error.response?.status === 404) {
+            console.log('Course not found. Checking course list...');
+            try {
+              const response = await this.api.get('/courses/');
+              const courses = response.data;
+              console.log('Available courses:', courses);
+              
+              // Check if there's a course with a similar title
+              const similarCourse = courses.find(c => 
+                c.title.toLowerCase() === course.title.toLowerCase() && c.slug !== course.slug
+              );
+              
+              if (similarCourse) {
+                console.log('Found similar course with different slug:', similarCourse);
+                // Try to delete using the correct slug
+                await this.api.delete(`/courses/${similarCourse.slug}/`);
+                console.log('✅ Course deleted using correct slug');
+                
+                this.courses = this.courses.filter(c => c.id !== similarCourse.id);
+                this.showEditCourseModal = false;
+                this.resetEditCourseForm();
+                
+                // Reload courses list to ensure UI is in sync with backend
+                await this.loadCourses();
+                return;
+              }
+            } catch (listError) {
+              console.error('Error fetching course list:', listError);
+            }
+          }
+          
+          throw error; // Re-throw to be caught by outer catch
+        }
       } catch (error) {
-        console.error('Ошибка удаления курса:', error);
-        alert('Не удалось удалить курс: ' + (error.message || 'Неизвестная ошибка'));
+        console.error('❌ Error in course deletion process:', error);
+        console.error('Error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        });
+        
+        let errorMessage = 'Неизвестная ошибка';
+        if (error.response?.data?.detail) {
+          errorMessage = error.response.data.detail;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        alert('Не удалось удалить курс: ' + errorMessage);
+        
         if (error.response?.status === 401) {
           this.authStore.logout();
           this.router.push({ name: 'SignIn' });
