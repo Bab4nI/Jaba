@@ -233,6 +233,18 @@ class ContentBase(models.Model):
             raise ValidationError(errors)
 
 class LessonContent(ContentBase):
+    CONTENT_TYPES = (
+        ('TEXT', 'Text'),
+        ('IMAGE', 'Image'),
+        ('VIDEO', 'Video'),
+        ('FILE', 'File'),
+        ('CODE', 'Code Exercise'),
+        ('QUIZ', 'Quiz'),
+    )
+    
+    content_type = models.CharField(max_length=10, choices=CONTENT_TYPES)
+    max_score = models.IntegerField(default=1)  # Maximum score possible for this content
+
     class Meta(ContentBase.Meta):
         verbose_name = 'Контент урока'
         verbose_name_plural = 'Контент уроков'
@@ -312,3 +324,18 @@ class CommentReaction(models.Model):
 
     def __str__(self):
         return f"{self.user.username} {self.reaction_type} → {self.comment}"
+
+class UserProgress(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='progress')
+    lesson = models.ForeignKey('Lesson', on_delete=models.CASCADE, related_name='user_progress')
+    content = models.ForeignKey('LessonContent', on_delete=models.CASCADE, related_name='user_progress', null=True, blank=True)
+    completed = models.BooleanField(default=False)
+    score = models.IntegerField(default=0)  # For code exercises and quizzes
+    completed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'lesson', 'content')
+        ordering = ['completed_at']
+
+    def __str__(self):
+        return f"{self.user.username}'s progress in {self.lesson.title}"

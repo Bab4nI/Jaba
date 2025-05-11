@@ -46,7 +46,7 @@
 
 <script setup>
 // components/Sidebar.vue
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useUserStore } from '@/stores/user'; // Импортируем userStore
 import { useRefreshStore } from '@/stores/auth'; // Импортируем refreshStore
 import { useRouter } from 'vue-router';
@@ -56,7 +56,22 @@ const refreshStore = useRefreshStore(); // Используем refreshStore
 const router = useRouter();
 
 const activeTab = computed(() => userStore.activeTab);
-const userRole = computed(() => userStore.role);
+const userRole = computed(() => {
+  const role = userStore.role;
+  console.log('Current user role in Sidebar:', role);
+  return role;
+});
+
+// Use the debounced version to prevent multiple requests, but only if needed
+onMounted(() => {
+  // Only fetch if we don't already have user data with role
+  if (!userStore.user || !userStore.role) {
+    console.log('Sidebar: No cached user data, fetching profile');
+    userStore.debouncedFetchProfile();
+  } else {
+    console.log('Sidebar: Using cached user data, role:', userStore.role);
+  }
+});
 
 const logout = () => {
   refreshStore.logout(); // Используем logout из refreshStore

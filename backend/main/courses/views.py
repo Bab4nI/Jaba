@@ -1,7 +1,11 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-from .models import Course, Module, Lesson, LessonContent, Comment, CommentReaction
-from .serializers import CourseSerializer, ModuleSerializer, LessonSerializer, LessonContentSerializer, CommentSerializer, CommentReactionSerializer
+from .models import Course, Module, Lesson, LessonContent, Comment, CommentReaction, UserProgress
+from .serializers import (
+    CourseSerializer, ModuleSerializer, LessonSerializer, 
+    LessonContentSerializer, CommentSerializer, CommentReactionSerializer,
+    UserProgressSerializer
+)
 from django.shortcuts import get_object_or_404
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser  # Add JSONParser
 from django.db import transaction
@@ -21,6 +25,7 @@ import os
 import uuid
 from datetime import datetime
 from django.http import Http404
+from django.db import models
 
 logger = logging.getLogger(__name__)
 
@@ -256,6 +261,53 @@ class LessonContentViewSet(viewsets.ModelViewSet):
                 {'error': 'An unexpected error occurred'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @action(detail=True, methods=['POST'])
+    def submit_answer(self, request, pk=None):
+        content = self.get_object()
+        
+        if content.content_type not in ['CODE', 'QUIZ']:
+            return Response(
+                {"error": "This content type doesn't support answer submission"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        answer = request.data.get('answer')
+        if answer is None:
+            return Response(
+                {"error": "Answer is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Calculate score based on content type
+        score = 0
+        if content.content_type == 'CODE':
+            # For code exercises, you might want to run tests
+            # This is a simplified scoring - you should implement proper test running
+            score = content.max_score if answer.strip() else 0
+        elif content.content_type == 'QUIZ':
+            # For quizzes, check against correct answers
+            correct_answer = content.correct_answer  # You'll need to add this field
+            score = content.max_score if answer == correct_answer else 0
+
+        # Update user progress
+        progress, _ = UserProgress.objects.get_or_create(
+            user=request.user,
+            lesson=content.lesson,
+            content=content,
+            defaults={'completed': True, 'score': score}
+        )
+        
+        if not progress.completed:
+            progress.completed = True
+            progress.score = score
+            progress.save()
+
+        return Response({
+            'score': score,
+            'max_score': content.max_score,
+            'completed': True
+        })
 
 class CodeExecutionView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -666,3 +718,144 @@ class CommentReactionViewSet(viewsets.ModelViewSet):
                 {"error": "No reaction found"}, 
                 status=status.HTTP_404_NOT_FOUND
             )
+
+class UserProgressViewSet(viewsets.ModelViewSet):
+    serializer_class = UserProgressSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return UserProgress.objects.filter(user=self.request.user)
+
+    @action(detail=False, methods=['GET'])
+    def course_progress(self, request, course_slug=None):
+        # Get course_slug from URL kwargs if not provided directly
+        if not course_slug:
+            course_slug = request.query_params.get('course_slug')
+            
+        if not course_slug:
+            return Response(
+                {"error": "course_slug is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        course = get_object_or_404(Course, slug=course_slug)
+        
+        # Get all lessons in the course
+        lessons = Lesson.objects.filter(module__course=course)
+        
+        # Get user's progress for this course
+        progress = UserProgress.objects.filter(
+            user=request.user,
+            lesson__module__course=course
+        )
+
+        # Calculate statistics
+        total_lessons = lessons.count()
+        completed_lessons = progress.filter(completed=True).values('lesson').distinct().count()
+        total_score = progress.aggregate(total=models.Sum('score'))['total'] or 0
+        max_possible_score = LessonContent.objects.filter(
+            lesson__module__course=course
+        ).aggregate(total=models.Sum('max_score'))['total'] or 0
+
+        return Response({
+            'total_lessons': total_lessons,
+            'completed_lessons': completed_lessons,
+            'completion_percentage': (completed_lessons / total_lessons * 100) if total_lessons > 0 else 0,
+            'total_score': total_score,
+            'max_possible_score': max_possible_score,
+            'score_percentage': (total_score / max_possible_score * 100) if max_possible_score > 0 else 0
+        })
+        
+    @action(detail=False, methods=['GET'])
+    def student_progress(self, request):
+        """
+        Get detailed progress for a specific student across all work items.
+        Query params:
+        - student_id: ID of the student (required for admins, ignored for students)
+        - course_slug: Filter by course (optional)
+        """
+        # Check if the requesting user is an admin and can view other students' progress
+        user_id = request.user.id
+        if request.user.role == 'admin' and request.query_params.get('student_id'):
+            user_id = request.query_params.get('student_id')
+            
+        # Filter by course if provided
+        course_filter = {}
+        if course_slug := request.query_params.get('course_slug'):
+            course_filter['lesson__module__course__slug'] = course_slug
+            
+        # Get all progress records for this user
+        progress = UserProgress.objects.filter(
+            user_id=user_id, 
+            **course_filter
+        ).select_related('lesson', 'content')
+        
+        # Group by lesson for easier consumption by the frontend
+        result = {}
+        for p in progress:
+            lesson_id = p.lesson_id
+            content_id = p.content_id if p.content else None
+            
+            if lesson_id not in result:
+                result[lesson_id] = {
+                    'lesson_id': lesson_id,
+                    'lesson_title': p.lesson.title,
+                    'completed': p.completed,
+                    'contents': {}
+                }
+                
+            if content_id:
+                result[lesson_id]['contents'][content_id] = {
+                    'content_id': content_id,
+                    'completed': p.completed,
+                    'score': p.score,
+                    'max_score': p.content.max_score if p.content else 0,
+                    'content_type': p.content.content_type if p.content else None,
+                    'completed_at': p.completed_at
+                }
+                
+        return Response(result)
+
+    @action(detail=False, methods=['POST'])
+    def mark_completed(self, request, lesson_id=None):
+        # First check if lesson_id is in URL params
+        if lesson_id is None:
+            # If not in URL params, try to get from request data
+            lesson_id = request.data.get('lesson_id')
+            
+        if not lesson_id:
+            return Response(
+                {"error": "lesson_id is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        content_id = request.data.get('content_id')
+        score = request.data.get('score', 1)  # Default score is 1 for non-quiz/code content
+
+        lesson = get_object_or_404(Lesson, id=lesson_id)
+        
+        # If content_id is provided, mark specific content as completed
+        if content_id:
+            content = get_object_or_404(LessonContent, id=content_id)
+            progress, created = UserProgress.objects.get_or_create(
+                user=request.user,
+                lesson=lesson,
+                content=content,
+                defaults={'completed': True, 'score': min(score, content.max_score)}
+            )
+            if not created:
+                progress.completed = True
+                progress.score = min(score, content.max_score)
+                progress.save()
+        else:
+            # Mark the entire lesson as completed
+            progress, created = UserProgress.objects.get_or_create(
+                user=request.user,
+                lesson=lesson,
+                defaults={'completed': True, 'score': 1}
+            )
+            if not created:
+                progress.completed = True
+                progress.save()
+
+        return Response({'status': 'success'})

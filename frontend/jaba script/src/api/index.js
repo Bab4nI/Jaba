@@ -5,12 +5,17 @@ import cache from './cache'
 // Настройки времени кэширования (в минутах)
 const CACHE_SETTINGS = {
   default: 5,
-  profile: 30,
+  profile: 30,  // Keep this at 30 minutes
   courses: 30,
   modules: 30,
   lessons: 15,
   contents: 10,
   refreshToken: 5 // Минимальное время между обновлениями токена
+}
+
+// Cache keys for specific resources
+const CACHE_KEYS = {
+  PROFILE: 'profile_cache_key'
 }
 
 // Ключ для сохранения времени последнего обновления токена
@@ -23,6 +28,11 @@ let lastTokenRefresh = parseInt(localStorage.getItem(LAST_TOKEN_REFRESH_KEY)) ||
 let isRefreshingToken = false;
 // Пендинг запросы, ожидающие обновления токена
 let refreshSubscribers = [];
+
+// Флаг для отслеживания запросов профиля, чтобы избежать множественных запросов
+let isLoadingProfile = false;
+// Время последнего запроса профиля
+let lastProfileRequest = 0;
 
 // Получаем базовый URL для API
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -118,25 +128,70 @@ api.interceptors.request.use(
     
     // Кэширование для GET запросов
     if (config.method === 'get') {
-      // Определяем подходящее время кэширования по URL
-      let cacheTime = CACHE_SETTINGS.default;
-      
+      // Special handling for profile requests to prevent multiple simultaneous calls
       if (config.url.includes('/profile')) {
-        cacheTime = CACHE_SETTINGS.profile;
-      } else if (config.url.includes('/contents')) {
-        cacheTime = CACHE_SETTINGS.contents;
-      } else if (config.url.includes('/lessons')) {
-        cacheTime = CACHE_SETTINGS.lessons;
-      } else if (config.url.includes('/modules')) {
-        cacheTime = CACHE_SETTINGS.modules;
-      } else if (config.url.includes('/courses')) {
-        cacheTime = CACHE_SETTINGS.courses;
+        const now = Date.now();
+        const timeSinceLastRequest = now - lastProfileRequest;
+        const PROFILE_CACHE_KEY = 'user_profile_data';
+        const PROFILE_LAST_FETCH_KEY = 'user_profile_last_fetch';
+        
+        // Try to get the profile data from localStorage cache
+        const cachedProfile = localStorage.getItem(PROFILE_CACHE_KEY);
+        const lastFetchStr = localStorage.getItem(PROFILE_LAST_FETCH_KEY);
+        
+        // If we have valid cached data and not forcing a refresh
+        if (!config.skipCache && cachedProfile && lastFetchStr) {
+          const lastFetch = parseInt(lastFetchStr);
+          const cacheAge = now - lastFetch;
+          
+          // If cache is still valid (less than 30 minutes old) or another request is in progress
+          if ((cacheAge < 30 * 60 * 1000) || isLoadingProfile || timeSinceLastRequest < 5000) {
+            console.log(`✅ API: Используем кэшированные данные профиля (возраст: ${Math.round(cacheAge/1000)} секунд)`);
+            
+            // Use the cached data instead of making a new request
+            config.adapter = () => {
+              return Promise.resolve({
+                data: JSON.parse(cachedProfile),
+                status: 200,
+                statusText: 'OK',
+                headers: {},
+                config,
+                request: {}
+              });
+            };
+            
+            return config;
+          }
+        }
+        
+        // Mark that we're loading profile and update last request time
+        isLoadingProfile = true;
+        lastProfileRequest = now;
+        
+        // Set a longer cache time for profile
+        config.cache = {
+          maxAge: CACHE_SETTINGS.profile * 60 * 1000, // в миллисекундах
+          key: CACHE_KEYS.PROFILE // Use consistent key for profile
+        };
+      } else {
+        // Определяем подходящее время кэширования по URL для других запросов
+        let cacheTime = CACHE_SETTINGS.default;
+        
+        if (config.url.includes('/contents')) {
+          cacheTime = CACHE_SETTINGS.contents;
+        } else if (config.url.includes('/lessons')) {
+          cacheTime = CACHE_SETTINGS.lessons;
+        } else if (config.url.includes('/modules')) {
+          cacheTime = CACHE_SETTINGS.modules;
+        } else if (config.url.includes('/courses')) {
+          cacheTime = CACHE_SETTINGS.courses;
+        }
+        
+        // Настраиваем кэширование
+        config.cache = {
+          maxAge: cacheTime * 60 * 1000 // в миллисекундах
+        };
       }
-      
-      // Настраиваем кэширование
-      config.cache = {
-        maxAge: cacheTime * 60 * 1000 // в миллисекундах
-      };
     }
     
     return config
@@ -144,10 +199,25 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// Интерцептор ответов - обрабатывает ошибки и обновляет токен при необходимости
+// Интерцептор ответов
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // For profile responses, store in cache and mark as no longer loading
+    if (response.config.url && response.config.url.includes('/profile') && response.config.method === 'get') {
+      isLoadingProfile = false;
+      
+      // Cache the profile data manually to ensure it's always cached properly
+      cache.set(CACHE_KEYS.PROFILE, response.data, CACHE_SETTINGS.profile);
+      console.log('✅ API: Профиль успешно загружен и кэширован');
+    }
+    return response;
+  },
   async (error) => {
+    // If error is from profile request, mark as no longer loading
+    if (error.config?.url && error.config.url.includes('/profile') && error.config.method === 'get') {
+      isLoadingProfile = false;
+    }
+    
     const originalRequest = error.config;
     
     // Обрабатываем 401 ошибки (неавторизован)
@@ -301,7 +371,9 @@ api.invalidateCache = (pattern = null) => {
 // Метод для инвалидации кэша профиля
 api.invalidateProfileCache = () => {
   console.log('🔄 API: Инвалидация кэша профиля');
+  cache.remove(CACHE_KEYS.PROFILE);
   api.invalidateCache('/profile');
+  isLoadingProfile = false;
 }
 
 export default api;

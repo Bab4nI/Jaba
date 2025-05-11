@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     CourseViewSet, ModuleViewSet, LessonViewSet,
     LessonContentViewSet, CommentViewSet, CommentReactionViewSet,
-    CodeExecutionView, AIChatView, MediaUploadView
+    CodeExecutionView, AIChatView, MediaUploadView, UserProgressViewSet
 )
 
 # Use trailing_slash=True to match Django's default behavior
@@ -15,6 +15,7 @@ router.register(r'lessons', LessonViewSet, basename='lesson')
 router.register(r'lesson-contents', LessonContentViewSet, basename='lesson-content')
 router.register(r'comments', CommentViewSet, basename='comment')
 router.register(r'comment-reactions', CommentReactionViewSet, basename='comment-reaction')
+router.register(r'progress', UserProgressViewSet, basename='progress')
 
 urlpatterns = [
     # Include the router URLs
@@ -127,4 +128,26 @@ urlpatterns = [
     path('execute-code/', CodeExecutionView.as_view(), name='execute-code'),
     path('ai/chat/', AIChatView.as_view(), name='ai-chat'),
     path('upload/', MediaUploadView.as_view(), name='media-upload'),
+
+    # Add progress-specific paths
+    path(
+        'courses/<slug:course_slug>/progress/',
+        UserProgressViewSet.as_view({'get': 'course_progress'}),
+        name='course-progress'
+    ),
+    path(
+        'student-progress/',
+        UserProgressViewSet.as_view({'get': 'student_progress'}),
+        name='student-progress'
+    ),
+    path(
+        'lessons/<int:lesson_id>/mark-completed/',
+        UserProgressViewSet.as_view({'post': 'mark_completed'}),
+        name='mark-lesson-completed'
+    ),
+    path(
+        'lesson-contents/<int:pk>/submit-answer/',
+        LessonContentViewSet.as_view({'post': 'submit_answer'}),
+        name='submit-content-answer'
+    ),
 ]

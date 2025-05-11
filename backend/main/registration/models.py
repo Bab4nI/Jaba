@@ -52,6 +52,14 @@ class User(AbstractBaseUser, PermissionsMixin):
         return f"{self.first_name} {self.last_name} {self.middle_name}"
 
     def save(self, *args, **kwargs):
-        self.role = 'admin' if self.is_staff else 'student'
+        # Only set role based on is_staff if role wasn't explicitly provided
+        # This allows setting the role directly when creating a user
+        if not hasattr(self, '_role_explicitly_set'):
+            self.role = 'admin' if self.is_staff else 'student'
+            
+        # If role is set to admin, ensure is_staff is also set
+        if self.role == 'admin':
+            self.is_staff = True
+            
         super().save(*args, **kwargs)
 

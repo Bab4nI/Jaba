@@ -11,7 +11,7 @@
         <div class="student-info-card1">
           <p class="main-title-text-style">{{ fullName }}</p>
           <div class="student-info-container">
-            <p class="student-role-text-style">{{ userRole === 'student' ? 'Студент' : 'Преподаватель' }}</p>
+            <p class="student-role-text-style">{{ userRole === 'admin' ? 'Администратор' : 'Студент' }}</p>
             <p class="student-info-text-style">{{ department }}</p>
           </div>
         </div>
@@ -123,9 +123,15 @@ const avatarSrc = computed(() => {
     : new URL('@/assets/images/default-avatar.png', import.meta.url).href;
 });
 
-// Загружаем профиль при монтировании компонента
-onMounted(async () => {
-  await userStore.fetchUserProfile();
+// Загружаем профиль при монтировании компонента, только если нужно
+onMounted(() => {
+  // Проверяем, есть ли у нас уже данные пользователя
+  if (!userStore.user || !userStore.role) {
+    console.log('Profile component: No cached data, fetching profile');
+    userStore.debouncedFetchProfile();
+  } else {
+    console.log('Profile component: Using cached data, role:', userStore.role);
+  }
 });
 
 const handleAvatarUpload = (event) => {

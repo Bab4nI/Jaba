@@ -16,7 +16,7 @@
 
 <script setup>
 //views/Profile.vue
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useUserStore } from '@/stores/user';
 import Sidebar from '@/components/Sidebar.vue';
 import Profile from '@/components/Profile.vue';
@@ -27,6 +27,17 @@ import NewsManager from '@/components/NewsManager.vue';
 
 const userStore = useUserStore();
 const activeTab = computed(() => userStore.activeTab);
+
+// Use debounced fetch profile when the page loads, but only if needed
+onMounted(() => {
+  // If we already have user data from cache, no need to fetch immediately
+  if (userStore.user && userStore.role) {
+    console.log('Profile view: Using cached user data, role:', userStore.role);
+  } else {
+    console.log('Profile view: No cached data, fetching profile');
+    userStore.debouncedFetchProfile();
+  }
+});
 
 const componentMap = {
   'Мой профиль': Profile,

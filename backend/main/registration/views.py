@@ -1,6 +1,7 @@
 import jwt
 from datetime import datetime, timedelta
 import random
+import logging
 
 from django.utils import timezone
 from django.conf import settings
@@ -26,6 +27,8 @@ from .serializers import (
     VerifyEmailCodeSerializer,
 )
 from .models import User
+
+logger = logging.getLogger(__name__)
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
@@ -88,10 +91,25 @@ class UserListView(APIView):
 
 class RegisterView(APIView):    
     def post(self, request):
-        serializer = UserSerializer(data=request.data)
+        # Make a copy of the data to prevent modifying the original
+        data = request.data.copy()
+        role = data.get('role')
+        
+        # Log the incoming registration data (without password)
+        log_data = {k: v for k, v in data.items() if k != 'password'}
+        logger.info(f"Registration attempt with data: {log_data}")
+        
+        serializer = UserSerializer(data=data)
         if serializer.is_valid():
-            serializer.save()
+            # If role is admin, make sure we're handling it
+            if role == 'admin':
+                logger.info(f"Creating admin user for {data.get('email')}")
+            
+            user = serializer.save()
+            logger.info(f"User created with ID {user.id}, role: {user.role}")
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        logger.warning(f"Registration failed: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class PasswordResetRequestView(APIView):

@@ -9,9 +9,11 @@
 import Header from '@/components/Header.vue'; // Импортируем компонент Header
 import '@/assets/css/themes.css'; // Import themes CSS
 import { useThemeStore } from '@/stores/themeStore';
+import { useUserStore } from '@/stores/user';
 import { onMounted, onBeforeUnmount } from 'vue';
 
 const themeStore = useThemeStore();
+const userStore = useUserStore();
 
 const setupSystemThemeWatcher = () => {
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -39,7 +41,34 @@ const setupSystemThemeWatcher = () => {
 
 let removeSystemThemeWatcher;
 onMounted(() => {
+  // Set up theme watcher
   removeSystemThemeWatcher = setupSystemThemeWatcher();
+  
+  // Initialize user profile if we have an access token
+  if (localStorage.getItem('access_token')) {
+    console.log('App: Initializing user profile on app start');
+    // Check if we already have profile data, avoiding duplicate requests
+    if (!userStore.user) {
+      // Try to load from localStorage first
+      const cachedData = localStorage.getItem('user_profile_data');
+      if (cachedData) {
+        try {
+          console.log('App: Using cached profile data');
+          // Load cached data - this will update the store but won't trigger API request
+          const data = JSON.parse(cachedData);
+          userStore.SET_USER_DATA(data);
+        } catch (error) {
+          console.error('App: Error parsing cached profile data', error);
+        }
+      }
+      
+      // Schedule a background refresh of profile data after a short delay
+      setTimeout(() => {
+        console.log('App: Background refresh of profile data');
+        userStore.debouncedFetchProfile();
+      }, 3000);
+    }
+  }
 });
 
 onBeforeUnmount(() => {

@@ -1,8 +1,28 @@
 <template>
   <div class="main-content-container">
 
+    <!-- Toast notification -->
+    <div v-if="toastMessage" class="toast-notification" :class="toastType">
+      {{ toastMessage }}
+    </div>
+
     <div class="central-content-container">
-      <div class="main-content-container1">
+      <!-- Show loading indicator when content is loading -->
+      <div v-if="isLoading && !loadError" class="loading-indicator">
+        <div class="spinner"></div>
+        <p>Загрузка содержимого...</p>
+      </div>
+      
+      <!-- Show error message if there's an error -->
+      <div v-else-if="loadError" class="error-message">
+        {{ loadError }}
+        <button @click="goBack" class="retry-button" aria-label="Вернуться к модулям">
+          Вернуться к модулям
+        </button>
+      </div>
+      
+      <!-- Show content when loaded -->
+      <div v-else class="main-content-container1">
         <div class="article-header">
           <input
             v-model="article.title"
@@ -114,6 +134,18 @@
               <span v-if="hasChanges" class="changes-indicator">*</span>
             </button>
           </div>
+        </div>
+        
+        <!-- Progress tracking button at the bottom -->
+        <div class="progress-tracking-container">
+          <button 
+            @click="markLessonAsCompleted" 
+            class="mark-completed-btn"
+            :disabled="isLessonCompleted || isSaving"
+          >
+            <span v-if="isLessonCompleted">✓ Урок пройден</span>
+            <span v-else>Отметить урок как пройденный</span>
+          </button>
         </div>
       </div>
     </div>
@@ -281,6 +313,8 @@ export default {
       type: route.query.type || 'article',
     })
 
+    // Add isLoading state to track loading status
+    const isLoading = ref(true)
     const selectedContentType = ref('')
     const contents = ref([])
     const originalContents = ref([])
@@ -301,6 +335,7 @@ export default {
     const customForms = ref([])
     const currentFormIndex = ref(-1)
     const activeFormIndex = ref(-1)
+    const isLessonCompleted = ref(false)
 
     const isContentReadOnly = computed(() => {
       return mode.value !== 'edit' || userStore.role !== 'admin'
@@ -850,105 +885,125 @@ export default {
     }
 
     const loadArticle = async () => {
+      isLoading.value = true;
+      
       if (!article.value.id || !route.params.courseSlug || !route.params.moduleId) {
-        loadError.value = 'Отсутствуют необходимые параметры (курс, модуль или урок).'
-        showToast('Ошибка параметров.', 'error')
-        return
+        loadError.value = 'Отсутствуют необходимые параметры (курс, модуль или урок).';
+        showToast('Ошибка параметров.', 'error');
+        isLoading.value = false;
+        return;
       }
 
       try {
-        // Генерируем уникальный ключ запроса для кэширования
-        const contentRequestUrl = `/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/`;
+        // Get the base API URL from environment or use a default
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        
+        // Generate a unique request URL for caching
+        const contentRequestUrl = `${apiUrl}/api/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/`;
         
         // Load article contents
-        const contentsResponse = await api.get(contentRequestUrl)
-        contents.value = contentsResponse.data.sort((a, b) => a.order - b.order).map(item => ({
+        const contentsResponse = await fetch(contentRequestUrl, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          }
+        });
+        
+        if (!contentsResponse.ok) {
+          throw new Error(`HTTP error ${contentsResponse.status}`);
+        }
+        
+        const contentsData = await contentsResponse.json();
+        contents.value = contentsData.sort((a, b) => a.order - b.order).map(item => ({
           ...item,
           filename: item.type === 'file' ? item.title : item.filename
-        }))
-        originalContents.value = JSON.parse(JSON.stringify(contents.value))
+        }));
+        originalContents.value = JSON.parse(JSON.stringify(contents.value));
         
         // Load forms
         try {
           if (!useLocalStorage.value) {
             // Try loading from backend if endpoints exist
-            const formsRequestUrl = `/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/forms/`;
+            const formsRequestUrl = `${apiUrl}/api/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/forms/`;
             
-            const formsResponse = await api.get(formsRequestUrl)
+            const formsResponse = await fetch(formsRequestUrl, {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+              }
+            });
             
-            if (formsResponse.data && Array.isArray(formsResponse.data)) {
-              customForms.value = formsResponse.data.map(form => ({
-                ...form,
-                contents: form.contents || []
-              }))
+            if (formsResponse.ok) {
+              const formsData = await formsResponse.json();
               
-              // If we have forms but no active form, set the first one as active
-              if (customForms.value.length > 0 && activeFormIndex.value === -1 && mode.value === 'edit') {
-                activeFormIndex.value = 0
+              if (formsData && Array.isArray(formsData)) {
+                customForms.value = formsData.map(form => ({
+                  ...form,
+                  contents: form.contents || []
+                }));
+                
+                // If we have forms but no active form, set the first one as active
+                if (customForms.value.length > 0 && activeFormIndex.value === -1 && mode.value === 'edit') {
+                  activeFormIndex.value = 0;
+                }
+              } else {
+                createDefaultForm();
               }
             } else {
-              createDefaultForm()
+              // Fallback to localStorage if API fails
+              loadFormsFromLocalStorage();
             }
           } else {
             // Load from localStorage if backend endpoints don't exist yet
-            const savedForms = localStorage.getItem(`article_forms_${article.value.id}`)
-            if (savedForms) {
-              try {
-                customForms.value = JSON.parse(savedForms)
-                if (customForms.value.length > 0 && mode.value === 'edit') {
-                  activeFormIndex.value = 0
-                }
-                showToast('Формы загружены из локального хранилища.', 'info')
-              } catch (e) {
-                console.error('Ошибка парсинга сохраненных форм:', e)
-                createDefaultForm()
-              }
-            } else {
-              createDefaultForm()
-            }
+            loadFormsFromLocalStorage();
           }
         } catch (error) {
-          console.error('Ошибка загрузки форм:', error)
+          console.error('Ошибка загрузки форм:', error);
           // Fallback to localStorage if API fails
-          const savedForms = localStorage.getItem(`article_forms_${article.value.id}`)
-          if (savedForms) {
-            try {
-              customForms.value = JSON.parse(savedForms)
-              if (customForms.value.length > 0 && mode.value === 'edit') {
-                activeFormIndex.value = 0
-              }
-              showToast('Формы загружены из локального хранилища.', 'info')
-            } catch (e) {
-              console.error('Ошибка парсинга сохраненных форм:', e)
-              createDefaultForm()
-            }
-          } else {
-            createDefaultForm()
-          }
+          loadFormsFromLocalStorage();
         }
         
-        changedIndices.value.clear()
-        lastSavedAt.value = new Date()
-        loadError.value = null
-        showToast('Контент успешно загружен.', 'success')
+        changedIndices.value.clear();
+        lastSavedAt.value = new Date();
+        loadError.value = null;
+        showToast('Контент успешно загружен.', 'success');
       } catch (error) {
-        console.error('Ошибка загрузки содержимого:', error)
-        if (error.response?.status === 404) {
-          loadError.value = 'Урок не найден. Проверьте правильность данных урока.'
-        } else if (error.response?.status === 401) {
-          loadError.value = 'Не авторизован. Пожалуйста, войдите в систему.'
-        } else if (error.response?.status === 403) {
-          loadError.value = 'Доступ к уроку запрещён. Проверьте ваши права доступа.'
+        console.error('Ошибка загрузки содержимого:', error);
+        if (error.message?.includes('404')) {
+          loadError.value = 'Урок не найден. Проверьте правильность данных урока.';
+        } else if (error.message?.includes('401')) {
+          loadError.value = 'Не авторизован. Пожалуйста, войдите в систему.';
+        } else if (error.message?.includes('403')) {
+          loadError.value = 'Доступ к уроку запрещён. Проверьте ваши права доступа.';
         } else {
-          loadError.value = 'Ошибка загрузки содержимого. Попробуйте позже.'
+          loadError.value = 'Ошибка загрузки содержимого. Попробуйте позже.';
         }
-        showToast(loadError.value, 'error')
-        contents.value = []
-        originalContents.value = []
-        customForms.value = []
+        showToast(loadError.value, 'error');
+        contents.value = [];
+        originalContents.value = [];
+        customForms.value = [];
+      } finally {
+        isLoading.value = false;
       }
-    }
-
+    };
+    
+    // Helper function to load forms from localStorage
+    const loadFormsFromLocalStorage = () => {
+      const savedForms = localStorage.getItem(`article_forms_${article.value.id}`);
+      if (savedForms) {
+        try {
+          customForms.value = JSON.parse(savedForms);
+          if (customForms.value.length > 0 && mode.value === 'edit') {
+            activeFormIndex.value = 0;
+          }
+          showToast('Формы загружены из локального хранилища.', 'info');
+        } catch (e) {
+          console.error('Ошибка парсинга сохраненных форм:', e);
+          createDefaultForm();
+        }
+      } else {
+        createDefaultForm();
+      }
+    };
+    
     // Helper to create default form
     const createDefaultForm = () => {
       if (contents.value.length > 0) {
@@ -958,10 +1013,10 @@ export default {
           contents: contents.value,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        }]
-        activeFormIndex.value = 0
+        }];
+        activeFormIndex.value = 0;
       }
-    }
+    };
 
     const goBack = async () => {
       if (hasChanges.value) {
@@ -1238,22 +1293,146 @@ export default {
       showToast('Ответ AI вставлен в статью.', 'success')
     }
 
+    // Add functions to check and update lesson completion status
+    const checkLessonCompletionStatus = async () => {
+      try {
+        // Get the base API URL from environment or use a default
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        
+        console.log(`Checking progress for course ${route.params.courseSlug}`);
+        
+        const response = await fetch(`${apiUrl}/api/courses/${route.params.courseSlug}/progress/`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          }
+        });
+        
+        console.log(`Progress API response status: ${response.status}`);
+        
+        if (response.ok) {
+          const progressData = await response.json();
+          console.log('Course progress data:', progressData);
+          
+          // Check if this specific lesson is in the completed lessons
+          console.log(`Checking completion status for lesson ${route.params.lessonId}`);
+          const lessonProgressResponse = await fetch(`${apiUrl}/api/progress/?lesson=${route.params.lessonId}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+            }
+          });
+          
+          console.log(`Lesson progress API response status: ${lessonProgressResponse.status}`);
+          
+          if (lessonProgressResponse.ok) {
+            const lessonProgress = await lessonProgressResponse.json();
+            console.log('Lesson progress data:', lessonProgress);
+            isLessonCompleted.value = lessonProgress.length > 0 && lessonProgress.some(p => p.completed);
+            console.log(`Lesson completion status: ${isLessonCompleted.value ? 'Completed' : 'Not completed'}`);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking lesson completion status:', error);
+        // Don't show error toast here, as this is a background check
+      }
+    };
+    
+    const loadContent = async () => {
+      try {
+        if (!route.params.courseSlug || !route.params.moduleId || !route.params.lessonId) {
+          loadError.value = 'Ошибка: отсутствуют необходимые параметры маршрута.';
+          showToast('Ошибка маршрута.', 'error');
+          return;
+        }
+        
+        // Just call the existing loadArticle function
+        await loadArticle();
+      } catch (error) {
+        console.error('Error loading content:', error);
+        loadError.value = 'Ошибка загрузки содержимого: ' + error;
+        showToast('Ошибка загрузки.', 'error');
+      }
+    };
+    
+    const markLessonAsCompleted = async () => {
+      try {
+        isSaving.value = true;
+        // Get the base API URL from environment or use a default
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        
+        console.log(`Marking lesson ${route.params.lessonId} as completed`);
+        
+        const response = await fetch(`${apiUrl}/api/lessons/${route.params.lessonId}/mark-completed/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          },
+          body: JSON.stringify({})
+        });
+        
+        console.log(`Response status: ${response.status}`);
+        
+        if (response.ok) {
+          let responseData;
+          try {
+            responseData = await response.json();
+            console.log('Response data:', responseData);
+          } catch (e) {
+            // Handle empty response body
+            console.log('Empty response body, assuming success');
+            responseData = { status: 'success' };
+          }
+          
+          isLessonCompleted.value = true;
+          showToast('Урок успешно отмечен как пройденный!', 'success');
+          
+          // Refresh progress statistics
+          checkLessonCompletionStatus();
+        } else {
+          let errorData = { error: 'Неизвестная ошибка' };
+          try {
+            errorData = await response.json();
+            console.error('Error data:', errorData);
+          } catch (e) {
+            // Handle case where response isn't valid JSON
+            console.error('Response is not valid JSON');
+            errorData = { error: `HTTP error: ${response.status}` };
+          }
+          showToast(`Ошибка: ${errorData.error || 'Не удалось отметить урок'}`, 'error');
+        }
+      } catch (error) {
+        console.error('Error marking lesson as completed:', error);
+        showToast('Ошибка при обновлении прогресса. Проверьте соединение.', 'error');
+      } finally {
+        isSaving.value = false;
+      }
+    };
+
+    // Check lesson completion status when component is mounted
     onMounted(() => {
-      document.addEventListener('mouseup', handleGlobalTextSelection)
-      window.addEventListener('beforeunload', beforeUnloadHandler)
+      document.addEventListener('mouseup', handleGlobalTextSelection);
+      window.addEventListener('beforeunload', beforeUnloadHandler);
       
       // Only fetch user profile if not already loaded
       if (!userStore.user || !userStore.user.id) {
-        userStore.fetchUserProfile()
+        userStore.fetchUserProfile();
       }
       
+      // Load content and check completion status
       if (!route.params.courseSlug || !route.params.moduleId || !route.params.lessonId) {
-        loadError.value = 'Ошибка: отсутствуют необходимые параметры маршрута.'
-        showToast('Ошибка маршрута.', 'error')
-        return
+        loadError.value = 'Ошибка: отсутствуют необходимые параметры маршрута.';
+        showToast('Ошибка маршрута.', 'error');
+        return;
       }
-      loadArticle()
-    })
+      
+      // Call loadArticle directly since it should initialize everything
+      loadArticle().then(() => {
+        // After content is loaded, check the completion status
+        checkLessonCompletionStatus();
+      }).catch(error => {
+        console.error('Error during initial load:', error);
+      });
+    });
 
     onUnmounted(() => {
       document.removeEventListener('mouseup', handleGlobalTextSelection)
@@ -1318,6 +1497,10 @@ export default {
       aiExpandText,
       aiAskCustom,
       insertAiResponse,
+      showToast,
+      isLessonCompleted,
+      markLessonAsCompleted,
+      isLoading,
     }
   },
 }
@@ -2640,5 +2823,104 @@ export default {
 
 :deep(.dark-theme img) {
   filter: brightness(0.9);
+}
+
+.toast-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  color: white;
+  font-weight: 500;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.toast-notification.success {
+  background-color: #4CAF50;
+}
+
+.toast-notification.error {
+  background-color: #f44336;
+}
+
+.toast-notification.warning {
+  background-color: #ff9800;
+}
+
+.toast-notification.info {
+  background-color: #2196F3;
+}
+
+.progress-tracking-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 40px;
+  padding: 20px;
+  border-top: 1px solid var(--border-color);
+}
+
+.mark-completed-btn {
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 500;
+  background: var(--accent-color);
+  color: var(--footer-text);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mark-completed-btn:hover:not(:disabled) {
+  background: #8b7ca5;
+  transform: translateY(-2px);
+}
+
+.mark-completed-btn:disabled {
+  background: #d1d5db;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.mark-completed-btn:disabled:hover {
+  transform: none;
+}
+
+.loading-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  width: 100%;
+  padding: 20px;
+}
+
+.loading-indicator .spinner {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 16px;
+}
+
+.loading-indicator p {
+  font-size: 16px;
+  color: var(--text-color);
 }
 </style>

@@ -35,13 +35,22 @@ class UserSerializer(serializers.ModelSerializer):
         fields = '__all__'
         extra_kwargs = {
             'group': {'required': False},  # Делаем поле group необязательным
+            'password': {'write_only': True},  # Ensure password is write-only
         }
         
     def create(self, validated_data):
         password = validated_data.pop("password", None)
+        # Mark that we're explicitly setting the role
+        role = validated_data.get('role')
+        
         user = User(**validated_data)
+        # Set a flag to indicate role was explicitly provided
+        if role:
+            user._role_explicitly_set = True
+            
         if password:
             user.set_password(password)  # Используем встроенный метод
+            
         user.save()
         return user
     
