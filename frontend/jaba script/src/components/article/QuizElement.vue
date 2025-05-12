@@ -1,40 +1,30 @@
 <template>
   <div class="quiz-element" :class="{ 'read-only': readOnly }">
+    <!-- Score display at the top when in read-only mode -->
+    <div v-if="readOnly && showScore" class="element-score-display">
+      <template v-if="userScore !== null">
+        <span :class="{'score-success': userScore === localContent.max_score, 'score-fail': userScore < localContent.max_score}">
+          {{ userScore }}/{{ localContent.max_score }}
+        </span>
+      </template>
+      <template v-else>
+        <span class="score-pending">{{ localContent.max_score }} баллов</span>
+      </template>
+    </div>
+    
     <!-- Edit Mode - Question Input -->
     <div class="question-header" v-if="!readOnly">
-    <input
-      v-model="localContent.question"
-      placeholder="Введите вопрос"
-      @input="emitUpdate"
-      class="question-input"
-    />
-      <div class="score-container">
-        <label for="max-score">Баллы:</label>
-        <input 
-          id="max-score"
-          v-model.number="localContent.max_score" 
-          type="number" 
-          min="1" 
-          max="10"
-          class="score-input"
-          @input="emitUpdate" 
-        />
-      </div>
+      <input
+        v-model="localContent.question"
+        placeholder="Введите вопрос"
+        @input="emitUpdate"
+        class="question-input"
+      />
     </div>
     
     <!-- View Mode - Question Display -->
     <div v-else class="question-header">
       <div class="question-text">{{ localContent.question || 'Вопрос отсутствует' }}</div>
-      <div class="score-display" v-if="showScore">
-        <template v-if="userScore !== null">
-          <span :class="{'score-success': userScore === localContent.max_score, 'score-fail': userScore < localContent.max_score}">
-            {{ userScore }}/{{ localContent.max_score }}
-          </span>
-        </template>
-        <template v-else>
-          <span class="score-pending">{{ localContent.max_score }} баллов</span>
-        </template>
-      </div>
     </div>
     
     <!-- Answers List -->
@@ -95,11 +85,6 @@
       >
         Отправить ответ
       </button>
-    </div>
-    
-    <!-- Retry Button after Submission -->
-    <div v-if="readOnly && quizSubmitted" class="quiz-submit">
-      <button @click="resetQuiz" class="retry-btn">Попробовать снова</button>
     </div>
   </div>
 </template>
@@ -262,9 +247,10 @@ const autoGrow = (event) => {
   max-width: 100%;
   background: var(--form-background, #f5f9f8);
   border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
   transition: all 0.3s ease;
+  position: relative;
 }
 
 .question-header {
@@ -297,30 +283,13 @@ const autoGrow = (event) => {
   color: var(--text-color, #24222f);
   padding: 12px;
   border-radius: 6px;
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(0, 0, 0, 0.05);
   transition: all 0.3s ease;
   word-wrap: break-word;
   overflow-wrap: break-word;
   white-space: pre-wrap;
   width: 100%;
   line-height: 1.5;
-}
-
-.score-container {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 100px;
-}
-
-.score-input {
-  width: 60px;
-  padding: 8px;
-  border: 1px solid var(--border-color, #c5c8cc);
-  border-radius: 4px;
-  background: var(--background-color, #ebefef);
-  color: var(--text-color, #24222f);
-  text-align: center;
 }
 
 .score-display {
@@ -334,11 +303,13 @@ const autoGrow = (event) => {
 }
 
 .score-success {
-  color: #4caf50;
+  color: #2e8b33;
+  font-weight: 700;
 }
 
 .score-fail {
   color: var(--error-color, #da1f38);
+  font-weight: 700;
 }
 
 .score-pending {
@@ -372,7 +343,7 @@ const autoGrow = (event) => {
 }
 
 .answer-item.view-mode:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(0, 0, 0, 0.08);
   transform: translateY(-2px);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
@@ -423,15 +394,17 @@ const autoGrow = (event) => {
 }
 
 .correct-answer {
-  color: #4caf50;
-  background-color: rgba(76, 175, 80, 0.1);
+  color: #2e8b33;
+  background-color: rgba(76, 175, 80, 0.15);
   border-radius: 4px;
+  font-weight: 600;
 }
 
 .wrong-answer {
   color: var(--error-color, #da1f38);
-  background-color: rgba(244, 67, 54, 0.1);
+  background-color: rgba(244, 67, 54, 0.15);
   border-radius: 4px;
+  font-weight: 600;
 }
 
 .remove-answer-btn {
@@ -483,6 +456,8 @@ const autoGrow = (event) => {
 
 .submit-btn {
   background: #4caf50;
+  font-weight: 600;
+  padding: 10px 20px;
 }
 
 .submit-btn:hover {
@@ -531,18 +506,41 @@ const autoGrow = (event) => {
   --error-color: #ff4d4d;
   --accent-color: #a094b8;
   --hover-accent: #7b68a7;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 :global(.dark-theme) .question-text,
 :global(.dark-theme) .score-display {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 :global(.dark-theme) .correct-answer {
-  background-color: rgba(76, 175, 80, 0.2);
+  background-color: rgba(76, 175, 80, 0.25);
+  color: #6bdb70;
 }
 
 :global(.dark-theme) .wrong-answer {
-  background-color: rgba(244, 67, 54, 0.2);
+  background-color: rgba(244, 67, 54, 0.25);
+}
+
+:global(.dark-theme) .answer-item.view-mode:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.element-score-display {
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.05);
+  font-weight: bold;
+  color: var(--text-color, #24222f);
+  align-self: stretch;
+  box-sizing: border-box;
+}
+
+:global(.dark-theme) .element-score-display {
+  background: rgba(255, 255, 255, 0.08);
 }
 </style>

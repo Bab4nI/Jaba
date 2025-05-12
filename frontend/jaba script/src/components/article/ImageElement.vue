@@ -1,6 +1,11 @@
 ```vue
 <template>
   <div class="image-element" :class="{ 'read-only': readOnly }">
+    <!-- Score display at the top when in read-only mode -->
+    <div v-if="readOnly && showScore" class="element-score-display">
+      <span class="score-pending">{{ localContent.max_score || 1 }} баллов</span>
+    </div>
+    
     <!-- Upload area when no image -->
     <div v-if="!localContent.image && !readOnly" class="upload-area" @click="triggerFileInput">
       <span>Нажмите для загрузки изображения</span>
@@ -32,7 +37,10 @@ const props = defineProps({
   content: {
     type: Object,
     required: true,
-    default: () => ({ image: null })
+    default: () => ({ 
+      image: null,
+      max_score: 1 
+    })
   },
   lessonId: {
     type: Number,
@@ -41,6 +49,10 @@ const props = defineProps({
   readOnly: {
     type: Boolean,
     default: false
+  },
+  showScore: {
+    type: Boolean,
+    default: true
   }
 });
 
@@ -48,7 +60,11 @@ const emit = defineEmits(['update:content']);
 const themeStore = useThemeStore();
 const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-const localContent = ref({ ...props.content });
+const localContent = ref({ 
+  image: null,
+  max_score: 1,
+  ...props.content 
+});
 const fileInput = ref(null);
 
 const imageUrl = computed(() => {
@@ -81,7 +97,10 @@ const imageUrl = computed(() => {
 });
 
 watch(() => props.content, (newVal) => {
-  localContent.value = { ...newVal };
+  localContent.value = { 
+    ...newVal,
+    max_score: newVal.max_score || 1
+  };
 }, { deep: true });
 
 const triggerFileInput = () => {
@@ -111,6 +130,14 @@ const emitUpdate = () => {
 </script>
 
 <style scoped>
+.file-element {
+  font-family: inherit;
+}
+
+.image-element {
+  font-family: inherit;
+}
+
 .upload-area {
   border: 2px dashed var(--border-color);
   border-radius: 5px;
@@ -188,6 +215,27 @@ const emitUpdate = () => {
 /* Additional dark mode specific styling */
 :root.dark-theme .read-only .image-preview {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.element-score-display {
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.05);
+  font-weight: bold;
+  color: var(--text-color, #24222f);
+  align-self: stretch;
+  box-sizing: border-box;
+}
+
+.score-pending {
+  color: var(--secondary-text, #575667);
+}
+
+:global(.dark-theme) .element-score-display {
+  background: rgba(255, 255, 255, 0.08);
 }
 </style>
 ```

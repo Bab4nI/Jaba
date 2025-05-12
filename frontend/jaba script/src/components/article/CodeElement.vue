@@ -1,5 +1,17 @@
 <template>
   <div class="code-element" :class="{ 'read-only': readOnly && !allowPreviewEdit, 'preview-editable': readOnly && allowPreviewEdit, [currentTheme]: true }">
+    <!-- Score display at the top when in read-only mode -->
+    <div v-if="readOnly && !allowPreviewEdit && showScore" class="element-score-display">
+      <template v-if="userScore !== null">
+        <span :class="{'score-success': userScore === localContent.max_score, 'score-fail': userScore < localContent.max_score}">
+          {{ userScore }}/{{ localContent.max_score }}
+        </span>
+      </template>
+      <template v-else>
+        <span class="score-pending">{{ localContent.max_score }} баллов</span>
+      </template>
+    </div>
+    
     <!-- Admin edit indicator for preview mode -->
     <div v-if="readOnly && allowPreviewEdit" class="admin-edit-indicator">
       <span class="edit-icon">✎</span> Режим редактирования кода (изменения сохраняются автоматически)
@@ -70,33 +82,6 @@
           <option v-if="localContent.language === 'scala'" value="scala">Scala</option>
         </select>
         <span v-else-if="localContent.interpreter && localContent.interpreter !== 'default'" class="interpreter-label">{{ interpreterLabel }}</span>
-
-        <!-- Score control in edit mode -->
-        <div v-if="!readOnly || allowPreviewEdit" class="score-container">
-          <label for="max-score">Баллы:</label>
-          <input 
-            id="max-score"
-            v-model.number="localContent.max_score" 
-            type="number" 
-            min="1" 
-            max="10"
-            class="score-input"
-            @input="autoSaveChanges" 
-            :readonly="readOnly && !allowPreviewEdit"
-          />
-        </div>
-        
-        <!-- Score display in view mode -->
-        <div v-else-if="showScore" class="score-display">
-          <template v-if="userScore !== null">
-            <span :class="{'score-success': userScore === localContent.max_score, 'score-fail': userScore < localContent.max_score}">
-              {{ userScore }}/{{ localContent.max_score }}
-            </span>
-          </template>
-          <template v-else>
-            <span class="score-pending">{{ localContent.max_score }} баллов</span>
-          </template>
-        </div>
 
         <!-- Theme selector -->
         <select v-if="manualThemeSelection" v-model="currentTheme" class="theme-selector" aria-label="Выбрать тему редактора">
@@ -1272,5 +1257,44 @@ const themeValue = ref('vs-dark') // For manual selection
 
 .no-resize {
   resize: none;
+}
+
+.element-score-display {
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.05);
+  font-weight: bold;
+  color: var(--text-color, #24222f);
+  align-self: stretch;
+  box-sizing: border-box;
+}
+
+.score-success {
+  color: #2e8b33;
+  font-weight: 700;
+}
+
+.score-fail {
+  color: var(--error-color, #da1f38);
+  font-weight: 700;
+}
+
+.score-pending {
+  color: var(--secondary-text, #575667);
+}
+
+:global(.dark-theme) .element-score-display {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+:global(.dark-theme) .score-success {
+  color: #6bdb70;
+}
+
+:global(.dark-theme) .score-fail {
+  color: #ff6b6b;
 }
 </style>

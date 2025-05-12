@@ -1,5 +1,10 @@
 <template>
   <div class="text-element" :class="{ 'read-only': readOnly }">
+    <!-- Score display at the top when in read-only mode -->
+    <div v-if="readOnly && showScore" class="element-score-display">
+      <span class="score-pending">{{ localContent.max_score || 1 }} баллов</span>
+    </div>
+    
     <div v-if="!readOnly" class="formatting-toolbar">
       <button @click="formatText('bold')" title="Жирный">
         <span class="icon-bold">B</span>
@@ -56,17 +61,27 @@ export default {
     readOnly: {
       type: Boolean,
       default: false
+    },
+    showScore: {
+      type: Boolean,
+      default: false
     }
   },
   emits: ['update:content'],
   setup(props, { emit }) {
     const editor = ref(null)
     const isFocused = ref(false)
+    const localContent = ref({
+      text: '',
+      max_score: 1,
+      ...props.content
+    })
 
     const onInput = () => {
       if (!editor.value) return
       const html = editor.value.innerHTML
-      emit('update:content', { ...props.content, text: html })
+      localContent.value.text = html
+      emit('update:content', { ...localContent.value })
     }
 
     const onKeyDown = (event) => {
@@ -173,12 +188,17 @@ export default {
       editor.value.focus()
     }
 
-    watch(() => props.content.text, (newText) => {
-      if (!editor.value) return
-      if (editor.value.innerHTML !== newText) {
-        editor.value.innerHTML = newText || ''
+    watch(() => props.content, (newContent) => {
+      localContent.value = {
+        text: '',
+        max_score: 1,
+        ...newContent
       }
-    })
+      
+      if (editor.value && localContent.value.text) {
+        editor.value.innerHTML = localContent.value.text
+      }
+    }, { deep: true })
 
     onMounted(() => {
       if (editor.value) {
@@ -188,6 +208,7 @@ export default {
 
     return {
       editor,
+      localContent,
       onInput,
       onKeyDown,
       onPaste,
@@ -209,6 +230,7 @@ export default {
   border-radius: 8px;
   overflow: hidden;
   transition: background-color 0.3s ease;
+  position: relative;
 }
 
 .formatting-toolbar {
@@ -394,5 +416,26 @@ export default {
   border-top: 1px solid var(--border-color);
   margin: 1em 0;
   transition: border-color 0.3s ease;
+}
+
+.element-score-display {
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.05);
+  font-weight: bold;
+  color: var(--text-color, #24222f);
+  align-self: stretch;
+  box-sizing: border-box;
+}
+
+.score-pending {
+  color: var(--secondary-text, #575667);
+}
+
+:global(.dark-theme) .element-score-display {
+  background: rgba(255, 255, 255, 0.08);
 }
 </style>

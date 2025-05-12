@@ -1,5 +1,17 @@
 <template>
   <div class="video-element" :class="{ 'read-only': readOnly }">
+    <!-- Score display at the top when in read-only mode -->
+    <div v-if="readOnly && showScore" class="element-score-display">
+      <template v-if="userScore !== null">
+        <span :class="{'score-success': userScore > 0}">
+          {{ userScore }}/{{ localContent.max_score }}
+        </span>
+      </template>
+      <template v-else>
+        <span class="score-pending">{{ localContent.max_score }} баллов</span>
+      </template>
+    </div>
+    
     <div v-if="!localContent.video_url && !readOnly" class="video-input-container">
       <input
         v-model="videoUrl"
@@ -10,32 +22,57 @@
     </div>
     <div v-if="localContent.video_url" class="video-preview-container">
       <div class="video-embed" v-html="embedCode"></div>
-      <button v-if="!readOnly" @click="removeVideo" class="remove-video-btn">Удалить видео</button>
+      <div class="video-controls">
+        <button v-if="!readOnly" @click="removeVideo" class="remove-video-btn">Удалить видео</button>
+      </div>
+    </div>
+    
+    <!-- Mark as watched button in read-only mode -->
+    <div v-if="readOnly && !videoWatched && localContent.video_url" class="video-submit">
+      <button 
+        @click="markVideoWatched" 
+        class="submit-btn"
+      >
+        Отметить видео как просмотренное
+      </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useThemeStore } from '@/stores/themeStore';
 
 const props = defineProps({
   content: {
     type: Object,
     required: true,
-    default: () => ({ video_url: '' })
+    default: () => ({ 
+      video_url: '',
+      max_score: 1 
+    })
   },
   readOnly: {
     type: Boolean,
     default: false
+  },
+  showScore: {
+    type: Boolean,
+    default: true
   }
 });
 
-const emit = defineEmits(['update:content']);
+const emit = defineEmits(['update:content', 'answer-submitted']);
 const themeStore = useThemeStore();
 
-const localContent = ref({ ...props.content });
+const localContent = ref({
+  video_url: '',
+  max_score: 1,
+  ...props.content
+});
 const videoUrl = ref('');
+const videoWatched = ref(false);
+const userScore = ref(null);
 
 const embedCode = computed(() => {
   if (!localContent.value.video_url) return '';
@@ -59,8 +96,28 @@ const isValidVideoUrl = computed(() => {
   );
 });
 
+// Initialize from localStorage if there's saved progress
+onMounted(() => {
+  if (props.readOnly && props.content.id) {
+    const savedData = localStorage.getItem(`video_${props.content.id}`);
+    if (savedData) {
+      try {
+        const data = JSON.parse(savedData);
+        videoWatched.value = data.videoWatched;
+        userScore.value = data.userScore;
+      } catch (e) {
+        console.error('Error loading video state:', e);
+      }
+    }
+  }
+});
+
 watch(() => props.content, (newVal) => {
-  localContent.value = { ...newVal };
+  localContent.value = { 
+    video_url: '',
+    max_score: 1,
+    ...newVal 
+  };
 }, { deep: true });
 
 const extractYouTubeId = (url) => {
@@ -82,6 +139,27 @@ const removeVideo = () => {
   emitUpdate();
 };
 
+const markVideoWatched = () => {
+  videoWatched.value = true;
+  userScore.value = localContent.value.max_score;
+  
+  // Save to localStorage
+  if (props.content.id) {
+    localStorage.setItem(`video_${props.content.id}`, JSON.stringify({
+      videoWatched: videoWatched.value,
+      userScore: userScore.value
+    }));
+  }
+  
+  // Emit event for parent components
+  emit('answer-submitted', {
+    contentId: props.content.id,
+    isWatched: true,
+    score: userScore.value,
+    maxScore: localContent.value.max_score
+  });
+};
+
 const emitUpdate = () => {
   if (props.readOnly) return;
   emit('update:content', { ...localContent.value });
@@ -100,6 +178,7 @@ const emitUpdate = () => {
   gap: 10px;
   width: 100%;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .video-url-input {
@@ -171,6 +250,14 @@ const emitUpdate = () => {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+.video-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .remove-video-btn {
   background: var(--error-color);
   color: white;
@@ -178,7 +265,6 @@ const emitUpdate = () => {
   padding: 8px 12px;
   border-radius: 4px;
   cursor: pointer;
-  align-self: flex-start;
   font-size: 16px;
   transition: background-color 0.3s ease;
 }
@@ -187,9 +273,60 @@ const emitUpdate = () => {
   background: var(--hover-delete);
 }
 
+.score-display {
+  min-width: 80px;
+  text-align: center;
+  padding: 8px 12px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.05);
+  font-weight: bold;
+  color: var(--text-color, #24222f);
+}
+
+.score-success {
+  color: #2e8b33;
+  font-weight: 700;
+}
+
+.score-pending {
+  color: var(--secondary-text, #575667);
+}
+
+.video-submit {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.submit-btn {
+  background: #4caf50;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.submit-btn:hover {
+  background: #43a047;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
 /* Dark theme specific adjustments */
-:root.dark-theme .read-only .video-embed {
+:global(.dark-theme) .read-only .video-embed {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+:global(.dark-theme) .score-display {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+:global(.dark-theme) .score-success {
+  color: #6bdb70;
 }
 
 /* Responsive adjustments */
@@ -199,7 +336,8 @@ const emitUpdate = () => {
   }
 
   .add-video-btn,
-  .remove-video-btn {
+  .remove-video-btn,
+  .submit-btn {
     font-size: 14px;
     padding: 6px 12px;
   }
@@ -207,6 +345,28 @@ const emitUpdate = () => {
   .video-element {
     padding: 0 10px;
   }
+  
+  .video-controls {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.element-score-display {
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.05);
+  font-weight: bold;
+  color: var(--text-color, #24222f);
+  align-self: stretch;
+  box-sizing: border-box;
+}
+
+:global(.dark-theme) .element-score-display {
+  background: rgba(255, 255, 255, 0.08);
 }
 </style>
 ```

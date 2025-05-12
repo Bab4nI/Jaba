@@ -1,5 +1,10 @@
 <template>
   <div class="file-element" :class="{ 'read-only': readOnly }">
+    <!-- Score display at the top when in read-only mode -->
+    <div v-if="readOnly && showScore" class="element-score-display">
+      <span class="score-pending">{{ localContent.max_score || 1 }} баллов</span>
+    </div>
+    
     <div v-if="!localContent.file && !readOnly" class="file-upload-area" @click="triggerFileInput">
       <span>Нажмите для загрузки файла</span>
       <input
@@ -30,7 +35,11 @@ const props = defineProps({
   content: {
     type: Object,
     required: true,
-    default: () => ({ file: null, filename: null })
+    default: () => ({ 
+      file: null, 
+      filename: null,
+      max_score: 1 
+    })
   },
   lessonId: {
     type: Number,
@@ -39,13 +48,22 @@ const props = defineProps({
   readOnly: {
     type: Boolean,
     default: false
+  },
+  showScore: {
+    type: Boolean,
+    default: true
   }
 });
 
 const emit = defineEmits(['update:content']);
 const themeStore = useThemeStore();
 
-const localContent = ref({ ...props.content });
+const localContent = ref({ 
+  file: null, 
+  filename: null,
+  max_score: 1,
+  ...props.content 
+});
 const fileInput = ref(null);
 
 const displayFileName = computed(() => {
@@ -76,7 +94,10 @@ const fileSize = computed(() => {
 });
 
 watch(() => props.content, (newVal) => {
-  localContent.value = { ...newVal };
+  localContent.value = { 
+    ...newVal,
+    max_score: newVal.max_score || 1
+  };
 }, { deep: true });
 
 const triggerFileInput = () => {
@@ -198,5 +219,26 @@ const emitUpdate = () => {
 
 .download-btn:hover .download-icon {
   opacity: 0.7;
+}
+
+.element-score-display {
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.05);
+  font-weight: bold;
+  color: var(--text-color, #24222f);
+  align-self: stretch;
+  box-sizing: border-box;
+}
+
+.score-pending {
+  color: var(--secondary-text, #575667);
+}
+
+:global(.dark-theme) .element-score-display {
+  background: rgba(255, 255, 255, 0.08);
 }
 </style>

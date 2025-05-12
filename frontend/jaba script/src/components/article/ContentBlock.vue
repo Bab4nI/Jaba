@@ -1,5 +1,5 @@
 <template>
-  <div class="content-block" :class="{ 'read-only': readOnly }">
+  <div class="content-block" :class="{ 'read-only': readOnly }" ref="blockRef">
     <div v-if="!readOnly" class="block-toolbar">
       <div class="block-controls">
         <button @click="moveUp" :disabled="isFirst" title="Переместить вверх">
@@ -12,6 +12,18 @@
       <div class="block-type">
         <span>{{ blockType }}</span>
       </div>
+      <div class="block-score">
+        <label for="block-max-score">Баллы:</label>
+        <input 
+          id="block-max-score"
+          v-model.number="localContent.max_score" 
+          type="number" 
+          min="1" 
+          max="10"
+          class="score-input"
+          @input="updateScore" 
+        />
+      </div>
       <button @click="removeBlock" class="remove-btn" title="Удалить блок">
         <span class="icon-remove">×</span>
       </button>
@@ -21,15 +33,17 @@
         :is="contentComponent"
         :content="content"
         :read-only="readOnly"
+        :show-score="true"
         :allow-preview-edit="props.allowPreviewEdit"
         @update:content="updateContent"
+        @answer-submitted="handleAnswerSubmitted"
       />
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, watch, onMounted, nextTick, onUnmounted } from 'vue';
 import TextElement from './TextElement.vue';
 import ImageElement from './ImageElement.vue';
 import VideoElement from './VideoElement.vue';
@@ -61,7 +75,21 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['update:content', 'move-up', 'move-down', 'remove']);
+const blockRef = ref(null);
+
+const emit = defineEmits(['update:content', 'move-up', 'move-down', 'remove', 'answer-submitted']);
+
+const localContent = ref({ 
+  ...props.content,
+  max_score: props.content.max_score || 1 // Set default score to 1 if not provided
+});
+
+watch(() => props.content, (newContent) => {
+  localContent.value = { 
+    ...newContent,
+    max_score: newContent.max_score || 1 // Ensure max_score is always set
+  };
+}, { deep: true });
 
 const contentComponents = {
   text: TextElement,
@@ -91,7 +119,16 @@ const contentComponent = computed(() => {
 });
 
 const updateContent = (newContent) => {
-  emit('update:content', newContent);
+  // Preserve the max_score when updating content
+  const updatedContent = {
+    ...newContent,
+    max_score: newContent.max_score || localContent.value.max_score || 1
+  };
+  emit('update:content', updatedContent);
+};
+
+const handleAnswerSubmitted = (data) => {
+  emit('answer-submitted', data);
 };
 
 const moveUp = () => {
@@ -105,6 +142,68 @@ const moveDown = () => {
 const removeBlock = () => {
   emit('remove');
 };
+
+const updateScore = () => {
+  // Ensure score is at least 1
+  if (localContent.value.max_score < 1) {
+    localContent.value.max_score = 1;
+  }
+  
+  // Ensure score is an integer
+  localContent.value.max_score = Math.floor(localContent.value.max_score);
+  
+  emit('update:content', { ...localContent.value });
+};
+
+// Use ResizeObserver to handle width changes
+onMounted(() => {
+  // Create a ResizeObserver to monitor width changes
+  const resizeObserver = new ResizeObserver(entries => {
+    // Get the parent container
+    const parent = blockRef.value?.parentElement;
+    if (!parent) return;
+    
+    // Find all content blocks in the parent
+    const blocks = Array.from(parent.querySelectorAll('.content-block'));
+    if (blocks.length === 0) return;
+    
+    // Find the maximum width
+    let maxWidth = 0;
+    blocks.forEach(block => {
+      // Get the content width without the variable applied
+      block.style.width = 'auto'; // Temporarily remove the variable
+      const width = block.getBoundingClientRect().width;
+      if (width > maxWidth) {
+        maxWidth = width;
+      }
+    });
+    
+    // Set the CSS variable on the parent
+    if (maxWidth > 0) {
+      parent.style.setProperty('--content-block-width', `${maxWidth}px`);
+      // Restore the variable-based width
+      blocks.forEach(block => {
+        block.style.width = '';
+      });
+    }
+  });
+  
+  // Start observing the block
+  if (blockRef.value) {
+    resizeObserver.observe(blockRef.value);
+    
+    // Also observe the parent to catch when new blocks are added
+    const parent = blockRef.value.parentElement;
+    if (parent) {
+      resizeObserver.observe(parent);
+    }
+  }
+  
+  // Clean up
+  onUnmounted(() => {
+    resizeObserver.disconnect();
+  });
+});
 </script>
 
 <style scoped>
@@ -118,6 +217,10 @@ const removeBlock = () => {
   transition: all 0.2s ease, background-color 0.3s ease;
   max-width: 100%;
   margin: 0;
+  align-self: flex-start;
+  box-sizing: border-box;
+  width: var(--content-block-width, auto);
+  min-width: fit-content;
 }
 
 .content-block:not(.read-only) {
@@ -174,6 +277,29 @@ const removeBlock = () => {
   color: var(--text-color);
   font-size: 14px;
   transition: color 0.3s ease;
+}
+
+.block-score {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  margin-right: 10px;
+}
+
+.block-score label {
+  font-size: 14px;
+  color: var(--text-color);
+}
+
+.block-score .score-input {
+  width: 50px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--form-background);
+  color: var(--text-color);
+  text-align: center;
 }
 
 .remove-btn {

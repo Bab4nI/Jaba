@@ -80,6 +80,7 @@
               @move-up="moveFormContentUp(formIndex, elementIndex)"
               @move-down="moveFormContentDown(formIndex, elementIndex)"
               @remove="removeFormContent(formIndex, elementIndex)"
+              @answer-submitted="onAnswerSubmitted"
             />
           </div>
           <div v-else class="preview-content">
@@ -90,6 +91,7 @@
               :read-only="true"
               :allow-preview-edit="userStore.role === 'admin' && element.type === 'code'"
               @update:content="onFormContentUpdate(formIndex, elementIndex, $event)"
+              @answer-submitted="onAnswerSubmitted"
             />
           </div>
         </div>
@@ -140,14 +142,30 @@
         
         <!-- Progress tracking button at the bottom -->
         <div class="progress-tracking-container">
-          <button 
-            @click="markLessonAsCompleted" 
-            class="mark-completed-btn"
-            :disabled="isLessonCompleted || isSaving"
-          >
-            <span v-if="isLessonCompleted">✓ Урок пройден</span>
-            <span v-else>Отметить урок как пройденный</span>
-          </button>
+          <div class="score-summary" v-if="lessonScore.total > 0 || lessonScore.max > 0">
+            <span class="score-label">Текущий счет:</span>
+            <span class="score-value" :class="{'score-success': lessonScore.total === lessonScore.max && lessonScore.max > 0, 'score-partial': lessonScore.total > 0 && lessonScore.total < lessonScore.max}">
+              {{ lessonScore.total }}/{{ lessonScore.max }}
+            </span>
+          </div>
+          <div class="progress-actions">
+            <button 
+              v-if="mode === 'edit' && userStore.role === 'admin'"
+              @click="resetLessonProgress" 
+              class="reset-progress-btn"
+              :disabled="isSaving"
+            >
+              <span class="btn-icon">🔄</span> Сбросить прогресс
+            </button>
+            <button 
+              @click="markLessonAsCompleted" 
+              class="mark-completed-btn"
+              :disabled="isLessonCompleted || isSaving"
+            >
+              <span v-if="isLessonCompleted">✓ Урок пройден</span>
+              <span v-else>Отметить урок как пройденный</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -233,14 +251,14 @@ const CONTENT_TYPES = {
 const FORM_TYPE = 'CUSTOM_FORM';
 
 const DEFAULT_CONTENT = {
-  text: { text: '', readOnly: false },
-  image: { image: null, readOnly: false },
-  video: { video_url: '', readOnly: false },
-  code: { code: '', language: 'javascript', readOnly: false },
-  quiz: { question: '', answers: ['', ''], correct_answer: null, readOnly: false },
-  table: { headers: ['Заголовок 1', 'Заголовок 2'], data: [['', ''], ['', '']], readOnly: false },
-  file: { file: null, filename: null, readOnly: false },
-  form: { fields: [], readOnly: false },
+  text: { text: '', readOnly: false, max_score: 1 },
+  image: { image: null, readOnly: false, max_score: 1 },
+  video: { video_url: '', readOnly: false, max_score: 1 },
+  code: { code: '', language: 'javascript', readOnly: false, max_score: 5 },
+  quiz: { question: '', answers: ['', ''], correct_answer: null, readOnly: false, max_score: 1 },
+  table: { headers: ['Заголовок 1', 'Заголовок 2'], data: [['', ''], ['', '']], readOnly: false, max_score: 1 },
+  file: { file: null, filename: null, readOnly: false, max_score: 1 },
+  form: { fields: [], readOnly: false, max_score: 1 },
 }
 
 const BLOCK_TYPES = [
@@ -338,6 +356,7 @@ export default {
     const currentFormIndex = ref(-1)
     const activeFormIndex = ref(-1)
     const isLessonCompleted = ref(false)
+    const lessonScore = ref({ total: 0, max: 0 })
 
     const isContentReadOnly = computed(() => {
       return mode.value !== 'edit' || userStore.role !== 'admin'
@@ -1330,6 +1349,42 @@ export default {
             console.log('Lesson progress data:', lessonProgress);
             isLessonCompleted.value = lessonProgress.length > 0 && lessonProgress.some(p => p.completed);
             console.log(`Lesson completion status: ${isLessonCompleted.value ? 'Completed' : 'Not completed'}`);
+            
+            // Calculate total score and max possible score for this lesson
+            let totalScore = 0;
+            let maxPossibleScore = 0;
+            
+            // Sum scores from all content items
+            if (lessonProgress.length > 0) {
+              lessonProgress.forEach(progress => {
+                if (progress.content) {
+                  totalScore += progress.score || 0;
+                  maxPossibleScore += progress.content.max_score || 0;
+                }
+              });
+            }
+            
+            // Sum max possible scores from all content items in the current view
+            if (maxPossibleScore === 0) {
+              // If no max score from API, calculate from current contents
+              contents.value.forEach(content => {
+                maxPossibleScore += content.max_score || 1; // Default to 1 if not specified
+              });
+              
+              // Also include custom forms' contents
+              customForms.value.forEach(form => {
+                if (form.contents && form.contents.length) {
+                  form.contents.forEach(content => {
+                    maxPossibleScore += content.max_score || 1;
+                  });
+                }
+              });
+            }
+            
+            lessonScore.value = {
+              total: totalScore,
+              max: maxPossibleScore
+            };
           }
         }
       } catch (error) {
@@ -1410,6 +1465,79 @@ export default {
       }
     };
 
+    const resetLessonProgress = async () => {
+      if (!confirm('Вы уверены, что хотите сбросить весь прогресс урока? Это действие нельзя отменить.')) {
+        return;
+      }
+      
+      try {
+        isSaving.value = true;
+        // Get the base API URL from environment or use a default
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        
+        console.log(`Resetting progress for lesson ${route.params.lessonId}`);
+        
+        const response = await fetch(`${apiUrl}/api/lessons/${route.params.lessonId}/reset-progress/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          },
+          body: JSON.stringify({})
+        });
+        
+        console.log(`Response status: ${response.status}`);
+        
+        if (response.ok) {
+          let responseData;
+          try {
+            responseData = await response.json();
+            console.log('Response data:', responseData);
+          } catch (e) {
+            // Handle empty response body
+            console.log('Empty response body, assuming success');
+            responseData = { status: 'success' };
+          }
+          
+          // Reset local progress state
+          isLessonCompleted.value = false;
+          lessonScore.value = { total: 0, max: lessonScore.value.max };
+          
+          // Clear localStorage progress for all content elements
+          customForms.value.forEach(form => {
+            form.contents.forEach(content => {
+              if (content.id) {
+                localStorage.removeItem(`video_${content.id}`);
+                localStorage.removeItem(`quiz_${content.id}`);
+                localStorage.removeItem(`code_${content.id}`);
+              }
+            });
+          });
+          
+          showToast('Прогресс урока успешно сброшен!', 'success');
+          
+          // Reload the page to reset all component states
+          window.location.reload();
+        } else {
+          let errorData = { error: 'Неизвестная ошибка' };
+          try {
+            errorData = await response.json();
+            console.error('Error data:', errorData);
+          } catch (e) {
+            // Handle case where response isn't valid JSON
+            console.error('Response is not valid JSON');
+            errorData = { error: `HTTP error: ${response.status}` };
+          }
+          showToast(`Ошибка: ${errorData.error || 'Не удалось сбросить прогресс урока'}`, 'error');
+        }
+      } catch (error) {
+        console.error('Error resetting lesson progress:', error);
+        showToast('Ошибка при сбросе прогресса. Проверьте соединение.', 'error');
+      } finally {
+        isSaving.value = false;
+      }
+    };
+
     // Check lesson completion status when component is mounted
     onMounted(() => {
       document.addEventListener('mouseup', handleGlobalTextSelection);
@@ -1440,6 +1568,18 @@ export default {
       document.removeEventListener('mouseup', handleGlobalTextSelection)
       window.removeEventListener('beforeunload', beforeUnloadHandler)
     })
+
+    // Add a handler for content answer submissions
+    const onAnswerSubmitted = (answerData) => {
+      // Update total score when a quiz/code/video is completed
+      if (answerData && typeof answerData.score === 'number') {
+        // Update the local score tracking
+        lessonScore.value.total += answerData.score;
+        
+        // Refresh completion status to get updated scores from backend
+        checkLessonCompletionStatus();
+      }
+    };
 
     return {
       userStore,
@@ -1503,6 +1643,9 @@ export default {
       isLessonCompleted,
       markLessonAsCompleted,
       isLoading,
+      lessonScore,
+      onAnswerSubmitted,
+      resetLessonProgress,
     }
   },
 }
@@ -2660,9 +2803,10 @@ export default {
 .preview-content {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: flex-start; /* Keep left alignment */
   width: 100%;
   gap: 20px;
+  --content-block-width: auto; /* Initialize the CSS variable */
 }
 
 .article-toolbar {
@@ -2870,9 +3014,42 @@ export default {
 .progress-tracking-container {
   display: flex;
   justify-content: center;
+  align-items: center;
+  gap: 20px;
   margin-top: 40px;
   padding: 20px;
   border-top: 1px solid var(--border-color);
+  flex-wrap: wrap;
+}
+
+.score-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  transition: background-color 0.3s ease;
+}
+
+.score-label {
+  font-size: 16px;
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+.score-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-color);
+}
+
+.score-success {
+  color: #2e8b33;
+}
+
+.score-partial {
+  color: #f59e0b;
 }
 
 .mark-completed-btn {
@@ -2924,5 +3101,50 @@ export default {
 .loading-indicator p {
   font-size: 16px;
   color: var(--text-color);
+}
+
+:global(.dark-theme) .score-summary {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+:global(.dark-theme) .score-success {
+  color: #6bdb70;
+}
+
+:global(.dark-theme) .score-partial {
+  color: #fbbf24;
+}
+
+.progress-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.reset-progress-btn {
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 500;
+  background: var(--secondary-text);
+  color: var(--footer-text);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reset-progress-btn:hover:not(:disabled) {
+  background: #4a4857;
+  transform: translateY(-2px);
+}
+
+.reset-progress-btn:disabled {
+  background: #d1d5db;
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 </style>
