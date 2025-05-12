@@ -8,7 +8,7 @@
         <option v-for="course in courses" :key="course.id" :value="course.slug">{{ course.title }}</option>
       </select>
       <span class="select-arrow">&#9662;</span>
-    </div>
+      </div>
     
     <div class="group-select-row" v-if="selectedCourse">
       <select v-model="selectedGroup" class="course-select" @change="loadGroupData">
@@ -16,8 +16,8 @@
         <option v-for="group in groups" :key="group" :value="group">{{ group }}</option>
       </select>
       <span class="select-arrow">&#9662;</span>
-    </div>
-    
+          </div>
+          
     <div v-if="loading" class="loading-indicator">Загрузка данных...</div>
     <div v-else-if="!selectedCourse" class="no-selection-message">Выберите курс для просмотра статистики</div>
     <div v-else-if="!works.length" class="no-selection-message">В курсе нет материалов для отображения</div>
@@ -47,10 +47,10 @@
           </tr>
         </tbody>
       </table>
+      </div>
     </div>
-  </div>
-</template>
-
+  </template>
+  
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
 import api from '@/api';
@@ -95,7 +95,7 @@ const loadGroups = async () => {
     console.error('Ошибка загрузки групп:', error);
     // Fallback to hardcoded groups if API fails
     groups.value = ['КТсо2-4', 'КТсо2-3'];
-  }
+      }
 };
 
 // Функция для обработки изменения выбранного курса
@@ -118,8 +118,8 @@ const onCourseChange = async () => {
     for (const module of course.modules) {
       const lessonsResponse = await api.get(`/courses/${selectedCourse.value}/modules/${module.id}/lessons/`);
       lessonPromises.push(...lessonsResponse.data);
-    }
-    
+  }
+  
     // Преобразуем уроки в формат работ для таблицы
     works.value = lessonPromises.map(lesson => ({
       id: lesson.id,
@@ -302,10 +302,10 @@ watch(() => selectedCourse.value, (newValue) => {
   color: var(--text-color, #24222f);
   margin-bottom: 18px;
   transition: color 0.3s ease;
-}
+  }
 .course-select-row,
 .group-select-row {
-  display: flex;
+    display: flex;
   align-items: center;
   margin-bottom: 24px;
   position: relative;
@@ -342,7 +342,7 @@ watch(() => selectedCourse.value, (newValue) => {
 .table-wrapper {
   background: var(--form-background, #fff);
   border-radius: 10px;
-  overflow: hidden;
+    overflow: hidden;
   box-shadow: 0 2px 8px rgba(160, 148, 184, 0.07);
   transition: background-color 0.3s ease;
 }
@@ -394,5 +394,5 @@ watch(() => selectedCourse.value, (newValue) => {
   --border-color: #3e3d49;
   --thead-background: #2d2c38;
   --error-color: #ff4d4d;
-}
-</style>
+  }
+  </style>

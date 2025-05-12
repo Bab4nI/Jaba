@@ -56,10 +56,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         # This allows setting the role directly when creating a user
         if not hasattr(self, '_role_explicitly_set'):
             self.role = 'admin' if self.is_staff else 'student'
-            
         # If role is set to admin, ensure is_staff is also set
         if self.role == 'admin':
             self.is_staff = True
-            
         super().save(*args, **kwargs)
 

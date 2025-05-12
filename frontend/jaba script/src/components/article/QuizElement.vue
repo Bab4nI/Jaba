@@ -2,12 +2,12 @@
   <div class="quiz-element" :class="{ 'read-only': readOnly }">
     <!-- Edit Mode - Question Input -->
     <div class="question-header" v-if="!readOnly">
-      <input
-        v-model="localContent.question"
-        placeholder="Введите вопрос"
-        @input="emitUpdate"
-        class="question-input"
-      />
+    <input
+      v-model="localContent.question"
+      placeholder="Введите вопрос"
+      @input="emitUpdate"
+      class="question-input"
+    />
       <div class="score-container">
         <label for="max-score">Баллы:</label>
         <input 

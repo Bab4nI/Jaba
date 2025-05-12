@@ -88,6 +88,8 @@
               :key="element.id || elementIndex"
               :content="element"
               :read-only="true"
+              :allow-preview-edit="userStore.role === 'admin' && element.type === 'code'"
+              @update:content="onFormContentUpdate(formIndex, elementIndex, $event)"
             />
           </div>
         </div>
@@ -936,15 +938,15 @@ export default {
               
               if (formsData && Array.isArray(formsData)) {
                 customForms.value = formsData.map(form => ({
-                  ...form,
-                  contents: form.contents || []
+                ...form,
+                contents: form.contents || []
                 }));
-                
-                // If we have forms but no active form, set the first one as active
-                if (customForms.value.length > 0 && activeFormIndex.value === -1 && mode.value === 'edit') {
+              
+              // If we have forms but no active form, set the first one as active
+              if (customForms.value.length > 0 && activeFormIndex.value === -1 && mode.value === 'edit') {
                   activeFormIndex.value = 0;
-                }
-              } else {
+              }
+            } else {
                 createDefaultForm();
               }
             } else {
@@ -973,7 +975,7 @@ export default {
           loadError.value = 'Не авторизован. Пожалуйста, войдите в систему.';
         } else if (error.message?.includes('403')) {
           loadError.value = 'Доступ к уроку запрещён. Проверьте ваши права доступа.';
-        } else {
+            } else {
           loadError.value = 'Ошибка загрузки содержимого. Попробуйте позже.';
         }
         showToast(loadError.value, 'error');
@@ -988,22 +990,22 @@ export default {
     // Helper function to load forms from localStorage
     const loadFormsFromLocalStorage = () => {
       const savedForms = localStorage.getItem(`article_forms_${article.value.id}`);
-      if (savedForms) {
-        try {
+          if (savedForms) {
+            try {
           customForms.value = JSON.parse(savedForms);
-          if (customForms.value.length > 0 && mode.value === 'edit') {
+              if (customForms.value.length > 0 && mode.value === 'edit') {
             activeFormIndex.value = 0;
-          }
+              }
           showToast('Формы загружены из локального хранилища.', 'info');
-        } catch (e) {
+            } catch (e) {
           console.error('Ошибка парсинга сохраненных форм:', e);
           createDefaultForm();
-        }
-      } else {
+            }
+          } else {
         createDefaultForm();
-      }
+          }
     };
-    
+
     // Helper to create default form
     const createDefaultForm = () => {
       if (contents.value.length > 0) {

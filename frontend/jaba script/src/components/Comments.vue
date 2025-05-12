@@ -62,10 +62,10 @@
                       <span class="dots">...</span>
                     </button>
                     <div v-if="activeMenu === comment.id" class="actions-menu" @click.stop>
-                      <button class="action-btn edit-btn" @click="startEdit(comment); toggleMenu(null)">
+                      <button v-if="comment.is_author" class="action-btn edit-btn" @click="startEdit(comment); toggleMenu(null)">
                         <span class="action-icon">✎</span> Редактировать
                       </button>
-                      <button class="action-btn delete-btn" @click="deleteComment(comment); toggleMenu(null)">
+                      <button v-if="comment.is_author" class="action-btn delete-btn" @click="deleteComment(comment); toggleMenu(null)">
                         <span class="action-icon">🗑</span> Удалить
                       </button>
                     </div>
@@ -113,10 +113,10 @@
                     <span class="dots">...</span>
                   </button>
                   <div v-if="activeMenu === reply.id" class="actions-menu" @click.stop>
-                    <button class="action-btn edit-btn" @click="startEdit(reply); toggleMenu(null)">
+                    <button v-if="reply.is_author" class="action-btn edit-btn" @click="startEdit(reply); toggleMenu(null)">
                       <span class="action-icon">✎</span> Редактировать
                     </button>
-                    <button class="action-btn delete-btn" @click="deleteComment(reply); toggleMenu(null)">
+                    <button v-if="reply.is_author" class="action-btn delete-btn" @click="deleteComment(reply); toggleMenu(null)">
                       <span class="action-icon">🗑</span> Удалить
                     </button>
                   </div>
@@ -191,7 +191,7 @@ export default {
         return null
       }
 
-      return `http://localhost:8000/api/courses/${courseSlug.value}/modules/${moduleId.value}/lessons/${lessonId.value}/comments/`
+      return `/courses/${courseSlug.value}/modules/${moduleId.value}/lessons/${lessonId.value}/comments/`
     })
 
     // Initialize API with authentication
@@ -201,6 +201,7 @@ export default {
     }
 
     const api = axios.create({
+      baseURL: 'http://localhost:8000/api',
       headers: {
         'Content-Type': 'application/json'
       }
@@ -318,7 +319,7 @@ export default {
         }
         
         // Direct comments API endpoint
-        const directUrl = `http://localhost:8000/api/comments/${comment.id}/reactions/`;
+        const directUrl = `/comments/${comment.id}/reactions/`;
         
         console.log('Attempting to like comment with URL:', directUrl);
         console.log('Current user:', userStore.user);
@@ -354,13 +355,13 @@ export default {
             if (userReaction) {
               // Delete the specific reaction by ID
               console.log('Found reaction to delete:', userReaction.id);
-              await api.delete(`http://localhost:8000/api/comments/${comment.id}/reactions/${userReaction.id}/`);
+              await api.delete(`/comments/${comment.id}/reactions/${userReaction.id}/`);
               console.log('Successfully deleted reaction');
             } else {
               // Alternative approach - try to delete by reaction type
               console.log('No reaction found to delete by email, trying direct delete');
               // Use a direct DELETE request to a custom endpoint
-              await api.delete(`http://localhost:8000/api/comments/${comment.id}/user-reaction/`, {
+              await api.delete(`/comments/${comment.id}/user-reaction/`, {
                 data: { user_id: userStore.user.id }
               });
               console.log('Successfully deleted reaction using direct method');
@@ -528,7 +529,7 @@ export default {
       
       try {
         // For both main comments and replies, use the direct API endpoint
-        const url = `http://localhost:8000/api/comments/${comment.id}/`;
+        const url = `/comments/${comment.id}/`;
         
         console.log('Editing comment with URL:', url);
         
@@ -536,7 +537,7 @@ export default {
         comment.text = editText.value;
         comment.is_edited = true;
         
-        // Make API call in background
+        // Make API call with explicit token
         await api.patch(url, {
           text: editText.value
         });
@@ -557,7 +558,7 @@ export default {
       
       try {
         // For both main comments and replies, use the direct API endpoint
-        const url = `http://localhost:8000/api/comments/${comment.id}/`;
+        const url = `/comments/${comment.id}/`;
         
         console.log('Deleting comment with URL:', url);
         
@@ -581,6 +582,7 @@ export default {
         
         // Make API call
         await api.delete(url);
+        
         console.log('Successfully deleted comment');
         
         activeMenu.value = null;

@@ -1,5 +1,27 @@
 <template>
-  <div class="code-element" :class="{ 'read-only': readOnly, [currentTheme]: true }">
+  <div class="code-element" :class="{ 'read-only': readOnly && !allowPreviewEdit, 'preview-editable': readOnly && allowPreviewEdit, [currentTheme]: true }">
+    <!-- Admin edit indicator for preview mode -->
+    <div v-if="readOnly && allowPreviewEdit" class="admin-edit-indicator">
+      <span class="edit-icon">✎</span> Режим редактирования кода (изменения сохраняются автоматически)
+    </div>
+
+    <!-- Task Description Section -->
+    <div class="task-description">
+      <h4>Описание задания:</h4>
+      <div v-if="!readOnly || allowPreviewEdit" class="description-editor">
+        <textarea 
+          v-model="localContent.taskDescription" 
+          @input="autoSaveChanges" 
+          placeholder="Введите описание задания..."
+          class="description-input no-resize"
+          :readonly="readOnly && !allowPreviewEdit"
+        ></textarea>
+      </div>
+      <div v-else class="description-preview">
+        <div v-html="localContent.taskDescription || 'Нет описания задания'"></div>
+      </div>
+    </div>
+
     <div class="controls">
       <div class="selector-group">
         <!-- Language selector always visible -->
@@ -8,6 +30,7 @@
           @change="emitUpdate"
           class="language-selector"
           :aria-label="readOnly ? 'Выбрать язык программирования (предпросмотр)' : 'Выбрать язык программирования'"
+          :disabled="readOnly && !allowPreviewEdit"
         >
           <option value="javascript">JavaScript</option>
           <option value="python">Python</option>
@@ -25,7 +48,7 @@
 
         <!-- Interpreter selector only in edit mode, label in preview mode -->
         <select
-          v-if="!readOnly"
+          v-if="!readOnly || allowPreviewEdit"
           v-model="localContent.interpreter"
           @change="emitUpdate"
           class="interpreter-selector"
@@ -49,7 +72,7 @@
         <span v-else-if="localContent.interpreter && localContent.interpreter !== 'default'" class="interpreter-label">{{ interpreterLabel }}</span>
 
         <!-- Score control in edit mode -->
-        <div v-if="!readOnly" class="score-container">
+        <div v-if="!readOnly || allowPreviewEdit" class="score-container">
           <label for="max-score">Баллы:</label>
           <input 
             id="max-score"
@@ -58,7 +81,8 @@
             min="1" 
             max="10"
             class="score-input"
-            @input="emitUpdate" 
+            @input="autoSaveChanges" 
+            :readonly="readOnly && !allowPreviewEdit"
           />
         </div>
         
@@ -97,7 +121,7 @@
         
         <!-- Submit button for score in view mode -->
         <button
-          v-if="readOnly && canRunCode && !codeSubmitted && refreshStore.isAuthenticated"
+          v-if="readOnly && !allowPreviewEdit && canRunCode && !codeSubmitted && refreshStore.isAuthenticated"
           @click="submitCode"
           class="submit-button"
           :disabled="isRunning"
@@ -122,35 +146,47 @@
     ></textarea>
 
     <div v-if="localContent.code && (readOnly || showPreview)" class="code-preview">
-      <pre v-if="!isEditingPreview"><code :class="'language-' + localContent.language">{{ localContent.code }}</code></pre>
       <textarea
-        v-else
-        v-model="editingCode"
-        @input="updateEditingCode"
-        @blur="savePreviewChanges"
+        v-if="allowPreviewEdit"
+        v-model="localContent.code"
+        @input="autoSaveChanges"
         @keydown="handleKeydown"
-        @keydown.ctrl.enter="saveAndRun"
         class="code-input"
         aria-label="Редактировать код в предпросмотре"
       ></textarea>
-      <div class="preview-controls" v-if="showPreview && !readOnly">
-        <button @click="toggleEditPreview" class="edit-button">
-          {{ isEditingPreview ? 'Save' : 'Edit' }}
-        </button>
-        <button
-          v-if="isEditingPreview"
-          @click="saveAndRun"
-          class="run-button"
-          :disabled="isRunning || !refreshStore.isAuthenticated"
-        >
-          <span class="icon">▶️</span> Save and Run
-        </button>
+      <pre v-else><code :class="'language-' + localContent.language">{{ localContent.code }}</code></pre>
+    </div>
+
+    <!-- Expected Result Section -->
+    <div class="expected-result">
+      <h4>Ожидаемый результат:</h4>
+      <div v-if="!readOnly || allowPreviewEdit" class="expected-editor">
+        <textarea 
+          v-model="localContent.expectedResult" 
+          @input="autoSaveChanges" 
+          placeholder="Введите ожидаемый результат..."
+          class="expected-input no-resize"
+          :readonly="readOnly && !allowPreviewEdit"
+        ></textarea>
+      </div>
+      <div v-else class="expected-preview">
+        <pre>{{ localContent.expectedResult || 'Не указан ожидаемый результат' }}</pre>
       </div>
     </div>
 
     <div v-if="executionResult" class="execution-result" :class="{ error: executionError }">
-      <h4>Execution Result:</h4>
+      <h4>Результат выполнения:</h4>
       <pre>{{ executionResult }}</pre>
+      
+      <!-- Show comparison with expected result -->
+      <div v-if="localContent.expectedResult && !executionError" class="result-comparison">
+        <div v-if="resultMatches" class="result-matches">
+          <span class="icon-success">✓</span> Результат совпадает с ожидаемым
+        </div>
+        <div v-else class="result-differs">
+          <span class="icon-error">✗</span> Результат не совпадает с ожидаемым
+        </div>
+      </div>
     </div>
     
     <!-- Score result after submission -->
@@ -192,7 +228,9 @@ const props = defineProps({
       language: 'javascript', 
       code: '', 
       interpreter: 'default',
-      max_score: 5
+      max_score: 5,
+      taskDescription: '',
+      expectedResult: ''
     })
   },
   readOnly: {
@@ -206,6 +244,10 @@ const props = defineProps({
   showScore: {
     type: Boolean,
     default: true
+  },
+  allowPreviewEdit: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -218,7 +260,9 @@ const localContent = ref({
   code: props.content.code || '',
   language: props.content.language || 'javascript',
   interpreter: props.content.interpreter || 'default',
-  max_score: props.content.max_score || 5
+  max_score: props.content.max_score || 5,
+  taskDescription: props.content.taskDescription || '',
+  expectedResult: props.content.expectedResult || ''
 })
 
 // For code submission scoring
@@ -229,17 +273,6 @@ const showPreview = ref(props.readOnly)
 const executionResult = ref(null)
 const executionError = ref(false)
 const isRunning = ref(false)
-const isEditingPreview = ref(false)
-const editingCode = ref('')
-const currentTheme = computed(() => {
-  // Automatically use site theme if manualThemeSelection is false
-  if (!props.manualThemeSelection) {
-    return themeStore.isDarkMode ? 'vs-dark' : 'vs-light'
-  }
-  // Otherwise use the selected theme
-  return themeValue.value
-})
-const themeValue = ref('vs-dark') // For manual selection
 
 onMounted(() => {
   refreshStore.ready() // Initialize tokens
@@ -269,49 +302,45 @@ onMounted(() => {
 const submitCode = () => {
   if (!localContent.value.code) return;
   
-  // In a real app, this would send the code to a server for evaluation
-  // For this example, we'll use a simple scoring algorithm
-  const codeLength = localContent.value.code.length;
-  const hasComments = localContent.value.code.includes('//') || localContent.value.code.includes('/*');
-  const hasLogic = localContent.value.code.includes('if') || localContent.value.code.includes('for') || 
-                  localContent.value.code.includes('while') || localContent.value.code.includes('function');
-  
-  let score = 0;
-  
-  // Simple scoring logic - in a real app, this would be server-side
-  if (codeLength > 10) {
-    score += 1;
-  }
-  
-  if (hasComments) {
-    score += 2;
-  }
-  
-  if (hasLogic) {
-    score += 2;
-  }
-  
-  // Cap score at max_score
-  score = Math.min(score, localContent.value.max_score);
-  
-  // Update state
-  codeSubmitted.value = true;
-  userScore.value = score;
-  
-  // Save to localStorage
-  if (props.content.id) {
-    localStorage.setItem(`code_${props.content.id}`, JSON.stringify({
-      codeSubmitted: codeSubmitted.value,
-      userScore: userScore.value
-    }));
-  }
-  
-  // Emit event for parent components
-  emit('answer-submitted', {
-    contentId: props.content.id,
-    code: localContent.value.code,
-    score: userScore.value,
-    maxScore: localContent.value.max_score
+  // Run the code first to get the result
+  runCode().then(() => {
+    // Calculate score based on matching expected result
+    let score = 0;
+    
+    // If we have an expected result and the execution was successful
+    if (localContent.value.expectedResult && !executionError.value) {
+      // If result matches expected result, award full points
+      if (resultMatches.value) {
+        score = localContent.value.max_score;
+      } else {
+        // Partial score for code that runs without errors but doesn't match
+        score = Math.floor(localContent.value.max_score * 0.3);
+      }
+    } else if (!executionError.value) {
+      // If no expected result defined but code runs without errors
+      score = Math.floor(localContent.value.max_score * 0.5);
+    }
+    
+    // Update state
+    codeSubmitted.value = true;
+    userScore.value = score;
+    
+    // Save to localStorage
+    if (props.content.id) {
+      localStorage.setItem(`code_${props.content.id}`, JSON.stringify({
+        codeSubmitted: codeSubmitted.value,
+        userScore: userScore.value
+      }));
+    }
+    
+    // Emit event for parent components
+    emit('answer-submitted', {
+      contentId: props.content.id,
+      code: localContent.value.code,
+      score: userScore.value,
+      maxScore: localContent.value.max_score,
+      resultMatches: resultMatches.value
+    });
   });
 };
 
@@ -335,7 +364,9 @@ const loadSavedContent = () => {
         code: parsedContent.code || '',
         language: parsedContent.language || 'javascript',
         interpreter: parsedContent.interpreter || 'default',
-        max_score: parsedContent.max_score || 5
+        max_score: parsedContent.max_score || 5,
+        taskDescription: parsedContent.taskDescription || '',
+        expectedResult: parsedContent.expectedResult || ''
       }
       emitUpdate()
     } catch (error) {
@@ -391,35 +422,12 @@ const emitUpdate = () => {
   emit('update:content', {
     code: localContent.value.code,
     language: localContent.value.language,
-    interpreter: localContent.value.interpreter
+    interpreter: localContent.value.interpreter,
+    max_score: localContent.value.max_score,
+    taskDescription: localContent.value.taskDescription,
+    expectedResult: localContent.value.expectedResult
   })
   localStorage.setItem('code-editor-content', JSON.stringify(localContent.value))
-}
-
-const toggleEditPreview = () => {
-  isEditingPreview.value = !isEditingPreview.value
-  if (isEditingPreview.value) {
-    editingCode.value = localContent.value.code
-  } else {
-    savePreviewChanges()
-  }
-}
-
-const updateEditingCode = () => {
-  // Update editingCode without immediately saving to localContent
-}
-
-const savePreviewChanges = () => {
-  if (isEditingPreview.value) {
-    localContent.value.code = editingCode.value
-    isEditingPreview.value = false
-    emitUpdate()
-  }
-}
-
-const saveAndRun = () => {
-  savePreviewChanges()
-  runCode()
 }
 
 const handleKeydown = (event) => {
@@ -437,14 +445,15 @@ const handleKeydown = (event) => {
       localContent.value.code = textarea.value
       emitUpdate()
     } else {
-      editingCode.value = textarea.value
+      localContent.value.code = textarea.value
+      emitUpdate()
     }
   }
 }
 
 const runCode = async () => {
   if (!canRunCode.value || !refreshStore.isAuthenticated) {
-    return
+    return Promise.reject(new Error('Cannot run code'));
   }
 
   isRunning.value = true
@@ -481,6 +490,8 @@ const runCode = async () => {
       executionError.value = true
       executionResult.value = result.stderr || result.compile_output || `Error: ${result.status}`
     }
+    
+    return Promise.resolve();
   } catch (error) {
     console.error('Code execution error:', error)
     executionError.value = true
@@ -510,6 +521,8 @@ const runCode = async () => {
     } else {
       executionResult.value = 'Failed to connect to server. Check connection.'
     }
+    
+    return Promise.reject(error);
   } finally {
     isRunning.value = false
   }
@@ -529,7 +542,9 @@ watch(() => props.content, (newVal) => {
       code: newVal.code || '',
       language: newVal.language || 'javascript',
       interpreter: newVal.interpreter || 'default',
-      max_score: newVal.max_score || 5
+      max_score: newVal.max_score || 5,
+      taskDescription: newVal.taskDescription || '',
+      expectedResult: newVal.expectedResult || ''
     }
   }
 }, { deep: true })
@@ -559,6 +574,31 @@ const getValidInterpreters = (language) => {
   }
   return interpreterMap[language] || ['default']
 }
+
+const autoSaveChanges = () => {
+  emitUpdate();
+}
+
+// Check if execution result matches expected result
+const resultMatches = computed(() => {
+  if (!executionResult.value || !localContent.value.expectedResult || executionError.value) {
+    return false;
+  }
+  // Trim whitespace and normalize line endings for comparison
+  const normalizedResult = executionResult.value.trim().replace(/\r\n/g, '\n');
+  const normalizedExpected = localContent.value.expectedResult.trim().replace(/\r\n/g, '\n');
+  return normalizedResult === normalizedExpected;
+});
+
+const currentTheme = computed(() => {
+  // Automatically use site theme if manualThemeSelection is false
+  if (!props.manualThemeSelection) {
+    return themeStore.isDarkMode ? 'vs-dark' : 'vs-light'
+  }
+  // Otherwise use the selected theme
+  return themeValue.value
+})
+const themeValue = ref('vs-dark') // For manual selection
 </script>
 
 <style scoped>
@@ -573,6 +613,86 @@ const getValidInterpreters = (language) => {
   font-family: 'Inter', sans-serif;
   max-width: 100%;
   box-sizing: border-box;
+}
+
+/* Task Description Styles */
+.task-description {
+  padding: 1rem;
+  border-radius: 0.375rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-color);
+}
+
+.task-description h4 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.description-input, .expected-input {
+  width: 100%;
+  min-height: 5rem;
+  padding: 0.75rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.875rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  background: #ffffff;
+  color: #1f2937;
+  resize: vertical;
+}
+
+.vs-dark .description-input, .vs-dark .expected-input {
+  background: #1a1a1a;
+  color: #e5e7eb;
+  border-color: #4b4b4b;
+}
+
+.description-preview, .expected-preview {
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.375rem;
+}
+
+/* Expected Result Styles */
+.expected-result {
+  padding: 1rem;
+  border-radius: 0.375rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-color);
+}
+
+.expected-result h4 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+/* Result Comparison Styles */
+.result-comparison {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.result-matches {
+  color: #15803d;
+  font-weight: 500;
+}
+
+.result-differs {
+  color: #b91c1c;
+  font-weight: 500;
+}
+
+.icon-success {
+  color: #15803d;
+  margin-right: 0.5rem;
+}
+
+.icon-error {
+  color: #b91c1c;
+  margin-right: 0.5rem;
 }
 
 .code-element.vs-light {
@@ -1033,5 +1153,124 @@ const getValidInterpreters = (language) => {
   cursor: not-allowed;
   background-color: #6b7280;
   transform: none;
+}
+
+.preview-edit-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  justify-content: flex-end;
+}
+
+.save-button {
+  background: var(--accent-color);
+  color: var(--footer-text);
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.save-button:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.cancel-button {
+  background: #6b7280;
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.cancel-button:hover {
+  background: #4b5563;
+  transform: translateY(-1px);
+}
+
+.description-input:read-only, .expected-input:read-only {
+  cursor: pointer;
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.vs-dark .description-input:read-only, .vs-dark .expected-input:read-only {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.description-input:read-only:hover, .expected-input:read-only:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.vs-dark .description-input:read-only:hover, .vs-dark .expected-input:read-only:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Hint for double-click to edit */
+.description-input:read-only::after, .expected-input:read-only::after {
+  content: "Двойной клик для редактирования";
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.description-input:read-only:hover::after, .expected-input:read-only:hover::after {
+  opacity: 1;
+}
+
+/* Admin edit indicator for preview mode */
+.admin-edit-indicator {
+  padding: 0.5rem;
+  background: #fef3c7;
+  border-radius: 0.25rem;
+  color: #92400e;
+  font-size: 0.875rem;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.vs-dark .admin-edit-indicator {
+  background: #3f3000;
+  color: #fcd34d;
+}
+
+.vs-high-contrast .admin-edit-indicator {
+  background: #2a2000;
+  color: #fde68a;
+}
+
+.edit-icon {
+  margin-right: 0.5rem;
+}
+
+.code-element.preview-editable {
+  border: 2px dashed var(--accent-color);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.code-element.preview-editable:hover {
+  border-color: #8b7ca5;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.15);
+}
+
+.vs-dark .code-element.preview-editable {
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+}
+
+.vs-dark .code-element.preview-editable:hover {
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.15);
+}
+
+.no-resize {
+  resize: none;
 }
 </style>

@@ -21,6 +21,7 @@
         :is="contentComponent"
         :content="content"
         :read-only="readOnly"
+        :allow-preview-edit="props.allowPreviewEdit"
         @update:content="updateContent"
       />
     </div>
@@ -51,6 +52,10 @@ const props = defineProps({
     default: false
   },
   isLast: {
+    type: Boolean,
+    default: false
+  },
+  allowPreviewEdit: {
     type: Boolean,
     default: false
   }

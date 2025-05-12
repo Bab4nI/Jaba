@@ -178,19 +178,19 @@ api.interceptors.request.use(
         let cacheTime = CACHE_SETTINGS.default;
         
         if (config.url.includes('/contents')) {
-          cacheTime = CACHE_SETTINGS.contents;
-        } else if (config.url.includes('/lessons')) {
-          cacheTime = CACHE_SETTINGS.lessons;
-        } else if (config.url.includes('/modules')) {
-          cacheTime = CACHE_SETTINGS.modules;
-        } else if (config.url.includes('/courses')) {
-          cacheTime = CACHE_SETTINGS.courses;
-        }
-        
-        // Настраиваем кэширование
-        config.cache = {
-          maxAge: cacheTime * 60 * 1000 // в миллисекундах
-        };
+        cacheTime = CACHE_SETTINGS.contents;
+      } else if (config.url.includes('/lessons')) {
+        cacheTime = CACHE_SETTINGS.lessons;
+      } else if (config.url.includes('/modules')) {
+        cacheTime = CACHE_SETTINGS.modules;
+      } else if (config.url.includes('/courses')) {
+        cacheTime = CACHE_SETTINGS.courses;
+      }
+      
+      // Настраиваем кэширование
+      config.cache = {
+        maxAge: cacheTime * 60 * 1000 // в миллисекундах
+      };
       }
     }
     

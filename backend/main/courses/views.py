@@ -555,6 +555,8 @@ class CommentViewSet(viewsets.ModelViewSet):
         
         # If we have a specific comment ID but no lesson ID, we're using direct access
         if 'pk' in self.kwargs and not lesson_id:
+            # For direct access to a comment, don't filter by user
+            # This allows users to see any comment by ID
             return Comment.objects.all()
         
         # Otherwise, filter by lesson ID if provided
@@ -603,12 +605,16 @@ class CommentViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         instance = self.get_object()
-        if instance.author != self.request.user:
+        # Check if the user is the author of the comment or an admin
+        if instance.author != self.request.user and not self.request.user.is_staff:
+            logger.warning(f"User {self.request.user.id} attempted to edit comment {instance.id} by {instance.author.id}")
             raise PermissionDenied("You can only edit your own comments.")
         serializer.save(is_edited=True, lesson=instance.lesson)
 
     def perform_destroy(self, instance):
-        if instance.author != self.request.user:
+        # Check if the user is the author of the comment or an admin
+        if instance.author != self.request.user and not self.request.user.is_staff:
+            logger.warning(f"User {self.request.user.id} attempted to delete comment {instance.id} by {instance.author.id}")
             raise PermissionDenied("You can only delete your own comments.")
         instance.delete()
 
