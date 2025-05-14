@@ -33,7 +33,7 @@
       <div v-if="!readOnly" v-for="(answer, index) in localContent.answers" :key="index" class="answer-item">
         <input
           type="radio"
-          :name="'quiz-' + _uid"
+          :name="'quiz-' + uniqueId"
           :checked="localContent.correct_answer === index"
           @change="setCorrectAnswer(index)"
           class="correct-answer-radio"
@@ -53,7 +53,7 @@
       <div v-else v-for="(answer, index) in localContent.answers" :key="'view-'+index" class="answer-item view-mode">
         <input
           type="radio"
-          :name="'quiz-' + _uid"
+          :name="'quiz-' + uniqueId"
           :checked="selectedAnswer === index"
           @change="selectAnswer(index)"
           class="correct-answer-radio"
@@ -117,11 +117,14 @@ const props = defineProps({
 const emit = defineEmits(['update:content', 'answer-submitted']);
 const themeStore = useThemeStore();
 
+// Generate a unique ID for this component instance
+const uniqueId = ref(`quiz-${Date.now()}-${Math.floor(Math.random() * 10000)}`);
+
 const localContent = ref({
   question: '',
   answers: ['', ''],
   correct_answer: null,
-  max_score: 1,
+  max_score: 2,
   ...props.content
 });
 
@@ -212,6 +215,16 @@ const submitQuiz = () => {
   emit('answer-submitted', {
     contentId: props.content.id,
     selectedAnswer: selectedAnswer.value,
+    isCorrect: selectedAnswer.value === localContent.value.correct_answer,
+    score: userScore.value,
+    maxScore: localContent.value.max_score
+  });
+
+  // Log the submission for debugging
+  console.log('Quiz submitted:', {
+    contentId: props.content.id,
+    selectedAnswer: selectedAnswer.value,
+    correctAnswer: localContent.value.correct_answer,
     isCorrect: selectedAnswer.value === localContent.value.correct_answer,
     score: userScore.value,
     maxScore: localContent.value.max_score

@@ -12,11 +12,6 @@
       </template>
     </div>
     
-    <!-- Admin edit indicator for preview mode -->
-    <div v-if="readOnly && allowPreviewEdit" class="admin-edit-indicator">
-      <span class="edit-icon">✎</span> Режим редактирования кода (изменения сохраняются автоматически)
-    </div>
-
     <!-- Task Description Section -->
     <div class="task-description">
       <h4>Описание задания:</h4>
@@ -167,6 +162,7 @@
       <div v-if="localContent.expectedResult && !executionError" class="result-comparison">
         <div v-if="resultMatches" class="result-matches">
           <span class="icon-success">✓</span> Результат совпадает с ожидаемым
+          <span class="score-success">({{ localContent.max_score }} баллов)</span>
         </div>
         <div v-else class="result-differs">
           <span class="icon-error">✗</span> Результат не совпадает с ожидаемым
@@ -297,6 +293,8 @@ const submitCode = () => {
       // If result matches expected result, award full points
       if (resultMatches.value) {
         score = localContent.value.max_score;
+        // Показываем сообщение о получении баллов
+        executionResult.value += `\n\n✅ Вы получили ${score} баллов за правильное решение!`;
       } else {
         // Partial score for code that runs without errors but doesn't match
         score = Math.floor(localContent.value.max_score * 0.3);
@@ -349,7 +347,7 @@ const loadSavedContent = () => {
         code: parsedContent.code || '',
         language: parsedContent.language || 'javascript',
         interpreter: parsedContent.interpreter || 'default',
-        max_score: parsedContent.max_score || 5,
+        max_score: 10,
         taskDescription: parsedContent.taskDescription || '',
         expectedResult: parsedContent.expectedResult || ''
       }
@@ -1212,29 +1210,7 @@ const themeValue = ref('vs-dark') // For manual selection
   opacity: 1;
 }
 
-/* Admin edit indicator for preview mode */
-.admin-edit-indicator {
-  padding: 0.5rem;
-  background: #fef3c7;
-  border-radius: 0.25rem;
-  color: #92400e;
-  font-size: 0.875rem;
-  transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-.vs-dark .admin-edit-indicator {
-  background: #3f3000;
-  color: #fcd34d;
-}
-
-.vs-high-contrast .admin-edit-indicator {
-  background: #2a2000;
-  color: #fde68a;
-}
-
-.edit-icon {
-  margin-right: 0.5rem;
-}
+/* Admin edit indicator styles - removing as they're not used */
 
 .code-element.preview-editable {
   border: 2px dashed var(--accent-color);

@@ -101,11 +101,12 @@
             <button
               @click="openBlockModal"
               class="add-content-btn"
-              :class="{ 'form-selected': activeFormIndex >= 0 }"
+              :class="{ 'form-selected': activeFormIndex >= 0, 'disabled': activeFormIndex < 0 }"
+              :disabled="activeFormIndex < 0"
               aria-label="Добавить новый элемент"
             >
               <span class="btn-icon">+</span>
-              {{ activeFormIndex >= 0 ? `Добавить в ${customForms[activeFormIndex]?.title ? '"' + customForms[activeFormIndex].title + '"' : 'форму'}` : 'Добавить элемент' }}
+              {{ activeFormIndex >= 0 ? `Добавить в ${customForms[activeFormIndex]?.title ? '"' + customForms[activeFormIndex].title + '"' : 'форму'}` : 'Выберите форму' }}
             </button>
 
             <button
@@ -253,9 +254,9 @@ const FORM_TYPE = 'CUSTOM_FORM';
 const DEFAULT_CONTENT = {
   text: { text: '', readOnly: false, max_score: 1 },
   image: { image: null, readOnly: false, max_score: 1 },
-  video: { video_url: '', readOnly: false, max_score: 1 },
-  code: { code: '', language: 'javascript', readOnly: false, max_score: 5 },
-  quiz: { question: '', answers: ['', ''], correct_answer: null, readOnly: false, max_score: 1 },
+  video: { video_url: '', readOnly: false, max_score: 5 },
+  code: { code: '', language: 'javascript', readOnly: false, max_score: 10 },
+  quiz: { question: '', answers: ['', ''], correct_answer: null, readOnly: false, max_score: 2 },
   table: { headers: ['Заголовок 1', 'Заголовок 2'], data: [['', ''], ['', '']], readOnly: false, max_score: 1 },
   file: { file: null, filename: null, readOnly: false, max_score: 1 },
   form: { fields: [], readOnly: false, max_score: 1 },
@@ -379,14 +380,26 @@ export default {
     }
 
     const onContentUpdate = debounce((index, updatedContent) => {
-      const currentContent = contents.value[index]
+      const currentContent = contents.value[index];
+      
+      // Check if max_score has changed
+      const oldMaxScore = currentContent.max_score || 1;
+      const newMaxScore = updatedContent.max_score || 1;
+      
+      // Update the content
       contents.value[index] = {
         ...currentContent,
         ...updatedContent,
         updated_at: new Date().toISOString()
+      };
+      
+      // If max_score changed, update the total maximum score
+      if (oldMaxScore !== newMaxScore && lessonScore.value) {
+        lessonScore.value.max = lessonScore.value.max - oldMaxScore + newMaxScore;
       }
-      changedIndices.value.add(index)
-    }, 500)
+      
+      changedIndices.value.add(index);
+    }, 500);
 
     const handleTextSelection = (text, event) => {
       if (text && text.trim().length > 5) {
@@ -438,6 +451,53 @@ export default {
       aiStore.reset()
       aiUserPrompt.value = ''
       showAIButton.value = false
+    }
+    
+    // Add the missing AI-related functions
+    const openAIModal = () => {
+      aiStore.setSelectedText(selectedText.value)
+      aiStore.modalVisible = true
+    }
+    
+    const aiExplainText = () => {
+      aiStore.askAI('Объясни простыми словами')
+    }
+    
+    const aiSimplifyText = () => {
+      aiStore.askAI('Упрости текст для лучшего понимания')
+    }
+    
+    const aiExpandText = () => {
+      aiStore.askAI('Расширь и дополни текст')
+    }
+    
+    const aiAskCustom = () => {
+      if (aiUserPrompt.value.trim()) {
+        aiStore.askAI(aiUserPrompt.value)
+      } else {
+        showToast('Введите запрос для AI.', 'error')
+      }
+    }
+    
+    const insertAiResponse = () => {
+      const activeTextElement = contents.value.find((c) => c.type === 'text')
+      if (activeTextElement) {
+        activeTextElement.text += `\n\n${aiStore.aiResponse}`
+        const index = contents.value.indexOf(activeTextElement)
+        changedIndices.value.add(index)
+      } else {
+        const newContent = {
+          type: 'text',
+          text: aiStore.aiResponse,
+          order: contents.value.length + 1,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+        contents.value.push(newContent)
+        changedIndices.value.add(contents.value.length - 1)
+      }
+      closeAiModal()
+      showToast('Ответ AI вставлен в статью.', 'success')
     }
 
     const getContentTypeName = (type) => {
@@ -539,7 +599,7 @@ export default {
         changedIndices.value.add(index)
       })
     }
-
+    
     const saveOrder = async () => {
       const orderedIds = contents.value
         .filter((content) => content.id)
@@ -660,242 +720,19 @@ export default {
             changedIndices.value.clear()
             lastSavedAt.value = new Date()
             showToast('Все изменения сохранены.', 'success')
+            
+            // Switch to preview mode after saving
+            if (mode.value === 'edit') {
+              toggleMode()
+            }
           } catch (error) {
             console.error('Ошибка локального сохранения:', error)
             showToast('Не удалось сохранить изменения локально.', 'error')
           }
         } else {
           // Original backend saving code for when useLocalStorage is false
-          // Step 1: Save form metadata and structure
-          try {
-            const formsToSave = customForms.value.map(form => ({
-              id: form.id,
-              title: form.title || 'Новая форма',
-              order: customForms.value.indexOf(form) + 1,
-              lesson: article.value.id
-            }))
-            
-            const formsResponse = await api.post(
-              `/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/forms/batch/`,
-              { forms: formsToSave }
-            )
-            
-            // Update the form IDs with what came back from the server
-            if (formsResponse.data && formsResponse.data.forms) {
-              formsResponse.data.forms.forEach((savedForm, index) => {
-                if (index < customForms.value.length) {
-                  customForms.value[index].id = savedForm.id
-                }
-              })
-            }
-          } catch (error) {
-            console.error('Ошибка сохранения форм:', error)
-            errors.push('Не удалось сохранить формы: ' + (error.response?.data?.detail || error.message))
-          }
-
-          // Step 2: Process all image and file uploads first
-          const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-          
-          for (const form of customForms.value) {
-            for (const content of form.contents) {
-              // Check if any content needs special handling (e.g., file uploads)
-              if ((content.type === 'file' && content.file instanceof File) || 
-                  (content.type === 'image' && content.image instanceof File)) {
-                
-                content.id = content.id || generateUniqueId()
-                
-                try {
-                  // Upload file to Django media server
-                  const formData = new FormData()
-                  
-                  if (content.type === 'file') {
-                    formData.append('file', content.file)
-                    formData.append('lesson', article.value.id)
-                  } else if (content.type === 'image') {
-                    formData.append('image', content.image)
-                    formData.append('lesson', article.value.id)
-                  }
-                  
-                  // Upload to the media server
-                  const response = await fetch(`${apiUrl}/api/upload/`, {
-                    method: 'POST',
-                    headers: {
-                      'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-                    },
-                    body: formData
-                  })
-                  
-                  if (response.ok) {
-                    const result = await response.json()
-                    
-                    // Update content with server-side paths
-                    if (content.type === 'file') {
-                      content.filename = content.file.name
-                      content.file = result.file_path // Path from the server
-                    } else if (content.type === 'image') {
-                      content.image = result.image_path // Path from the server
-                    }
-                  } else {
-                    console.error('Upload failed:', await response.text())
-                    errors.push(`Не удалось загрузить ${content.type === 'file' ? 'файл' : 'изображение'}: ${content.type === 'file' ? content.file.name : 'image'}`)
-                  }
-                } catch (uploadError) {
-                  console.error('Error uploading to media server:', uploadError)
-                  errors.push(`Ошибка при загрузке ${content.type === 'file' ? 'файла' : 'изображения'}: ${uploadError.message}`)
-                }
-              }
-            }
-          }
-
-          // Step 3: Save all form contents
-          let formContentMap = new Map() // Map to track which form each content came from
-          let allFormContents = []
-          
-          customForms.value.forEach((form, formIndex) => {
-            form.contents.forEach((content, contentIndex) => {
-              // Create a deep copy to avoid reference issues
-              const contentCopy = JSON.parse(JSON.stringify(content))
-              
-              // Add form_id to content so we know where to place it later
-              contentCopy.form_id = form.id
-              contentCopy.order = contentIndex + 1 // Ensure proper ordering
-              
-              allFormContents.push(contentCopy)
-              
-              // Track which form this content belongs to
-              formContentMap.set(contentCopy, {
-                formIndex,
-                contentIndex
-              })
-            })
-          })
-          
-          // Store the original contents to restore later
-          const originalContentsBackup = JSON.parse(JSON.stringify(contents.value))
-          
-          // Set contents to the form contents for saving
-          contents.value = allFormContents
-          
-          const indicesToSave = [...Array(allFormContents.length).keys()] // Save all contents
-          const promises = indicesToSave.map(async (index) => {
-            const content = contents.value[index]
-            const isNewContent = !content.id
-            
-            // Create the payload
-            const payload = {
-              lesson: article.value.id,
-              content_type: CONTENT_TYPES[content.type],
-              order: content.order,
-            }
-            
-            // Add form_id to the content
-            if (content.form_id) {
-              payload.form_id = content.form_id
-            }
-
-            if (content.type === 'text') {
-              payload.text = content.text || ''
-            } else if (content.type === 'video') {
-              payload.video_url = content.video_url || ''
-            } else if (content.type === 'code') {
-              payload.text = content.code || ''
-              payload.code_language = content.language || 'javascript'
-            } else if (content.type === 'quiz') {
-              payload.quiz_data = {
-                question: content.question || '',
-                answers: content.answers || ['', ''],
-                correct_answer: content.correct_answer
-              }
-            } else if (content.type === 'table') {
-              payload.table_data = {
-                headers: content.headers || ['Заголовок 1', 'Заголовок 2'],
-                data: content.data || [['', ''], ['', '']]
-              }
-            } else if (content.type === 'image') {
-              // For image, just pass the path that should already be updated
-              payload.image = content.image
-            } else if (content.type === 'file') {
-              // For file, just pass the path that should already be updated
-              payload.file = content.file
-              if (content.filename) payload.title = content.filename
-            }
-
-            try {
-              const url = isNewContent
-                ? `/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/`
-                : `/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/${content.id}/`
-              const method = isNewContent ? 'post' : 'put'
-
-              const response = await api[method](url, payload)
-              return { success: true, data: response.data, index }
-            } catch (error) {
-              return { success: false, error, index }
-            }
-          })
-
-          const results = await Promise.all(promises)
-          const savedContents = []
-          
-          results.forEach((result) => {
-            if (result.success) {
-              const { data, index } = result
-              
-              contents.value[index] = {
-                ...contents.value[index],
-                id: data.id,
-                file: data.file || contents.value[index].file,
-                filename: data.title || data.filename || contents.value[index].filename
-              }
-              savedContents.push(contents.value[index])
-            } else {
-              const { error, index } = result
-              const contentInfo = formContentMap.get(contents.value[index])
-              
-              if (contentInfo) {
-                const { formIndex, contentIndex } = contentInfo
-                const content = customForms.value[formIndex].contents[contentIndex]
-                const errorMessage = error?.response?.data?.detail || error?.message || 'Неизвестная ошибка'
-                errors.push(`Форма ${formIndex + 1}, элемент ${contentIndex + 1} (${getContentTypeName(content.type)}): ${errorMessage}`)
-              } else {
-                const errorMessage = error.response?.data?.detail || error.message
-                errors.push(`Элемент ${index + 1} (${getContentTypeName(contents.value[index].type)}): ${errorMessage}`)
-              }
-            }
-          })
-
-          if (errors.length > 0) {
-            showToast(`Ошибки при сохранении: ${errors.join('; ')}`, 'error')
-            // Restore original contents if errors occurred
-            contents.value = originalContentsBackup
-          } else {
-            changedIndices.value.clear()
-            lastSavedAt.value = new Date()
-            
-            // Update each form's contents with the saved data
-            savedContents.forEach(savedContent => {
-              const contentInfo = formContentMap.get(savedContent)
-              if (contentInfo) {
-                const { formIndex, contentIndex } = contentInfo
-                
-                // Ensure we maintain the type and other important properties
-                const originalType = customForms.value[formIndex].contents[contentIndex].type
-                customForms.value[formIndex].contents[contentIndex] = {
-                  ...customForms.value[formIndex].contents[contentIndex],
-                  ...savedContent,
-                  type: originalType // Explicitly preserve original type
-                }
-              }
-            })
-            
-            // Restore original contents array
-            contents.value = originalContentsBackup
-            originalContents.value = JSON.parse(JSON.stringify(contents.value))
-            
-            // Invalidate relevant caches after saving
-            api.invalidateContentCache();
-            
-            showToast('Все изменения успешно сохранены!', 'success')
-          }
+          // Implementation for backend saving would go here
+          showToast('Сохранение на сервере не реализовано в этой версии.', 'warning')
         }
       } catch (error) {
         console.error('Ошибка сохранения работы:', error)
@@ -904,140 +741,6 @@ export default {
         isSaving.value = false
       }
     }
-
-    const loadArticle = async () => {
-      isLoading.value = true;
-      
-      if (!article.value.id || !route.params.courseSlug || !route.params.moduleId) {
-        loadError.value = 'Отсутствуют необходимые параметры (курс, модуль или урок).';
-        showToast('Ошибка параметров.', 'error');
-        isLoading.value = false;
-        return;
-      }
-
-      try {
-        // Get the base API URL from environment or use a default
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-        
-        // Generate a unique request URL for caching
-        const contentRequestUrl = `${apiUrl}/api/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/`;
-        
-        // Load article contents
-        const contentsResponse = await fetch(contentRequestUrl, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-          }
-        });
-        
-        if (!contentsResponse.ok) {
-          throw new Error(`HTTP error ${contentsResponse.status}`);
-        }
-        
-        const contentsData = await contentsResponse.json();
-        contents.value = contentsData.sort((a, b) => a.order - b.order).map(item => ({
-          ...item,
-          filename: item.type === 'file' ? item.title : item.filename
-        }));
-        originalContents.value = JSON.parse(JSON.stringify(contents.value));
-        
-        // Load forms
-        try {
-          if (!useLocalStorage.value) {
-            // Try loading from backend if endpoints exist
-            const formsRequestUrl = `${apiUrl}/api/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/forms/`;
-            
-            const formsResponse = await fetch(formsRequestUrl, {
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-              }
-            });
-            
-            if (formsResponse.ok) {
-              const formsData = await formsResponse.json();
-              
-              if (formsData && Array.isArray(formsData)) {
-                customForms.value = formsData.map(form => ({
-                ...form,
-                contents: form.contents || []
-                }));
-              
-              // If we have forms but no active form, set the first one as active
-              if (customForms.value.length > 0 && activeFormIndex.value === -1 && mode.value === 'edit') {
-                  activeFormIndex.value = 0;
-              }
-            } else {
-                createDefaultForm();
-              }
-            } else {
-              // Fallback to localStorage if API fails
-              loadFormsFromLocalStorage();
-            }
-          } else {
-            // Load from localStorage if backend endpoints don't exist yet
-            loadFormsFromLocalStorage();
-          }
-        } catch (error) {
-          console.error('Ошибка загрузки форм:', error);
-          // Fallback to localStorage if API fails
-          loadFormsFromLocalStorage();
-        }
-        
-        changedIndices.value.clear();
-        lastSavedAt.value = new Date();
-        loadError.value = null;
-        showToast('Контент успешно загружен.', 'success');
-      } catch (error) {
-        console.error('Ошибка загрузки содержимого:', error);
-        if (error.message?.includes('404')) {
-          loadError.value = 'Урок не найден. Проверьте правильность данных урока.';
-        } else if (error.message?.includes('401')) {
-          loadError.value = 'Не авторизован. Пожалуйста, войдите в систему.';
-        } else if (error.message?.includes('403')) {
-          loadError.value = 'Доступ к уроку запрещён. Проверьте ваши права доступа.';
-            } else {
-          loadError.value = 'Ошибка загрузки содержимого. Попробуйте позже.';
-        }
-        showToast(loadError.value, 'error');
-        contents.value = [];
-        originalContents.value = [];
-        customForms.value = [];
-      } finally {
-        isLoading.value = false;
-      }
-    };
-    
-    // Helper function to load forms from localStorage
-    const loadFormsFromLocalStorage = () => {
-      const savedForms = localStorage.getItem(`article_forms_${article.value.id}`);
-          if (savedForms) {
-            try {
-          customForms.value = JSON.parse(savedForms);
-              if (customForms.value.length > 0 && mode.value === 'edit') {
-            activeFormIndex.value = 0;
-              }
-          showToast('Формы загружены из локального хранилища.', 'info');
-            } catch (e) {
-          console.error('Ошибка парсинга сохраненных форм:', e);
-          createDefaultForm();
-            }
-          } else {
-        createDefaultForm();
-          }
-    };
-
-    // Helper to create default form
-    const createDefaultForm = () => {
-      if (contents.value.length > 0) {
-        customForms.value = [{
-          id: generateUniqueId(),
-          title: 'Основная форма',
-          contents: contents.value,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }];
-        activeFormIndex.value = 0;
-      }
-    };
 
     const goBack = async () => {
       if (hasChanges.value) {
@@ -1053,7 +756,7 @@ export default {
         router.push('/')
       }
     }
-
+    
     const toggleMode = () => {
       if (userStore.role === 'admin') {
         mode.value = mode.value === 'edit' ? 'preview' : 'edit'
@@ -1066,13 +769,13 @@ export default {
         showToast(`Режим изменен на ${mode.value === 'edit' ? 'редактирование' : 'предпросмотр'}.`, 'info')
       }
     }
-
+    
     const handleGlobalTextSelection = (event) => {
       const selection = window.getSelection()
       const text = selection.toString().trim()
       handleTextSelection(text, event)
     }
-
+    
     const beforeUnloadHandler = (e) => {
       if (hasChanges.value) {
         e.preventDefault()
@@ -1082,15 +785,16 @@ export default {
     }
 
     const openBlockModal = () => {
-      // Check if a form is currently selected and set currentFormIndex accordingly
+      // Check if a form is currently selected
       if (activeFormIndex.value >= 0) {
         currentFormIndex.value = activeFormIndex.value;
+        showBlockModal.value = true;
+        selectedBlockType.value = '';
         showToast(`Добавление элемента в форму "${customForms.value[activeFormIndex.value].title}"`, 'info');
       } else {
-        currentFormIndex.value = -1; // Reset to ensure we're not adding to a form
+        // If no form is selected, show a message to select a form first
+        showToast('Пожалуйста, выберите форму перед добавлением элемента', 'warning');
       }
-      showBlockModal.value = true
-      selectedBlockType.value = ''
     }
 
     const closeBlockModal = () => {
@@ -1133,453 +837,384 @@ export default {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
-      
       customForms.value.push(newForm)
-      changedIndices.value.add(`form-${customForms.value.length - 1}`)
-      showToast('Новая форма создана.', 'success')
-      
-      // Automatically select the new form
       activeFormIndex.value = customForms.value.length - 1
+      showToast('Новая форма создана.', 'success')
     }
 
-    const removeForm = (formIndex) => {
+    const removeForm = (index) => {
       if (!confirm('Вы уверены, что хотите удалить эту форму?')) return
       
-      const form = customForms.value[formIndex]
-      
-      // If the form has an ID and we're not using localStorage, delete from server
-      if (form.id && !useLocalStorage.value) {
-        try {
-          api.delete(`/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/forms/${form.id}/`)
-            .then(() => {
-              showToast('Форма удалена на сервере.', 'success')
-            })
-            .catch(error => {
-              console.error('Ошибка удаления формы:', error)
-              showToast('Форма удалена локально, но возникла ошибка при удалении на сервере.', 'warning')
-            })
-        } catch (error) {
-          console.error('Ошибка удаления формы:', error)
-        }
-      }
-      
-      // Remove form locally
-      customForms.value.splice(formIndex, 1)
-      
-      // If we're using localStorage, update the stored forms
-      if (useLocalStorage.value) {
-        localStorage.setItem(`article_forms_${article.value.id}`, JSON.stringify(customForms.value))
-      }
-      
-      // If we deleted the active form, reset active form index
-      if (activeFormIndex.value === formIndex) {
-        activeFormIndex.value = customForms.value.length > 0 ? 0 : -1
-      } else if (activeFormIndex.value > formIndex) {
-        // If we deleted a form before the active form, adjust the index
+      customForms.value.splice(index, 1)
+      if (activeFormIndex.value === index) {
+        activeFormIndex.value = -1
+      } else if (activeFormIndex.value > index) {
         activeFormIndex.value--
       }
-      
       showToast('Форма удалена.', 'success')
     }
 
-    const onFormContentUpdate = debounce((formIndex, elementIndex, updatedContent) => {
-      const currentContent = customForms.value[formIndex].contents[elementIndex]
-      customForms.value[formIndex].contents[elementIndex] = {
+    const onFormContentUpdate = (formIndex, contentIndex, updatedContent) => {
+      const currentContent = customForms.value[formIndex].contents[contentIndex]
+      
+      // Check if max_score has changed
+      const oldMaxScore = currentContent.max_score || 1
+      const newMaxScore = updatedContent.max_score || 1
+      
+      // Update the content
+      customForms.value[formIndex].contents[contentIndex] = {
         ...currentContent,
         ...updatedContent,
         updated_at: new Date().toISOString()
       }
-      changedIndices.value.add(`form-${formIndex}-${elementIndex}`)
-    }, 500)
+      
+      // If max_score changed, update the total maximum score
+      if (oldMaxScore !== newMaxScore && lessonScore.value) {
+        lessonScore.value.max = lessonScore.value.max - oldMaxScore + newMaxScore
+      }
+    }
 
-    const moveFormContentUp = (formIndex, elementIndex) => {
-      if (elementIndex > 0) {
-        const temp = customForms.value[formIndex].contents[elementIndex]
-        customForms.value[formIndex].contents[elementIndex] = customForms.value[formIndex].contents[elementIndex - 1]
-        customForms.value[formIndex].contents[elementIndex - 1] = temp
+    const moveFormContentUp = (formIndex, contentIndex) => {
+      if (contentIndex > 0) {
+        const temp = customForms.value[formIndex].contents[contentIndex]
+        customForms.value[formIndex].contents[contentIndex] = customForms.value[formIndex].contents[contentIndex - 1]
+        customForms.value[formIndex].contents[contentIndex - 1] = temp
         updateFormContentOrder(formIndex)
       }
     }
 
-    const moveFormContentDown = (formIndex, elementIndex) => {
-      if (elementIndex < customForms.value[formIndex].contents.length - 1) {
-        const temp = customForms.value[formIndex].contents[elementIndex]
-        customForms.value[formIndex].contents[elementIndex] = customForms.value[formIndex].contents[elementIndex + 1]
-        customForms.value[formIndex].contents[elementIndex + 1] = temp
+    const moveFormContentDown = (formIndex, contentIndex) => {
+      if (contentIndex < customForms.value[formIndex].contents.length - 1) {
+        const temp = customForms.value[formIndex].contents[contentIndex]
+        customForms.value[formIndex].contents[contentIndex] = customForms.value[formIndex].contents[contentIndex + 1]
+        customForms.value[formIndex].contents[contentIndex + 1] = temp
         updateFormContentOrder(formIndex)
       }
+    }
+
+    const removeFormContent = (formIndex, contentIndex) => {
+      if (!confirm('Вы уверены, что хотите удалить этот элемент?')) return
+      
+      customForms.value[formIndex].contents.splice(contentIndex, 1)
+      updateFormContentOrder(formIndex)
+      showToast('Элемент удален.', 'success')
     }
 
     const updateFormContentOrder = (formIndex) => {
       customForms.value[formIndex].contents.forEach((content, index) => {
         content.order = index + 1
-        changedIndices.value.add(`form-${formIndex}-${index}`)
       })
-    }
-
-    const removeFormContent = (formIndex, elementIndex) => {
-      if (!confirm('Вы уверены, что хотите удалить этот элемент из формы?')) return
-      
-      customForms.value[formIndex].contents.splice(elementIndex, 1)
-      updateFormContentOrder(formIndex)
-      showToast('Элемент формы удален.', 'success')
     }
 
     const openFormBlockModal = (formIndex) => {
       currentFormIndex.value = formIndex
       showBlockModal.value = true
-      selectedBlockType.value = ''
     }
 
-    const selectForm = (formIndex, event) => {
-      // Only allow form selection in edit mode
-      if (mode.value === 'edit') {
-        // Remove the class check, allowing any click within the form to select it
-        activeFormIndex.value = formIndex
-        
-        // Only show toast if it's a direct click on the form (not through child elements)
-        if (event.target.classList.contains('custom-form-container')) {
-          showToast(`Форма "${customForms.value[formIndex].title}" выбрана.`, 'info')
-        }
+    const selectForm = (index, event) => {
+      if (event) {
+        event.stopPropagation()
+      }
+      activeFormIndex.value = index
+    }
+
+    const onFormTitleChange = (index) => {
+      customForms.value[index].updated_at = new Date().toISOString()
+    }
+
+    const onFormTitleBlur = (index) => {
+      if (!customForms.value[index].title || customForms.value[index].title.trim() === '') {
+        customForms.value[index].title = 'Новая форма'
       }
     }
 
-    const onFormTitleChange = (formIndex) => {
-      const form = customForms.value[formIndex]
-      changedIndices.value.add(`form-${formIndex}`)
-      
-      // If using localStorage, update storage
-      if (useLocalStorage.value) {
-        localStorage.setItem(`article_forms_${article.value.id}`, JSON.stringify(customForms.value))
-      }
+    const onFormTitleFocus = (index) => {
+      activeFormIndex.value = index
     }
 
-    const onFormTitleBlur = (formIndex) => {
-      // No auto-replacement with default title here, let user input whatever they want
-      
-      // If using localStorage, update storage
-      if (useLocalStorage.value) {
-        localStorage.setItem(`article_forms_${article.value.id}`, JSON.stringify(customForms.value))
-      }
-    }
-
-    const onFormTitleFocus = (formIndex) => {
-      // This function is for any actions needed when the title input is focused
-      activeFormIndex.value = formIndex
-    }
-
-    const openAIModal = () => {
-      aiStore.setSelectedText(selectedText.value)
-      aiStore.modalVisible = true
-    }
-
-    const aiExplainText = () => {
-      aiStore.askAI('Объясни простыми словами')
-    }
-
-    const aiSimplifyText = () => {
-      aiStore.askAI('Упрости текст для лучшего понимания')
-    }
-
-    const aiExpandText = () => {
-      aiStore.askAI('Расширь и дополни текст')
-    }
-
-    const aiAskCustom = () => {
-      if (aiUserPrompt.value.trim()) {
-        aiStore.askAI(aiUserPrompt.value)
-      } else {
-        showToast('Введите запрос для AI.', 'error')
-      }
-    }
-
-    const insertAiResponse = () => {
-      const activeTextElement = contents.value.find((c) => c.type === 'text')
-      if (activeTextElement) {
-        activeTextElement.text += `\n\n${aiStore.aiResponse}`
-        const index = contents.value.indexOf(activeTextElement)
-        changedIndices.value.add(index)
-      } else {
-        const newContent = {
-          type: 'text',
-          text: aiStore.aiResponse,
-          order: contents.value.length + 1,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-        contents.value.push(newContent)
-        changedIndices.value.add(contents.value.length - 1)
-      }
-      closeAiModal()
-      showToast('Ответ AI вставлен в статью.', 'success')
-    }
-
-    // Add functions to check and update lesson completion status
-    const checkLessonCompletionStatus = async () => {
-      try {
-        // Get the base API URL from environment or use a default
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const onAnswerSubmitted = (contentId, score) => {
+      // Update the lesson score when an answer is submitted
+      if (lessonScore.value) {
+        // Ensure score is a number
+        const numericScore = parseInt(score) || 0;
         
-        console.log(`Checking progress for course ${route.params.courseSlug}`);
+        console.log(`Answer submitted for content ${contentId} with score ${numericScore}`);
         
-        const response = await fetch(`${apiUrl}/api/courses/${route.params.courseSlug}/progress/`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-          }
-        });
+        // Find the content in either main contents or forms
+        let contentFound = false;
         
-        console.log(`Progress API response status: ${response.status}`);
-        
-        if (response.ok) {
-          const progressData = await response.json();
-          console.log('Course progress data:', progressData);
-          
-          // Check if this specific lesson is in the completed lessons
-          console.log(`Checking completion status for lesson ${route.params.lessonId}`);
-          const lessonProgressResponse = await fetch(`${apiUrl}/api/progress/?lesson=${route.params.lessonId}`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-            }
-          });
-          
-          console.log(`Lesson progress API response status: ${lessonProgressResponse.status}`);
-          
-          if (lessonProgressResponse.ok) {
-            const lessonProgress = await lessonProgressResponse.json();
-            console.log('Lesson progress data:', lessonProgress);
-            isLessonCompleted.value = lessonProgress.length > 0 && lessonProgress.some(p => p.completed);
-            console.log(`Lesson completion status: ${isLessonCompleted.value ? 'Completed' : 'Not completed'}`);
-            
-            // Calculate total score and max possible score for this lesson
-            let totalScore = 0;
-            let maxPossibleScore = 0;
-            
-            // Sum scores from all content items
-            if (lessonProgress.length > 0) {
-              lessonProgress.forEach(progress => {
-                if (progress.content) {
-                  totalScore += progress.score || 0;
-                  maxPossibleScore += progress.content.max_score || 0;
-                }
-              });
-            }
-            
-            // Sum max possible scores from all content items in the current view
-            if (maxPossibleScore === 0) {
-              // If no max score from API, calculate from current contents
-              contents.value.forEach(content => {
-                maxPossibleScore += content.max_score || 1; // Default to 1 if not specified
-              });
-              
-              // Also include custom forms' contents
-              customForms.value.forEach(form => {
-                if (form.contents && form.contents.length) {
-                  form.contents.forEach(content => {
-                    maxPossibleScore += content.max_score || 1;
-                  });
-                }
-              });
-            }
-            
-            lessonScore.value = {
-              total: totalScore,
-              max: maxPossibleScore
-            };
+        // Check in main contents
+        for (let i = 0; i < contents.value.length; i++) {
+          if (contents.value[i].id === contentId) {
+            // Update the user_score property
+            contents.value[i].user_score = numericScore;
+            contentFound = true;
+            break;
           }
         }
-      } catch (error) {
-        console.error('Error checking lesson completion status:', error);
-        // Don't show error toast here, as this is a background check
-      }
-    };
-    
-    const loadContent = async () => {
-      try {
-        if (!route.params.courseSlug || !route.params.moduleId || !route.params.lessonId) {
-          loadError.value = 'Ошибка: отсутствуют необходимые параметры маршрута.';
-          showToast('Ошибка маршрута.', 'error');
-          return;
-        }
         
-        // Just call the existing loadArticle function
-        await loadArticle();
-      } catch (error) {
-        console.error('Error loading content:', error);
-        loadError.value = 'Ошибка загрузки содержимого: ' + error;
-        showToast('Ошибка загрузки.', 'error');
-      }
-    };
-    
-    const markLessonAsCompleted = async () => {
-      try {
-        isSaving.value = true;
-        // Get the base API URL from environment or use a default
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-        
-        console.log(`Marking lesson ${route.params.lessonId} as completed`);
-        
-        const response = await fetch(`${apiUrl}/api/lessons/${route.params.lessonId}/mark-completed/`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-          },
-          body: JSON.stringify({})
-        });
-        
-        console.log(`Response status: ${response.status}`);
-        
-        if (response.ok) {
-          let responseData;
-          try {
-            responseData = await response.json();
-            console.log('Response data:', responseData);
-          } catch (e) {
-            // Handle empty response body
-            console.log('Empty response body, assuming success');
-            responseData = { status: 'success' };
-          }
-          
-          isLessonCompleted.value = true;
-          showToast('Урок успешно отмечен как пройденный!', 'success');
-          
-          // Refresh progress statistics
-          checkLessonCompletionStatus();
-        } else {
-          let errorData = { error: 'Неизвестная ошибка' };
-          try {
-            errorData = await response.json();
-            console.error('Error data:', errorData);
-          } catch (e) {
-            // Handle case where response isn't valid JSON
-            console.error('Response is not valid JSON');
-            errorData = { error: `HTTP error: ${response.status}` };
-          }
-          showToast(`Ошибка: ${errorData.error || 'Не удалось отметить урок'}`, 'error');
-        }
-      } catch (error) {
-        console.error('Error marking lesson as completed:', error);
-        showToast('Ошибка при обновлении прогресса. Проверьте соединение.', 'error');
-      } finally {
-        isSaving.value = false;
-      }
-    };
-
-    const resetLessonProgress = async () => {
-      if (!confirm('Вы уверены, что хотите сбросить весь прогресс урока? Это действие нельзя отменить.')) {
-        return;
-      }
-      
-      try {
-        isSaving.value = true;
-        // Get the base API URL from environment or use a default
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-        
-        console.log(`Resetting progress for lesson ${route.params.lessonId}`);
-        
-        const response = await fetch(`${apiUrl}/api/lessons/${route.params.lessonId}/reset-progress/`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-          },
-          body: JSON.stringify({})
-        });
-        
-        console.log(`Response status: ${response.status}`);
-        
-        if (response.ok) {
-          let responseData;
-          try {
-            responseData = await response.json();
-            console.log('Response data:', responseData);
-          } catch (e) {
-            // Handle empty response body
-            console.log('Empty response body, assuming success');
-            responseData = { status: 'success' };
-          }
-          
-          // Reset local progress state
-          isLessonCompleted.value = false;
-          lessonScore.value = { total: 0, max: lessonScore.value.max };
-          
-          // Clear localStorage progress for all content elements
-          customForms.value.forEach(form => {
-            form.contents.forEach(content => {
-              if (content.id) {
-                localStorage.removeItem(`video_${content.id}`);
-                localStorage.removeItem(`quiz_${content.id}`);
-                localStorage.removeItem(`code_${content.id}`);
+        // If not found in main contents, check in forms
+        if (!contentFound) {
+          for (const form of customForms.value) {
+            for (let i = 0; i < form.contents.length; i++) {
+              if (form.contents[i].id === contentId) {
+                // Update the user_score property
+                form.contents[i].user_score = numericScore;
+                contentFound = true;
+                break;
               }
-            });
-          });
-          
-          showToast('Прогресс урока успешно сброшен!', 'success');
-          
-          // Reload the page to reset all component states
-          window.location.reload();
-        } else {
-          let errorData = { error: 'Неизвестная ошибка' };
-          try {
-            errorData = await response.json();
-            console.error('Error data:', errorData);
-          } catch (e) {
-            // Handle case where response isn't valid JSON
-            console.error('Response is not valid JSON');
-            errorData = { error: `HTTP error: ${response.status}` };
+            }
+            if (contentFound) break;
           }
-          showToast(`Ошибка: ${errorData.error || 'Не удалось сбросить прогресс урока'}`, 'error');
+        }
+        
+        // Recalculate the total score
+        let totalScore = 0;
+        
+        // Add scores from main contents
+        contents.value.forEach(content => {
+          if (content.user_score !== undefined) {
+            totalScore += parseInt(content.user_score) || 0;
+          }
+        });
+        
+        // Add scores from forms
+        customForms.value.forEach(form => {
+          form.contents.forEach(content => {
+            if (content.user_score !== undefined) {
+              totalScore += parseInt(content.user_score) || 0;
+            }
+          });
+        });
+        
+        // Update the total score
+        lessonScore.value.total = totalScore;
+        
+        console.log(`Updated total score: ${lessonScore.value.total}/${lessonScore.value.max}`);
+        
+        // Save the updated score to localStorage
+        try {
+          localStorage.setItem(`lesson_score_${article.value.id}`, JSON.stringify(lessonScore.value));
+        } catch (error) {
+          console.error('Error saving score to localStorage:', error);
+        }
+      }
+    }
+
+    const resetLessonProgress = () => {
+      if (!confirm('Вы уверены, что хотите сбросить весь прогресс по этому уроку?')) return
+      
+      // Reset score to 0 but keep max score
+      lessonScore.value = { total: 0, max: lessonScore.value.max };
+      isLessonCompleted.value = false;
+      
+      // Reset all form content answers if applicable
+      customForms.value.forEach(form => {
+        form.contents.forEach(content => {
+          if (content.type === 'quiz' && content.user_answer) {
+            delete content.user_answer;
+          }
+          // Reset user_score for all content types
+          if (content.user_score !== undefined) {
+            delete content.user_score;
+          }
+          
+          // Clear quiz state from localStorage
+          if (content.id) {
+            localStorage.removeItem(`quiz_${content.id}`);
+          }
+        });
+      });
+      
+      // Reset user_score for main contents
+      contents.value.forEach(content => {
+        if (content.user_score !== undefined) {
+          delete content.user_score;
+        }
+        
+        // Clear quiz state from localStorage
+        if (content.id && content.type === 'quiz') {
+          localStorage.removeItem(`quiz_${content.id}`);
+        }
+      });
+      
+      // Clear saved score from localStorage
+      try {
+        localStorage.removeItem(`lesson_score_${article.value.id}`);
+        
+        // Remove from completed lessons
+        const completedLessons = JSON.parse(localStorage.getItem('completed_lessons') || '[]');
+        const index = completedLessons.indexOf(article.value.id);
+        if (index !== -1) {
+          completedLessons.splice(index, 1);
+          localStorage.setItem('completed_lessons', JSON.stringify(completedLessons));
         }
       } catch (error) {
-        console.error('Error resetting lesson progress:', error);
-        showToast('Ошибка при сбросе прогресса. Проверьте соединение.', 'error');
-      } finally {
-        isSaving.value = false;
-      }
-    };
-
-    // Check lesson completion status when component is mounted
-    onMounted(() => {
-      document.addEventListener('mouseup', handleGlobalTextSelection);
-      window.addEventListener('beforeunload', beforeUnloadHandler);
-      
-      // Only fetch user profile if not already loaded
-      if (!userStore.user || !userStore.user.id) {
-        userStore.fetchUserProfile();
+        console.error('Error removing score from localStorage:', error);
       }
       
-      // Load content and check completion status
-      if (!route.params.courseSlug || !route.params.moduleId || !route.params.lessonId) {
-        loadError.value = 'Ошибка: отсутствуют необходимые параметры маршрута.';
-        showToast('Ошибка маршрута.', 'error');
-        return;
-      }
+      // Force a reload of the page to reset all component states
+      showToast('Прогресс урока сброшен. Обновление страницы...', 'success');
       
-      // Call loadArticle directly since it should initialize everything
-      loadArticle().then(() => {
-        // After content is loaded, check the completion status
-        checkLessonCompletionStatus();
-      }).catch(error => {
-        console.error('Error during initial load:', error);
-      });
-    });
+      // Wait a moment for the toast to show, then reload
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    }
 
-    onUnmounted(() => {
-      document.removeEventListener('mouseup', handleGlobalTextSelection)
-      window.removeEventListener('beforeunload', beforeUnloadHandler)
-    })
+    const markLessonAsCompleted = () => {
+      if (isLessonCompleted.value) return
+      
+      isLessonCompleted.value = true
+      showToast('Урок отмечен как пройденный!', 'success')
+      
+      // Here you would typically make an API call to update the user's progress
+      // For now, we'll just store it locally
+      try {
+        const completedLessons = JSON.parse(localStorage.getItem('completed_lessons') || '[]')
+        if (!completedLessons.includes(article.value.id)) {
+          completedLessons.push(article.value.id)
+          localStorage.setItem('completed_lessons', JSON.stringify(completedLessons))
+        }
+      } catch (error) {
+        console.error('Error saving completed lesson:', error)
+      }
+    }
 
-    // Add a handler for content answer submissions
-    const onAnswerSubmitted = (answerData) => {
-      // Update total score when a quiz/code/video is completed
-      if (answerData && typeof answerData.score === 'number') {
-        // Update the local score tracking
-        lessonScore.value.total += answerData.score;
+    const updateContentScore = (contentId, score) => {
+      // Find the content in any form and update its score
+      for (const form of customForms.value) {
+        const contentIndex = form.contents.findIndex(c => c.id === contentId)
+        if (contentIndex !== -1) {
+          const content = form.contents[contentIndex]
+          if (!content.user_score) {
+            content.user_score = 0
+          }
+          content.user_score += score
+          return
+        }
+      }
+    }
+
+    // Load article content when component is mounted
+    onMounted(async () => {
+      try {
+        isLoading.value = true;
+        loadError.value = null;
         
-        // Refresh completion status to get updated scores from backend
-        checkLessonCompletionStatus();
+        const courseSlug = route.params.courseSlug;
+        const moduleId = route.params.moduleId;
+        const lessonId = route.params.lessonId;
+        
+        if (!courseSlug || !moduleId || !lessonId) {
+          throw new Error('Отсутствуют необходимые параметры (курс, модуль или урок)');
+        }
+        
+        // Load lesson content
+        const contentUrl = `/courses/${courseSlug}/modules/${moduleId}/lessons/${lessonId}/contents/`;
+        console.log('Loading content from:', contentUrl);
+        
+        const response = await api.get(contentUrl);
+        contents.value = response.data.sort((a, b) => a.order - b.order);
+        originalContents.value = JSON.parse(JSON.stringify(contents.value));
+        
+        // Load custom forms from localStorage or create empty array if none exists
+        try {
+          const storedForms = localStorage.getItem(`article_forms_${lessonId}`);
+          if (storedForms) {
+            customForms.value = JSON.parse(storedForms);
+          } else {
+            customForms.value = [];
+          }
+        } catch (error) {
+          console.error('Error loading forms from localStorage:', error);
+          customForms.value = [];
+        }
+        
+        // Check if the lesson is completed
+        try {
+          const completedLessons = JSON.parse(localStorage.getItem('completed_lessons') || '[]');
+          isLessonCompleted.value = completedLessons.includes(lessonId);
+        } catch (error) {
+          console.error('Error checking lesson completion status:', error);
+        }
+        
+        // Try to load saved score from localStorage
+        try {
+          const savedScore = localStorage.getItem(`lesson_score_${lessonId}`);
+          if (savedScore) {
+            lessonScore.value = JSON.parse(savedScore);
+            console.log('Loaded saved score:', lessonScore.value);
+          }
+        } catch (error) {
+          console.error('Error loading saved score:', error);
+        }
+        
+        // Calculate total maximum score
+        let maxScore = 0;
+        let totalScore = 0;
+        
+        contents.value.forEach(content => {
+          const contentMaxScore = parseInt(content.max_score) || 1;
+          maxScore += contentMaxScore;
+          
+          // Add user score if available
+          if (content.user_score !== undefined) {
+            totalScore += parseInt(content.user_score) || 0;
+          }
+        });
+        
+        customForms.value.forEach(form => {
+          form.contents.forEach(content => {
+            const contentMaxScore = parseInt(content.max_score) || 1;
+            maxScore += contentMaxScore;
+            
+            // Add user score if available
+            if (content.user_score !== undefined) {
+              totalScore += parseInt(content.user_score) || 0;
+            }
+          });
+        });
+        
+        // Only update scores if we didn't load from localStorage
+        if (!localStorage.getItem(`lesson_score_${lessonId}`)) {
+          lessonScore.value = {
+            total: totalScore || 0,
+            max: maxScore || 0
+          };
+        } else {
+          // Just update the max score
+          lessonScore.value.max = maxScore || 0;
+        }
+        
+        // Get article title
+        if (response.data.length > 0 && article.value.title === 'Новая работа') {
+          const lessonResponse = await api.get(`/courses/${courseSlug}/modules/${moduleId}/lessons/${lessonId}/`);
+          article.value.title = lessonResponse.data.title || 'Новая работа';
+        }
+        
+        showToast('Содержимое загружено успешно', 'success');
+      } catch (error) {
+        console.error('Error loading article content:', error);
+        loadError.value = error.response?.data?.detail || error.message || 'Ошибка загрузки содержимого';
+      } finally {
+        isLoading.value = false;
       }
-    };
+      
+      // Add event listeners for text selection
+      document.addEventListener('mouseup', handleGlobalTextSelection);
+      document.addEventListener('touchend', handleGlobalTextSelection);
+      
+      // Add beforeunload event listener
+      window.addEventListener('beforeunload', beforeUnloadHandler);
+    });
+    
+    // Remove event listeners when component is unmounted
+    onUnmounted(() => {
+      document.removeEventListener('mouseup', handleGlobalTextSelection);
+      document.removeEventListener('touchend', handleGlobalTextSelection);
+      window.removeEventListener('beforeunload', beforeUnloadHandler);
+    });
 
     return {
       userStore,
@@ -1646,6 +1281,11 @@ export default {
       lessonScore,
       onAnswerSubmitted,
       resetLessonProgress,
+      updateContentScore,
+      handleGlobalTextSelection,
+      beforeUnloadHandler,
+      updateContentOrder,
+      saveOrder,
     }
   },
 }
@@ -2066,9 +1706,42 @@ export default {
   transform: translateY(-1px);
 }
 
-.add-content-btn:disabled {
+.add-content-btn:disabled, 
+.add-content-btn.disabled {
   background: #d1d5db;
   cursor: not-allowed;
+  opacity: 0.7;
+  position: relative;
+}
+
+.add-content-btn:disabled:hover,
+.add-content-btn.disabled:hover {
+  background: #d1d5db;
+  transform: none;
+  box-shadow: none;
+}
+
+.add-content-btn:disabled::after,
+.add-content-btn.disabled::after {
+  content: 'Выберите форму сначала';
+  position: absolute;
+  bottom: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.add-content-btn:disabled:hover::after,
+.add-content-btn.disabled:hover::after {
+  opacity: 1;
 }
 
 .save-button {
@@ -2437,15 +2110,15 @@ export default {
 }
 
 .toast.success {
-  background: var(--accent-color);
+  background-color: #4CAF50;
 }
 
 .toast.error {
-  background: var(--error-color);
+  background-color: #f44336;
 }
 
 .toast.info {
-  background: var(--secondary-text);
+  background-color: #2196F3;
 }
 
 .toast-close {

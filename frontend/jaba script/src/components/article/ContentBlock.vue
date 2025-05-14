@@ -128,7 +128,22 @@ const updateContent = (newContent) => {
 };
 
 const handleAnswerSubmitted = (data) => {
-  emit('answer-submitted', data);
+  // Make sure we have the content ID and pass it to the parent
+  const contentId = props.content.id;
+  
+  // Log the submission for debugging
+  console.log('ContentBlock received answer submission:', {
+    contentId,
+    originalData: data
+  });
+  
+  // If data is an object with score, pass it along with the content ID
+  if (typeof data === 'object' && data !== null) {
+    emit('answer-submitted', contentId, data.score);
+  } else {
+    // If data is just a score value or something else, pass it directly
+    emit('answer-submitted', contentId, data);
+  }
 };
 
 const moveUp = () => {
@@ -152,7 +167,11 @@ const updateScore = () => {
   // Ensure score is an integer
   localContent.value.max_score = Math.floor(localContent.value.max_score);
   
-  emit('update:content', { ...localContent.value });
+  // Create a new object to ensure reactivity
+  const updatedContent = { ...localContent.value };
+  
+  // Emit the update event with the updated content
+  emit('update:content', updatedContent);
 };
 
 // Use ResizeObserver to handle width changes
@@ -294,12 +313,20 @@ onMounted(() => {
 
 .block-score .score-input {
   width: 50px;
-  padding: 4px 8px;
+  padding: 4px;
   border: 1px solid var(--border-color);
   border-radius: 4px;
-  background: var(--form-background);
-  color: var(--text-color);
+  font-size: 14px;
   text-align: center;
+  /* Hide spinner buttons for number inputs */
+  -moz-appearance: textfield; /* Firefox */
+}
+
+/* Hide spinner buttons for Chrome, Safari, Edge, Opera */
+.score-input::-webkit-outer-spin-button,
+.score-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .remove-btn {

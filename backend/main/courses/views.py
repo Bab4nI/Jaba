@@ -837,6 +837,8 @@ class UserProgressViewSet(viewsets.ModelViewSet):
 
         content_id = request.data.get('content_id')
         score = request.data.get('score', 1)  # Default score is 1 for non-quiz/code content
+        additional_score = request.data.get('additional_score', 0)
+        auto_score_content_types = request.data.get('auto_score_content_types', [])
 
         lesson = get_object_or_404(Lesson, id=lesson_id)
         
@@ -863,5 +865,72 @@ class UserProgressViewSet(viewsets.ModelViewSet):
             if not created:
                 progress.completed = True
                 progress.save()
+                
+            # Process auto-scored content types
+            if auto_score_content_types and additional_score > 0:
+                # Get all content items for this lesson that match the auto-score types
+                contents = LessonContent.objects.filter(
+                    lesson=lesson,
+                    content_type__in=[t.upper() for t in auto_score_content_types]
+                )
+                
+                # Create or update progress for each content item
+                for content in contents:
+                    # Check if we already have progress for this content
+                    content_progress = UserProgress.objects.filter(
+                        user=request.user,
+                        lesson=lesson,
+                        content=content
+                    ).first()
+                    
+                    # Only create/update if no progress exists or score is 0
+                    if not content_progress or content_progress.score == 0:
+                        if not content_progress:
+                            content_progress = UserProgress(
+                                user=request.user,
+                                lesson=lesson,
+                                content=content,
+                                completed=True,
+                                score=1  # Each auto-scored item gets 1 point
+                            )
+                        else:
+                            content_progress.completed = True
+                            content_progress.score = 1
+                        
+                        content_progress.save()
 
         return Response({'status': 'success'})
+        
+    @action(detail=False, methods=['POST'])
+    def reset_progress(self, request, lesson_id=None):
+        """
+        Reset a user's progress for a specific lesson.
+        This will delete all progress records for the lesson and its contents.
+        """
+        # First check if lesson_id is in URL params
+        if lesson_id is None:
+            # If not in URL params, try to get from request data
+            lesson_id = request.data.get('lesson_id')
+            
+        if not lesson_id:
+            return Response(
+                {"error": "lesson_id is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        lesson = get_object_or_404(Lesson, id=lesson_id)
+        
+        # Delete all progress records for this lesson and user
+        deleted_count, _ = UserProgress.objects.filter(
+            user=request.user,
+            lesson=lesson
+        ).delete()
+        
+        # Also clear any localStorage data on the client side
+        # (This will be handled by the frontend)
+        
+        return Response({
+            'status': 'success',
+            'message': f'Progress reset for lesson {lesson_id}',
+            'deleted_records': deleted_count
+        })

@@ -67,7 +67,7 @@ const themeStore = useThemeStore();
 
 const localContent = ref({
   video_url: '',
-  max_score: 1,
+  max_score: 5,
   ...props.content
 });
 const videoUrl = ref('');

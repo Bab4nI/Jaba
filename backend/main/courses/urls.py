@@ -146,6 +146,11 @@ urlpatterns = [
         name='mark-lesson-completed'
     ),
     path(
+        'lessons/<int:lesson_id>/reset-progress/',
+        UserProgressViewSet.as_view({'post': 'reset_progress'}),
+        name='reset-lesson-progress'
+    ),
+    path(
         'lesson-contents/<int:pk>/submit-answer/',
         LessonContentViewSet.as_view({'post': 'submit_answer'}),
         name='submit-content-answer'

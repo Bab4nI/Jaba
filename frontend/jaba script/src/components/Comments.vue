@@ -39,7 +39,7 @@
         <template v-for="comment in sortedComments" :key="comment.id">
           <div class="comment-item">
             <div class="comment-main-row">
-              <img :src="comment.author.avatar || '/default-avatar.png'" class="comment-avatar" alt="avatar" />
+              <img :src="comment.author.avatar || defaultAvatarUrl" class="comment-avatar" alt="avatar" />
               <div class="comment-body">
                 <div class="comment-header-row">
                   <span class="comment-author">{{ comment.author.username }}</span>
@@ -94,7 +94,7 @@
                 <!-- Вложенные ответы -->
                 <div v-if="comment.showReplies !== false && comment.replies && comment.replies.length > 0" class="replies-list">
                   <div v-for="reply in comment.replies" :key="reply.id" class="reply-item">
-                    <img :src="reply.author.avatar || '/default-avatar.png'" class="comment-avatar" alt="avatar" />
+                    <img :src="reply.author.avatar || defaultAvatarUrl" class="comment-avatar" alt="avatar" />
                     <div class="reply-body">
                       <div class="comment-header-row">
                         <span class="comment-author">{{ reply.author.username }}</span>
@@ -174,7 +174,18 @@ export default {
     const activeMenu = ref(null)
     const replyToId = ref(null)
 
-    const userAvatar = computed(() => userStore.avatarBase64 || userStore.user?.avatar_base64 || '/default-avatar.png')
+    const userAvatar = computed(() => {
+      // First try to get avatar from user store
+      if (userStore.avatarBase64) return userStore.avatarBase64;
+      if (userStore.user?.avatar_base64) return userStore.user.avatar_base64;
+      
+      // If no avatar in store, use default avatar from assets
+      return defaultAvatarUrl;
+    })
+    
+    // Create a constant for the default avatar URL
+    const defaultAvatarUrl = '/src/assets/images/default-avatar.png';
+
     const courseSlug = computed(() => route.params.courseSlug)
     const moduleId = computed(() => route.params.moduleId)
     const lessonId = computed(() => route.params.lessonId)
@@ -653,7 +664,7 @@ export default {
       userStore, authStore, userAvatar, comments, loading, error, newCommentText, activeTab,
       replyingId, replyText, sortType, sortedComments, editingId, editText, activeMenu,
       replyToId, addComment, likeComment, toggleReplies, startReply, submitReply, formatDate, sortComments,
-      startEdit, cancelEdit, submitEdit, deleteComment, userOwnsComment, toggleMenu
+      startEdit, cancelEdit, submitEdit, deleteComment, userOwnsComment, toggleMenu, defaultAvatarUrl
     }
   }
 }
