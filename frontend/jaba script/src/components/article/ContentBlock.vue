@@ -139,7 +139,18 @@ const handleAnswerSubmitted = (data) => {
   
   // If data is an object with score, pass it along with the content ID
   if (typeof data === 'object' && data !== null) {
-    emit('answer-submitted', contentId, data.score);
+    if (data.score !== undefined) {
+      // If the object already has a contentId property, use it directly
+      if (data.contentId !== undefined) {
+        // Pass the object as is to the parent
+        emit('answer-submitted', data);
+      } else {
+        // Add the contentId and pass to the parent
+        emit('answer-submitted', contentId, data.score);
+      }
+    } else {
+      emit('answer-submitted', contentId, 0);
+    }
   } else {
     // If data is just a score value or something else, pass it directly
     emit('answer-submitted', contentId, data);
@@ -358,6 +369,27 @@ onMounted(() => {
   width: 100%;
   text-align: left;
   transition: background-color 0.3s ease;
+  /* Fixed width for content */
+  max-width: 800px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Apply fixed width to all text elements within content blocks */
+:deep(.block-content p),
+:deep(.block-content div),
+:deep(.block-content span),
+:deep(.block-content li),
+:deep(.block-content pre),
+:deep(.block-content code),
+:deep(.block-content textarea),
+:deep(.block-content input[type="text"]),
+:deep(.question-text),
+:deep(.answer-text) {
+  max-width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
 }
 
 .read-only .block-toolbar {
@@ -382,6 +414,10 @@ onMounted(() => {
   .block-type {
     flex: 1;
     text-align: center;
+  }
+  
+  .block-content {
+    max-width: 100%;
   }
 }
 

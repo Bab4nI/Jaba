@@ -310,6 +310,7 @@ export default {
   overflow-x: hidden;
   text-align: left;
   transition: color 0.3s ease, background-color 0.3s ease;
+  max-width: 800px;
 }
 
 .text-editor:focus {
@@ -334,16 +335,22 @@ export default {
 
 .text-editor p {
   margin: 0 0 1em;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 .text-editor ul,
 .text-editor ol {
   margin: 0 0 1em;
   padding-left: 2em;
+  max-width: 100%;
 }
 
 .text-editor li {
   margin-bottom: 0.5em;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 .text-editor li:last-child {
@@ -356,6 +363,8 @@ export default {
   border-left: 4px solid var(--accent-color);
   color: var(--secondary-text);
   transition: color 0.3s ease, border-color 0.3s ease;
+  max-width: 100%;
+  overflow-wrap: break-word;
 }
 
 .text-editor code {
@@ -366,6 +375,8 @@ export default {
   font-size: 0.9em;
   color: var(--text-color);
   transition: background-color 0.3s ease, color 0.3s ease;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .text-editor pre {
@@ -376,6 +387,8 @@ export default {
   margin: 0 0 1em;
   border: 1px solid var(--border-color);
   transition: background-color 0.3s ease, border-color 0.3s ease;
+  max-width: 100%;
+  white-space: pre-wrap;
 }
 
 .text-editor pre code {
@@ -435,7 +448,25 @@ export default {
   color: var(--secondary-text, #575667);
 }
 
+.score-success {
+  color: #2e8b33;
+  font-weight: 700;
+}
+
+.score-fail {
+  color: var(--error-color, #da1f38);
+  font-weight: 700;
+}
+
 :global(.dark-theme) .element-score-display {
   background: rgba(255, 255, 255, 0.08);
+}
+
+:global(.dark-theme) .score-success {
+  color: #6bdb70;
+}
+
+:global(.dark-theme) .score-fail {
+  color: #ff6b6b;
 }
 </style>

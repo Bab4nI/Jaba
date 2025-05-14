@@ -119,18 +119,8 @@
             </button>
 
             <button
-              @click="toggleMode"
-              class="preview-btn"
-              aria-label="Предпросмотр"
-            >
-              <span class="btn-icon">👁️</span>
-              Предпросмотр
-            </button>
-
-            <button
               @click="saveAllChanges"
               class="save-button"
-              :disabled="isSaving || !hasChanges"
               aria-label="Сохранить все изменения"
             >
               <span v-if="isSaving" class="spinner"></span>
@@ -622,11 +612,6 @@ export default {
     }
 
     const saveAllChanges = async () => {
-      if (!hasChanges.value && customForms.value.length === 0) {
-        showToast('Нет изменений для сохранения.', 'info')
-        return
-      }
-
       isSaving.value = true
       const errors = []
 
@@ -733,6 +718,11 @@ export default {
           // Original backend saving code for when useLocalStorage is false
           // Implementation for backend saving would go here
           showToast('Сохранение на сервере не реализовано в этой версии.', 'warning')
+          
+          // Still switch to preview mode
+          if (mode.value === 'edit') {
+            toggleMode()
+          }
         }
       } catch (error) {
         console.error('Ошибка сохранения работы:', error)
@@ -805,7 +795,7 @@ export default {
     const addNewBlock = (type) => {
       if (!type) return
       const newContent = {
-        id: null,
+        id: generateUniqueId(), // Ensure all new blocks have a unique ID
         type,
         order: contents.value.length + 1,
         ...JSON.parse(JSON.stringify(DEFAULT_CONTENT[type])),
@@ -935,18 +925,29 @@ export default {
     const onAnswerSubmitted = (contentId, score) => {
       // Update the lesson score when an answer is submitted
       if (lessonScore.value) {
-        // Ensure score is a number
-        const numericScore = parseInt(score) || 0;
+        // Handle both formats: direct score value or object with score property
+        let numericScore = 0;
+        let actualContentId = contentId;
         
-        console.log(`Answer submitted for content ${contentId} with score ${numericScore}`);
+        if (typeof contentId === 'object' && contentId !== null) {
+          // New format: object with contentId and score properties
+          numericScore = parseInt(contentId.score) || 0;
+          actualContentId = contentId.contentId;
+          console.log(`Answer submitted in object format for content ${actualContentId} with score ${numericScore}`);
+        } else {
+          // Old format: direct contentId and score
+          numericScore = parseInt(score) || 0;
+          console.log(`Answer submitted in direct format for content ${contentId} with score ${numericScore}`);
+        }
         
         // Find the content in either main contents or forms
         let contentFound = false;
         
         // Check in main contents
         for (let i = 0; i < contents.value.length; i++) {
-          if (contents.value[i].id === contentId) {
+          if (contents.value[i].id === actualContentId) {
             // Update the user_score property
+            console.log(`Found content in main contents, updating score from ${contents.value[i].user_score} to ${numericScore}`);
             contents.value[i].user_score = numericScore;
             contentFound = true;
             break;
@@ -957,8 +958,9 @@ export default {
         if (!contentFound) {
           for (const form of customForms.value) {
             for (let i = 0; i < form.contents.length; i++) {
-              if (form.contents[i].id === contentId) {
+              if (form.contents[i].id === actualContentId) {
                 // Update the user_score property
+                console.log(`Found content in form, updating score from ${form.contents[i].user_score} to ${numericScore}`);
                 form.contents[i].user_score = numericScore;
                 contentFound = true;
                 break;
@@ -968,12 +970,17 @@ export default {
           }
         }
         
+        if (!contentFound) {
+          console.warn(`Content with ID ${actualContentId} not found in any form or main content`);
+        }
+        
         // Recalculate the total score
         let totalScore = 0;
         
         // Add scores from main contents
         contents.value.forEach(content => {
           if (content.user_score !== undefined) {
+            console.log(`Adding ${content.user_score} from main content ${content.id} (${content.type})`);
             totalScore += parseInt(content.user_score) || 0;
           }
         });
@@ -982,6 +989,7 @@ export default {
         customForms.value.forEach(form => {
           form.contents.forEach(content => {
             if (content.user_score !== undefined) {
+              console.log(`Adding ${content.user_score} from form content ${content.id} (${content.type})`);
               totalScore += parseInt(content.user_score) || 0;
             }
           });
@@ -1019,9 +1027,14 @@ export default {
             delete content.user_score;
           }
           
-          // Clear quiz state from localStorage
+          // Clear quiz and code state from localStorage
           if (content.id) {
-            localStorage.removeItem(`quiz_${content.id}`);
+            if (content.type === 'quiz') {
+              localStorage.removeItem(`quiz_${content.id}`);
+            }
+            if (content.type === 'code') {
+              localStorage.removeItem(`code_${content.id}`);
+            }
           }
         });
       });
@@ -1032,9 +1045,14 @@ export default {
           delete content.user_score;
         }
         
-        // Clear quiz state from localStorage
-        if (content.id && content.type === 'quiz') {
-          localStorage.removeItem(`quiz_${content.id}`);
+        // Clear quiz and code state from localStorage
+        if (content.id) {
+          if (content.type === 'quiz') {
+            localStorage.removeItem(`quiz_${content.id}`);
+          }
+          if (content.type === 'code') {
+            localStorage.removeItem(`code_${content.id}`);
+          }
         }
       });
       
@@ -1443,6 +1461,9 @@ export default {
   min-width: 1043px;
   padding-top: 91px;
   padding-bottom: 157px;
+  /* Ensure content is centered */
+  margin: 0 auto;
+  max-width: 1200px;
 }
 
 .article-header {
@@ -1471,6 +1492,11 @@ export default {
   outline: none;
   transition: border-color 0.4s, color 0.4s ease, transform 0.3s;
   margin-right: 2rem;
+  /* Ensure text wrapping for long titles */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  max-width: 100%;
 }
 
 .article-title:focus {
@@ -1556,6 +1582,11 @@ export default {
   border-radius: 8px;
   border: 2px dashed #a094b8;
   transition: background-color 0.4s ease, border-color 0.4s ease, transform 0.3s ease, box-shadow 0.4s ease;
+  /* Fixed width for form containers */
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
 }
 
 .custom-form-container:hover {
@@ -1585,6 +1616,10 @@ export default {
   padding: 5px;
   transition: all 0.2s, color 0.3s ease;
   border-radius: 4px;
+  /* Ensure text wrapping for long titles */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
 }
 
 .form-title:not([readonly]):not([disabled]):focus {
@@ -2480,6 +2515,10 @@ export default {
   width: 100%;
   gap: 20px;
   --content-block-width: auto; /* Initialize the CSS variable */
+  /* Fixed width for content */
+  max-width: 850px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .article-toolbar {

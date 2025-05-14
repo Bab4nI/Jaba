@@ -1,7 +1,7 @@
 <template>
   <div class="code-element" :class="{ 'read-only': readOnly && !allowPreviewEdit, 'preview-editable': readOnly && allowPreviewEdit, [currentTheme]: true }">
     <!-- Score display at the top when in read-only mode -->
-    <div v-if="readOnly && !allowPreviewEdit && showScore" class="element-score-display">
+    <div v-if="readOnly && showScore" class="element-score-display">
       <template v-if="userScore !== null">
         <span :class="{'score-success': userScore === localContent.max_score, 'score-fail': userScore < localContent.max_score}">
           {{ userScore }}/{{ localContent.max_score }}
@@ -158,11 +158,10 @@
       <h4>Результат выполнения:</h4>
       <pre>{{ executionResult }}</pre>
       
-      <!-- Show comparison with expected result -->
-      <div v-if="localContent.expectedResult && !executionError" class="result-comparison">
+      <!-- Show comparison with expected result only if not already submitted -->
+      <div v-if="localContent.expectedResult && !executionError && !codeSubmitted" class="result-comparison">
         <div v-if="resultMatches" class="result-matches">
           <span class="icon-success">✓</span> Результат совпадает с ожидаемым
-          <span class="score-success">({{ localContent.max_score }} баллов)</span>
         </div>
         <div v-else class="result-differs">
           <span class="icon-error">✗</span> Результат не совпадает с ожидаемым
@@ -264,7 +263,10 @@ onMounted(() => {
     themeValue.value = themeStore.isDarkMode ? 'vs-dark' : 'vs-light'
   }
   
-  // Load submission state from localStorage if in read-only mode
+  // Log content ID for debugging
+  console.log('CodeElement mounted with content ID:', props.content.id);
+  
+  // Initialize from localStorage if there's saved progress
   if (props.readOnly && props.content.id) {
     const savedData = localStorage.getItem(`code_${props.content.id}`);
     if (savedData) {
@@ -272,58 +274,97 @@ onMounted(() => {
         const data = JSON.parse(savedData);
         codeSubmitted.value = data.codeSubmitted;
         userScore.value = data.userScore;
+        console.log(`Loaded saved state for code ${props.content.id}:`, { codeSubmitted: codeSubmitted.value, userScore: userScore.value });
+        
+        // If we have a saved score, emit it to update the parent in the same format as QuizElement
+        if (userScore.value !== null) {
+          emit('answer-submitted', {
+            contentId: props.content.id,
+            score: userScore.value,
+            maxScore: localContent.value.max_score
+          });
+        }
       } catch (e) {
-        console.error('Error loading code submission state:', e);
+        console.error('Error loading code state:', e);
       }
+    } else {
+      console.log(`No saved state found for code ${props.content.id}`);
     }
   }
+  
+  // Set theme based on system preference or store
+  updateTheme();
 })
 
 // Submit code for scoring
 const submitCode = () => {
   if (!localContent.value.code) return;
   
-  // Run the code first to get the result
-  runCode().then(() => {
-    // Calculate score based on matching expected result
-    let score = 0;
-    
-    // If we have an expected result and the execution was successful
-    if (localContent.value.expectedResult && !executionError.value) {
-      // If result matches expected result, award full points
-      if (resultMatches.value) {
-        score = localContent.value.max_score;
-        // Показываем сообщение о получении баллов
-        executionResult.value += `\n\n✅ Вы получили ${score} баллов за правильное решение!`;
-      } else {
-        // Partial score for code that runs without errors but doesn't match
-        score = Math.floor(localContent.value.max_score * 0.3);
-      }
-    } else if (!executionError.value) {
-      // If no expected result defined but code runs without errors
-      score = Math.floor(localContent.value.max_score * 0.5);
-    }
-    
-    // Update state
-    codeSubmitted.value = true;
-    userScore.value = score;
-    
-    // Save to localStorage
-    if (props.content.id) {
-      localStorage.setItem(`code_${props.content.id}`, JSON.stringify({
-        codeSubmitted: codeSubmitted.value,
-        userScore: userScore.value
-      }));
-    }
-    
-    // Emit event for parent components
-    emit('answer-submitted', {
-      contentId: props.content.id,
-      code: localContent.value.code,
-      score: userScore.value,
-      maxScore: localContent.value.max_score,
-      resultMatches: resultMatches.value
+  // If we already have execution results, use them directly
+  if (executionResult.value !== null) {
+    calculateAndSubmitScore();
+  } else {
+    // Run the code first to get the result
+    runCode().then(() => {
+      calculateAndSubmitScore();
     });
+  }
+};
+
+// Calculate score and submit it
+const calculateAndSubmitScore = () => {
+  // Calculate score based on matching expected result
+  let score = 0;
+  
+  // If we have an expected result and the execution was successful
+  if (localContent.value.expectedResult && !executionError.value) {
+    // If result matches expected result, award full points
+    if (resultMatches.value) {
+      score = localContent.value.max_score;
+    } else {
+      // Partial score for code that runs without errors but doesn't match
+      score = Math.floor(localContent.value.max_score * 0.3);
+    }
+  } else if (!executionError.value) {
+    // If no expected result defined but code runs without errors
+    score = Math.floor(localContent.value.max_score * 0.5);
+  }
+  
+  // Update state
+  codeSubmitted.value = true;
+  userScore.value = score;
+  
+  // Save to localStorage
+  if (props.content.id) {
+    localStorage.setItem(`code_${props.content.id}`, JSON.stringify({
+      codeSubmitted: codeSubmitted.value,
+      userScore: userScore.value
+    }));
+  }
+  
+  // Debug logs
+  console.log('Submitting score with:', {
+    contentId: props.content.id,
+    score: userScore.value,
+    type: 'code'
+  });
+  
+  // Emit event for parent components in the same format as QuizElement
+  emit('answer-submitted', {
+    contentId: props.content.id,
+    code: localContent.value.code,
+    score: userScore.value,
+    maxScore: localContent.value.max_score,
+    resultMatches: resultMatches.value
+  });
+  
+  // Log the submission for debugging
+  console.log('Code submitted:', {
+    contentId: props.content.id,
+    code: localContent.value.code,
+    score: userScore.value,
+    maxScore: localContent.value.max_score,
+    resultMatches: resultMatches.value
   });
 };
 
@@ -336,6 +377,15 @@ const resetSubmission = () => {
   if (props.content.id) {
     localStorage.removeItem(`code_${props.content.id}`);
   }
+  
+  // Emit event to reset score in parent component in the same format as QuizElement
+  emit('answer-submitted', {
+    contentId: props.content.id,
+    score: 0,
+    maxScore: localContent.value.max_score
+  });
+  
+  console.log('Reset submission for:', props.content.id);
 };
 
 const loadSavedContent = () => {
@@ -469,6 +519,19 @@ const runCode = async () => {
 
     if (result.status === 'Accepted') {
       executionResult.value = result.stdout || 'Program executed without output.'
+      
+      // Check if result matches expected result after setting executionResult
+      // This is important because resultMatches is a computed property based on executionResult
+      const matches = resultMatches.value;
+      console.log('Code execution result matches expected:', matches);
+      
+      // Auto-submit score if there's an expected result and it matches
+      if (localContent.value.expectedResult && props.readOnly && !codeSubmitted.value) {
+        // If result matches expected result, auto-submit
+        if (matches) {
+          calculateAndSubmitScore();
+        }
+      }
     } else {
       executionError.value = true
       executionResult.value = result.stderr || result.compile_output || `Error: ${result.status}`
@@ -582,20 +645,104 @@ const currentTheme = computed(() => {
   return themeValue.value
 })
 const themeValue = ref('vs-dark') // For manual selection
+
+const updateTheme = () => {
+  currentTheme.value = themeStore.isDarkMode ? 'vs-dark' : 'vs-light';
+};
 </script>
 
 <style scoped>
 .code-element {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  font-family: 'Raleway', sans-serif;
+  background: var(--form-background);
+  border-radius: 8px;
+  transition: all 0.3s ease, background-color 0.3s ease;
+  /* Fixed width for code elements */
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.code-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 15px;
+  background: var(--code-header-bg);
+  border-radius: 8px 8px 0 0;
+  border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.language-selector {
+  flex: 1;
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--form-background);
+  color: var(--text-color);
+  font-size: 14px;
   transition: all 0.3s ease;
-  font-family: 'Inter', sans-serif;
+  max-width: 150px;
+}
+
+.code-container {
+  position: relative;
+  width: 100%;
+  overflow: auto;
+  /* Ensure code container has proper width */
   max-width: 100%;
-  box-sizing: border-box;
+}
+
+.code-editor {
+  width: 100%;
+  min-height: 100px;
+  font-family: 'Fira Code', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 15px;
+  background: var(--code-bg);
+  color: var(--code-text);
+  border: none;
+  border-radius: 0 0 8px 8px;
+  resize: vertical;
+  tab-size: 4;
+  -moz-tab-size: 4;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.code-editor:focus {
+  outline: none;
+}
+
+.code-editor.read-only {
+  background: var(--code-bg);
+  cursor: default;
+}
+
+.code-display {
+  width: 100%;
+  min-height: 100px;
+  font-family: 'Fira Code', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 15px;
+  background: var(--code-bg);
+  color: var(--code-text);
+  border: none;
+  border-radius: 0 0 8px 8px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  /* Ensure code display has proper width */
+  max-width: 100%;
 }
 
 /* Task Description Styles */
@@ -1041,15 +1188,17 @@ const themeValue = ref('vs-dark') // For manual selection
 }
 
 .score-success {
-  color: #15803d;
+  color: #2e8b33;
+  font-weight: 700;
 }
 
 .score-fail {
-  color: #b91c1c;
+  color: var(--error-color, #da1f38);
+  font-weight: 700;
 }
 
 .score-pending {
-  color: #6b7280;
+  color: var(--secondary-text, #575667);
 }
 
 .submission-result {
@@ -1246,31 +1395,22 @@ const themeValue = ref('vs-dark') // For manual selection
   color: var(--text-color, #24222f);
   align-self: stretch;
   box-sizing: border-box;
+  display: block; /* Ensure proper display */
 }
 
-.score-success {
-  color: #2e8b33;
-  font-weight: 700;
-}
-
-.score-fail {
-  color: var(--error-color, #da1f38);
-  font-weight: 700;
-}
-
-.score-pending {
-  color: var(--secondary-text, #575667);
-}
-
-:global(.dark-theme) .element-score-display {
+.vs-dark .element-score-display {
   background: rgba(255, 255, 255, 0.08);
 }
 
-:global(.dark-theme) .score-success {
+.vs-dark .score-success {
   color: #6bdb70;
 }
 
-:global(.dark-theme) .score-fail {
+.vs-dark .score-fail {
   color: #ff6b6b;
+}
+
+.vs-high-contrast .element-score-display {
+  background: rgba(255, 255, 255, 0.15);
 }
 </style>

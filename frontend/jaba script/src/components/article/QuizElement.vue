@@ -14,12 +14,14 @@
     
     <!-- Edit Mode - Question Input -->
     <div class="question-header" v-if="!readOnly">
-      <input
+      <textarea
         v-model="localContent.question"
         placeholder="Введите вопрос"
         @input="emitUpdate"
         class="question-input"
-      />
+        rows="2"
+        @keyup="autoGrow($event)"
+      ></textarea>
     </div>
     
     <!-- View Mode - Question Display -->
@@ -90,7 +92,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted, nextTick } from 'vue';
 import { useThemeStore } from '@/stores/themeStore';
 
 const props = defineProps({
@@ -248,6 +250,27 @@ const autoGrow = (event) => {
   textarea.style.height = 'auto';
   textarea.style.height = (textarea.scrollHeight) + 'px';
 };
+
+// Add autoGrow to question input as well
+watch(() => localContent.value.question, () => {
+  nextTick(() => {
+    const questionInput = document.querySelector('.question-input');
+    if (questionInput && questionInput.tagName === 'TEXTAREA') {
+      questionInput.style.height = 'auto';
+      questionInput.style.height = (questionInput.scrollHeight) + 'px';
+    }
+  });
+});
+
+// Apply autoGrow to all answers on change
+watch(() => localContent.value.answers, () => {
+  nextTick(() => {
+    document.querySelectorAll('.answer-input').forEach(textarea => {
+      textarea.style.height = 'auto';
+      textarea.style.height = (textarea.scrollHeight) + 'px';
+    });
+  });
+}, { deep: true });
 </script>
 
 <style scoped>
@@ -264,6 +287,10 @@ const autoGrow = (event) => {
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
   transition: all 0.3s ease;
   position: relative;
+  /* Fixed width for quiz elements */
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .question-header {
@@ -287,6 +314,9 @@ const autoGrow = (event) => {
   word-wrap: break-word;
   overflow-wrap: break-word;
   min-height: 50px;
+  white-space: pre-wrap; /* Ensure line breaks are preserved */
+  resize: vertical; /* Allow vertical resizing */
+  overflow: hidden; /* Remove scrolling */
 }
 
 .question-text {
@@ -303,6 +333,9 @@ const autoGrow = (event) => {
   white-space: pre-wrap;
   width: 100%;
   line-height: 1.5;
+  /* Ensure text wrapping */
+  max-width: 100%;
+  display: block; /* Ensure block display for proper wrapping */
 }
 
 .score-display {
@@ -348,6 +381,7 @@ const autoGrow = (event) => {
   transition: all 0.3s ease;
   width: 100%;
   overflow: hidden;
+  flex-wrap: wrap; /* Allow wrapping of content */
 }
 
 .answer-item.view-mode {
@@ -361,7 +395,7 @@ const autoGrow = (event) => {
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
-.correct-answer-radio {
+.answer-item .correct-answer-radio {
   margin: 0;
   width: 18px;
   height: 18px;
@@ -385,6 +419,11 @@ const autoGrow = (event) => {
   min-height: 20px;
   resize: vertical;
   line-height: 1.5;
+  /* Ensure text wrapping */
+  max-width: 100%;
+  width: calc(100% - 60px); /* Account for radio button and remove button */
+  overflow: hidden; /* Remove scrolling */
+  white-space: pre-wrap; /* Preserve line breaks */
 }
 
 .answer-text {
@@ -398,6 +437,9 @@ const autoGrow = (event) => {
   white-space: pre-wrap;
   line-height: 1.5;
   position: relative;
+  /* Ensure text wrapping */
+  max-width: 100%;
+  display: block; /* Ensure block display for proper wrapping */
 }
 
 .answer-feedback {
