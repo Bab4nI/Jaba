@@ -100,7 +100,12 @@
         <h3>Редактирование работы</h3>
         <div class="form-group">
           <label>Название:</label>
-          <input v-model="editingLesson.title" placeholder="Введите название" />
+          <input 
+            v-model="editingLesson.title" 
+            placeholder="Введите название" 
+            name="title"
+            class="title-input"
+          />
         </div>
         
         <div class="form-group">
@@ -922,8 +927,9 @@ export default {
 
 .form-group label {
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: 8px;
   font-weight: 500;
+  font-size: 14px;
   color: var(--text-color);
   transition: color 0.3s ease;
 }
@@ -933,26 +939,58 @@ export default {
 .form-group select,
 .form-group textarea {
   width: 100%;
-  padding: 8px;
+  padding: 12px;
   border: 1px solid var(--border-color);
-  border-radius: 4px;
+  border-radius: 8px;
   background: var(--background-color);
   color: var(--text-color);
+  font-size: 14px;
   transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="number"]:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: var(--accent-color);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(160, 148, 184, 0.2);
+}
+
+/* Remove spinner arrows from number inputs */
+.form-group input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.form-group input[type="number"]::-webkit-outer-spin-button,
+.form-group input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .form-group select {
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
-  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="5" viewBox="0 0 10 5"><path fill="%23575667" d="M0 0l5 5 5-5H0z"/></svg>') no-repeat right 10px center;
-  background-size: 10px;
+  background-color: var(--background-color);
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="6" viewBox="0 0 12 6"><path fill="%23A094B8" d="M0 0l6 6 6-6z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px;
+  padding-right: 30px;
+  cursor: pointer;
+}
+
+.form-group select:focus {
+  border-color: var(--accent-color);
 }
 
 .fixed-textarea {
   resize: none;
   width: 100%;
   height: 100px;
+  line-height: 1.5;
 }
 
 .modal-overlay {
@@ -961,51 +999,128 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.75);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  backdrop-filter: blur(4px);
 }
 
 .modal-content {
   background: var(--form-background);
-  padding: 20px;
-  border-radius: 10px;
+  padding: 28px;
+  border-radius: 16px;
   width: 500px;
   max-width: 90%;
-  max-height: 80vh;
+  max-height: 85vh;
   overflow-y: auto;
   box-sizing: border-box;
   color: var(--text-color);
   transition: background-color 0.3s ease, color 0.3s ease;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+/* Add custom scrollbar for the modal */
+.modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+  background: var(--background-color);
+  border-radius: 8px;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 8px;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-color);
+}
+
+.modal-content h3 {
+  margin-top: 0;
+  margin-bottom: 24px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-color);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 12px;
+}
+
+/* Special styling for the title input in the modal */
+.form-group input[name="title"],
+.form-group input[placeholder="Введите название"] {
+  font-size: 16px;
+  font-weight: 500;
+  padding: 12px 16px;
+  border-width: 2px;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  border-color: var(--border-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.form-group input[name="title"]:focus,
+.form-group input[placeholder="Введите название"]:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(160, 148, 184, 0.25);
+  outline: none;
+}
+
+/* Improve dark theme support for all inputs */
+.form-group input,
+.form-group textarea,
+.form-group select {
+  background-color: var(--background-color);
+  color: var(--text-color);
+  border-color: var(--border-color);
 }
 
 .modal-actions {
-  margin-top: 20px;
+  margin-top: 24px;
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 12px;
 }
 
 .save-btn {
-  padding: 8px 16px;
+  padding: 10px 20px;
   background: var(--accent-color);
   color: var(--footer-text);
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
   transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.save-btn:hover {
+  background: var(--hover-accent);
+  transform: translateY(-1px);
 }
 
 .cancel-btn {
-  padding: 8px 16px;
+  padding: 10px 20px;
   background: #ef4444;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
   transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.cancel-btn:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
 }
 
 .image-upload-container {
@@ -1014,11 +1129,19 @@ export default {
 
 .image-upload-label {
   display: inline-block;
-  padding: 8px 16px;
-  background: #2196F3;
-  color: white;
-  border-radius: 4px;
+  padding: 10px 20px;
+  background: var(--accent-color);
+  color: var(--footer-text);
+  border-radius: 8px;
   cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.image-upload-label:hover {
+  background: var(--hover-accent);
+  transform: translateY(-1px);
 }
 
 .image-upload-input {
@@ -1027,29 +1150,41 @@ export default {
 
 .image-preview {
   position: relative;
-  margin-top: 10px;
+  margin-top: 15px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .preview-image {
   max-width: 100%;
   max-height: 200px;
-  border-radius: 4px;
+  border-radius: 8px;
+  display: block;
 }
 
 .remove-image-btn {
   position: absolute;
-  top: 5px;
-  right: 5px;
+  top: 8px;
+  right: 8px;
   background: #f44336;
   color: white;
   border: none;
   border-radius: 50%;
-  width: 25px;
-  height: 25px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  font-size: 18px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s;
+}
+
+.remove-image-btn:hover {
+  background: #dc2626;
+  transform: scale(1.1);
 }
 
 :root {
@@ -1058,5 +1193,33 @@ export default {
 
 .dark-theme .article-actions button img {
   filter: brightness(0.85) invert(0.85);
+}
+
+.title-input {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  padding: 14px 16px !important;
+  border-width: 2px !important;
+  border-radius: 10px !important;
+  transition: all 0.3s ease !important;
+  background-color: var(--background-color) !important;
+  color: var(--text-color) !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05) !important;
+}
+
+.title-input:focus {
+  border-color: var(--accent-color) !important;
+  box-shadow: 0 0 0 3px rgba(160, 148, 184, 0.3) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Dark theme specific adjustments */
+.dark-theme .title-input {
+  background-color: var(--form-background) !important;
+  border-color: var(--border-color) !important;
+}
+
+.dark-theme .title-input:focus {
+  background-color: var(--background-color) !important;
 }
 </style>

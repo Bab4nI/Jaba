@@ -42,6 +42,9 @@
               </router-link>
               <div class="course-meta">
                 <span>{{ course.id }}</span>
+                <span class="publication-status" :class="{'published': course.is_published, 'unpublished': !course.is_published}">
+                  {{ course.is_published ? 'Опубликован' : 'Не опубликован' }}
+                </span>
               </div>
               <div class="course-description" v-if="course.description">
                 {{ course.description }}
@@ -374,18 +377,31 @@ export default {
         thumbnailPreview: null,
       },
       isLoading: false,
+      userRole: null,
     };
   },
 
   computed: {
     filteredCourses() {
-      if (!this.searchQuery.trim()) return this.courses;
-      const query = this.searchQuery.toLowerCase().trim();
-      return this.courses.filter(
-        (course) =>
-          course.title?.toLowerCase().includes(query) ||
-          course.id?.toString().includes(query)
-      );
+      // First filter by search query
+      let filtered = this.courses;
+      
+      // Filter by search query if present
+      if (this.searchQuery.trim()) {
+        const query = this.searchQuery.toLowerCase().trim();
+        filtered = filtered.filter(
+          (course) =>
+            course.title?.toLowerCase().includes(query) ||
+            course.id?.toString().includes(query)
+        );
+      }
+      
+      // If user is a student, only show published courses
+      if (this.authStore.userRole === 'student') {
+        filtered = filtered.filter(course => course.is_published);
+      }
+      
+      return filtered;
     },
   },
 
@@ -762,6 +778,10 @@ export default {
         try {
           await this.authStore.ready();
           console.log('✅ Токен инициализирован, isAuthenticated:', this.authStore.isAuthenticated);
+          
+          // Get user role
+          this.userRole = this.authStore.userRole || localStorage.getItem('user_role');
+          console.log('User role:', this.userRole);
         } catch (error) {
           console.error('❌ Ошибка при инициализации токена:', error);
         }
@@ -1187,6 +1207,35 @@ export default {
   background: var(--form-background);
   border-radius: 20px;
   transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.publication-status {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-left: 10px;
+}
+
+.published {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.unpublished {
+  background-color: #F44336;
+  color: white;
+}
+
+.form-group select.form-control {
+  height: 44px;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 10px;
+  font-size: 14px;
+  width: 100%;
 }
 </style>
 ```

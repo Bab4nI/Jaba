@@ -23,13 +23,15 @@
       
       <!-- Show content when loaded -->
       <div v-else class="main-content-container1">
-        <div class="article-header">
+        <div class="article-header" :class="{'preview-mode': mode !== 'edit'}">
           <input
             v-model="article.title"
             type="text"
             class="article-title"
             :placeholder="isEditMode ? 'Название работы' : ''"
-            :readonly="!isEditMode"
+            :readonly=true
+            :disabled="mode !== 'edit'"
+            @click="handleTitleClick"
           >
           <div class="mode-controls" v-if="userStore.role === 'admin'">
             <button 
@@ -1245,6 +1247,14 @@ export default {
       window.removeEventListener('beforeunload', beforeUnloadHandler);
     });
 
+    const handleTitleClick = (e) => {
+      if (mode.value !== 'edit') {
+        e.preventDefault();
+        e.stopPropagation();
+        showToast('Переключитесь в режим редактирования, чтобы изменить название работы', 'info');
+      }
+    }
+
     return {
       userStore,
       aiStore,
@@ -1315,6 +1325,7 @@ export default {
       beforeUnloadHandler,
       updateContentOrder,
       saveOrder,
+      handleTitleClick,
     }
   },
 }
@@ -1491,13 +1502,20 @@ export default {
   overflow: hidden;
 }
 
+/* Add a class to indicate preview mode */
+.article-header.preview-mode .article-title {
+  pointer-events: none;
+  border-color: transparent;
+  cursor: default;
+}
+
 .article-title {
   flex: 1;
   font-size: 2rem;
   font-weight: 600;
   padding: 1rem;
   border: none;
-  border-bottom: 2px solid #a094b8;
+  border-bottom: 2px solid var(--accent-color);
   background: transparent;
   color: var(--text-color);
   outline: none;
@@ -1510,14 +1528,21 @@ export default {
   max-width: 100%;
 }
 
-.article-title:focus {
-  border-color: #575667;
+.article-title:focus:not(:disabled) {
+  border-color: var(--secondary-text);
   transform: translateY(-2px);
 }
 
-.article-title:read-only {
+.article-title:read-only,
+.article-title:disabled {
   border-color: transparent;
   cursor: default;
+  opacity: 1;
+  background-color: transparent;
+  pointer-events: none; /* Prevent any interaction */
+  -webkit-user-select: none; /* Safari */
+  -ms-user-select: none; /* IE 10+ */
+  user-select: none; /* Standard syntax */
 }
 
 .mode-controls {
@@ -1529,12 +1554,12 @@ export default {
   background: var(--accent-color);
   color: var(--footer-text);
   border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
+  padding: 12px 24px;
+  border-radius: 10px;
   cursor: pointer;
-  font-size: 1rem;
-  font-weight: 500;
-  transition: background-color 0.3s, transform 0.2s, box-shadow 0.3s;
+  font-size: 16px;
+  font-weight: 400;
+  transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
 }
@@ -1553,7 +1578,7 @@ export default {
 
 .mode-toggle-btn:hover {
   background: #8b7ca5;
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
@@ -1570,11 +1595,11 @@ export default {
   background: var(--accent-color);
   color: var(--footer-text);
   border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
+  padding: 12px 24px;
+  border-radius: 10px;
   cursor: pointer;
-  font-size: 1rem;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 400;
   transition: all 0.2s;
   display: flex;
   align-items: center;
@@ -1587,46 +1612,60 @@ export default {
 }
 
 .custom-form-container {
-  margin-top: 30px;
-  padding: 20px;
+  margin-top: 35px;
+  padding: 25px;
   background: var(--form-background);
-  border-radius: 8px;
-  border: 2px dashed #a094b8;
-  transition: background-color 0.4s ease, border-color 0.4s ease, transform 0.3s ease, box-shadow 0.4s ease;
+  border-radius: 12px;
+  border: 2px solid var(--border-color);
+  transition: all 0.4s ease;
   /* Fixed width for form containers */
   max-width: 900px;
   margin-left: auto;
   margin-right: auto;
   width: 100%;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
 }
 
 .custom-form-container:hover {
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
   transform: translateY(-3px);
+  border-color: var(--accent-color);
 }
 
 .form-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 10px;
-  padding-left: 5px;
-  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  padding-left: 10px;
+  padding-right: 10px;
+  border-bottom: 2px solid var(--border-color);
   transition: border-color 0.3s ease;
+  position: relative;
+}
+
+
+.custom-form-container:hover .form-header::after {
+  width: 100px;
+}
+
+.active-form .form-header::after {
+  width: 100%;
 }
 
 .form-title {
-  font-size: 1.25rem;
+  font-size: 1.4rem;
   font-weight: 600;
   color: var(--text-color);
   background: transparent;
   border: none;
   outline: none;
   width: 100%;
-  padding: 5px;
-  transition: all 0.2s, color 0.3s ease;
-  border-radius: 4px;
+  padding: 8px 12px;
+  transition: all 0.3s ease, color 0.3s ease;
+  border-radius: 6px;
+  margin-bottom: 5px;
   /* Ensure text wrapping for long titles */
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -1634,18 +1673,18 @@ export default {
 }
 
 .form-title:not([readonly]):not([disabled]):focus {
-  background-color: #fff;
-  border: 1px solid #a094b8;
-  box-shadow: 0 0 5px rgba(160, 148, 184, 0.3);
+  background-color: var(--background-color);
+  border: 1px solid var(--accent-color);
+  box-shadow: 0 0 8px rgba(160, 148, 184, 0.3);
 }
 
 .form-title:not([readonly]):not([disabled]):hover {
-  background-color: rgba(255, 255, 255, 0.5);
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .form-title[readonly], .form-title[disabled] {
   cursor: default;
-  opacity: 0.8;
+  opacity: 0.95;
 }
 
 .form-controls {
@@ -1802,17 +1841,17 @@ export default {
   font-family: 'Raleway', sans-serif;
   cursor: pointer;
   transition: background 0.2s, transform 0.1s;
-  background: var(--secondary-text);
+  background: var(--accent-color);
   color: var(--footer-text);
 }
 
 .save-button:hover:not(:disabled) {
-  background: #4a4857;
+  background: #8b7ca5;
   transform: translateY(-1px);
 }
 
 .save-button:disabled {
-  background: #d1d5db;
+  opacity: 0.7;
   cursor: not-allowed;
 }
 
@@ -2475,8 +2514,9 @@ export default {
 }
 
 .active-form {
-  border: 2px solid #575667;
-  box-shadow: 0 0 20px rgba(87, 86, 103, 0.2);
+  border: 2px solid var(--accent-color);
+  box-shadow: 0 0 25px rgba(160, 148, 184, 0.25);
+  transform: translateY(-3px);
 }
 
 .remove-form-btn {
@@ -2778,13 +2818,13 @@ export default {
 .mark-completed-btn {
   padding: 12px 24px;
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 400;
   background: var(--accent-color);
   color: var(--footer-text);
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: background-color 0.3s, transform 0.2s;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2792,17 +2832,12 @@ export default {
 
 .mark-completed-btn:hover:not(:disabled) {
   background: #8b7ca5;
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 .mark-completed-btn:disabled {
-  background: #d1d5db;
-  cursor: not-allowed;
   opacity: 0.7;
-}
-
-.mark-completed-btn:disabled:hover {
-  transform: none;
+  cursor: not-allowed;
 }
 
 .loading-indicator {
@@ -2848,11 +2883,11 @@ export default {
 .reset-progress-btn {
   padding: 12px 24px;
   font-size: 16px;
-  font-weight: 500;
-  background: var(--secondary-text);
+  font-weight: 400;
+  background: var(--accent-color);
   color: var(--footer-text);
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   transition: background-color 0.3s, transform 0.2s;
   display: flex;
@@ -2861,13 +2896,20 @@ export default {
 }
 
 .reset-progress-btn:hover:not(:disabled) {
-  background: #4a4857;
-  transform: translateY(-2px);
+  background: #8b7ca5;
+  transform: translateY(-1px);
 }
 
 .reset-progress-btn:disabled {
-  background: #d1d5db;
-  cursor: not-allowed;
   opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.add-content-btn .btn-icon,
+.create-form-btn .btn-icon,
+.reset-progress-btn .btn-icon,
+.save-button .btn-icon {
+  font-size: 18px;
+  line-height: 1;
 }
 </style>
