@@ -6,6 +6,7 @@
         <span :class="{'score-success': userScore === localContent.max_score, 'score-fail': userScore < localContent.max_score}">
           {{ userScore }}/{{ localContent.max_score }}
         </span>
+        <button @click="resetSubmission" class="reset-score-btn" title="Сбросить баллы">×</button>
       </template>
       <template v-else>
         <span class="score-pending">{{ localContent.max_score }} баллов</span>
@@ -92,7 +93,7 @@
       <div class="button-group">
         <button
           v-if="canRunCode"
-          @click="runCode"
+          @click.prevent="runCode"
           class="run-button"
           :disabled="isRunning || !refreshStore.isAuthenticated"
         >
@@ -102,7 +103,7 @@
         <!-- Submit button for score in view mode -->
         <button
           v-if="readOnly && !allowPreviewEdit && canRunCode && !codeSubmitted && refreshStore.isAuthenticated"
-          @click="submitCode"
+          @click.prevent="submitCode"
           class="submit-button"
           :disabled="isRunning"
         >
@@ -300,13 +301,32 @@ onMounted(() => {
 const submitCode = () => {
   if (!localContent.value.code) return;
   
+  // Save current scroll position
+  const scrollPosition = window.scrollY;
+  
   // If we already have execution results, use them directly
   if (executionResult.value !== null) {
     calculateAndSubmitScore();
+    
+    // Restore scroll position
+    setTimeout(() => {
+      window.scrollTo({
+        top: scrollPosition,
+        behavior: 'auto'
+      });
+    }, 50);
   } else {
     // Run the code first to get the result
     runCode().then(() => {
       calculateAndSubmitScore();
+      
+      // Restore scroll position
+      setTimeout(() => {
+        window.scrollTo({
+          top: scrollPosition,
+          behavior: 'auto'
+        });
+      }, 50);
     });
   }
 };
@@ -489,6 +509,9 @@ const runCode = async () => {
     return Promise.reject(new Error('Cannot run code'));
   }
 
+  // Save current scroll position
+  const scrollPosition = window.scrollY;
+  
   isRunning.value = true
   executionResult.value = null
   executionError.value = false
@@ -537,6 +560,14 @@ const runCode = async () => {
       executionResult.value = result.stderr || result.compile_output || `Error: ${result.status}`
     }
     
+    // Restore scroll position after a short delay to ensure DOM updates
+    setTimeout(() => {
+      window.scrollTo({
+        top: scrollPosition,
+        behavior: 'auto'
+      });
+    }, 50);
+    
     return Promise.resolve();
   } catch (error) {
     console.error('Code execution error:', error)
@@ -567,6 +598,14 @@ const runCode = async () => {
     } else {
       executionResult.value = 'Failed to connect to server. Check connection.'
     }
+    
+    // Restore scroll position even in case of error
+    setTimeout(() => {
+      window.scrollTo({
+        top: scrollPosition,
+        behavior: 'auto'
+      });
+    }, 50);
     
     return Promise.reject(error);
   } finally {
@@ -1395,11 +1434,14 @@ const updateTheme = () => {
   color: var(--text-color, #24222f);
   align-self: stretch;
   box-sizing: border-box;
-  display: block; /* Ensure proper display */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .vs-dark .element-score-display {
   background: rgba(255, 255, 255, 0.08);
+  color: #e5e7eb;
 }
 
 .vs-dark .score-success {
@@ -1412,5 +1454,37 @@ const updateTheme = () => {
 
 .vs-high-contrast .element-score-display {
   background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+.reset-score-btn {
+  background: var(--error-color, #da1f38);
+  color: white;
+  border: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.3s ease;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.reset-score-btn:hover {
+  background: var(--hover-delete, #c62828);
+  transform: scale(1.1);
+  opacity: 1;
+}
+
+.vs-dark .reset-score-btn {
+  background: #ff4d4d;
+}
+
+.vs-dark .reset-score-btn:hover {
+  background: #ff3333;
 }
 </style>

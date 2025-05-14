@@ -6,6 +6,7 @@
         <span :class="{'score-success': userScore === localContent.max_score, 'score-fail': userScore < localContent.max_score}">
           {{ userScore }}/{{ localContent.max_score }}
         </span>
+        <button @click="resetQuiz" class="reset-score-btn" title="Сбросить баллы">×</button>
       </template>
       <template v-else>
         <span class="score-pending">{{ localContent.max_score }} баллов</span>
@@ -593,9 +594,52 @@ watch(() => localContent.value.answers, () => {
   color: var(--text-color, #24222f);
   align-self: stretch;
   box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 :global(.dark-theme) .element-score-display {
   background: rgba(255, 255, 255, 0.08);
+  color: #e5e7eb;
+}
+
+:global(.dark-theme) .score-success {
+  color: #6bdb70;
+}
+
+:global(.dark-theme) .score-fail {
+  color: #ff6b6b;
+}
+
+.reset-score-btn {
+  background: var(--error-color, #da1f38);
+  color: white;
+  border: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.3s ease;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.reset-score-btn:hover {
+  background: var(--hover-delete, #c62828);
+  transform: scale(1.1);
+  opacity: 1;
+}
+
+:global(.dark-theme) .reset-score-btn {
+  background: #ff4d4d;
+}
+
+:global(.dark-theme) .reset-score-btn:hover {
+  background: #ff3333;
 }
 </style>

@@ -119,6 +119,14 @@
             </button>
 
             <button
+              @click="resetLessonProgress" 
+              class="reset-progress-btn"
+              :disabled="isSaving"
+            >
+              <span class="btn-icon">🔄</span> Сбросить прогресс
+            </button>
+
+            <button
               @click="saveAllChanges"
               class="save-button"
               aria-label="Сохранить все изменения"
@@ -140,14 +148,6 @@
             </span>
           </div>
           <div class="progress-actions">
-            <button 
-              v-if="mode === 'edit' && userStore.role === 'admin'"
-              @click="resetLessonProgress" 
-              class="reset-progress-btn"
-              :disabled="isSaving"
-            >
-              <span class="btn-icon">🔄</span> Сбросить прогресс
-            </button>
             <button 
               @click="markLessonAsCompleted" 
               class="mark-completed-btn"
@@ -347,7 +347,58 @@ export default {
     const currentFormIndex = ref(-1)
     const activeFormIndex = ref(-1)
     const isLessonCompleted = ref(false)
-    const lessonScore = ref({ total: 0, max: 0 })
+    
+    // Calculate total maximum score based on all content elements
+    const maxScore = computed(() => {
+      let total = 0;
+      
+      // Add scores from main contents
+      contents.value.forEach(content => {
+        const contentMaxScore = parseInt(content.max_score) || 1;
+        total += contentMaxScore;
+      });
+      
+      // Add scores from forms
+      customForms.value.forEach(form => {
+        form.contents.forEach(content => {
+          const contentMaxScore = parseInt(content.max_score) || 1;
+          total += contentMaxScore;
+        });
+      });
+      
+      return total;
+    });
+    
+    // Calculate current score based on user_score values
+    const totalScore = computed(() => {
+      let total = 0;
+      
+      // Add scores from main contents
+      contents.value.forEach(content => {
+        if (content.user_score !== undefined) {
+          total += parseInt(content.user_score) || 0;
+        }
+      });
+      
+      // Add scores from forms
+      customForms.value.forEach(form => {
+        form.contents.forEach(content => {
+          if (content.user_score !== undefined) {
+            total += parseInt(content.user_score) || 0;
+          }
+        });
+      });
+      
+      return total;
+    });
+    
+    // Create a reactive lessonScore object using the computed properties
+    const lessonScore = computed(() => {
+      return {
+        total: totalScore.value,
+        max: maxScore.value
+      };
+    });
 
     const isContentReadOnly = computed(() => {
       return mode.value !== 'edit' || userStore.role !== 'admin'
@@ -372,10 +423,6 @@ export default {
     const onContentUpdate = debounce((index, updatedContent) => {
       const currentContent = contents.value[index];
       
-      // Check if max_score has changed
-      const oldMaxScore = currentContent.max_score || 1;
-      const newMaxScore = updatedContent.max_score || 1;
-      
       // Update the content
       contents.value[index] = {
         ...currentContent,
@@ -383,12 +430,10 @@ export default {
         updated_at: new Date().toISOString()
       };
       
-      // If max_score changed, update the total maximum score
-      if (oldMaxScore !== newMaxScore && lessonScore.value) {
-        lessonScore.value.max = lessonScore.value.max - oldMaxScore + newMaxScore;
-      }
-      
       changedIndices.value.add(index);
+      
+      // Save the updated score to localStorage
+      saveScoreToLocalStorage();
     }, 500);
 
     const handleTextSelection = (text, event) => {
@@ -847,10 +892,6 @@ export default {
     const onFormContentUpdate = (formIndex, contentIndex, updatedContent) => {
       const currentContent = customForms.value[formIndex].contents[contentIndex]
       
-      // Check if max_score has changed
-      const oldMaxScore = currentContent.max_score || 1
-      const newMaxScore = updatedContent.max_score || 1
-      
       // Update the content
       customForms.value[formIndex].contents[contentIndex] = {
         ...currentContent,
@@ -858,10 +899,8 @@ export default {
         updated_at: new Date().toISOString()
       }
       
-      // If max_score changed, update the total maximum score
-      if (oldMaxScore !== newMaxScore && lessonScore.value) {
-        lessonScore.value.max = lessonScore.value.max - oldMaxScore + newMaxScore
-      }
+      // Save the updated score to localStorage
+      saveScoreToLocalStorage();
     }
 
     const moveFormContentUp = (formIndex, contentIndex) => {
@@ -923,97 +962,63 @@ export default {
     }
 
     const onAnswerSubmitted = (contentId, score) => {
-      // Update the lesson score when an answer is submitted
-      if (lessonScore.value) {
-        // Handle both formats: direct score value or object with score property
-        let numericScore = 0;
-        let actualContentId = contentId;
-        
-        if (typeof contentId === 'object' && contentId !== null) {
-          // New format: object with contentId and score properties
-          numericScore = parseInt(contentId.score) || 0;
-          actualContentId = contentId.contentId;
-          console.log(`Answer submitted in object format for content ${actualContentId} with score ${numericScore}`);
-        } else {
-          // Old format: direct contentId and score
-          numericScore = parseInt(score) || 0;
-          console.log(`Answer submitted in direct format for content ${contentId} with score ${numericScore}`);
-        }
-        
-        // Find the content in either main contents or forms
-        let contentFound = false;
-        
-        // Check in main contents
-        for (let i = 0; i < contents.value.length; i++) {
-          if (contents.value[i].id === actualContentId) {
-            // Update the user_score property
-            console.log(`Found content in main contents, updating score from ${contents.value[i].user_score} to ${numericScore}`);
-            contents.value[i].user_score = numericScore;
-            contentFound = true;
-            break;
-          }
-        }
-        
-        // If not found in main contents, check in forms
-        if (!contentFound) {
-          for (const form of customForms.value) {
-            for (let i = 0; i < form.contents.length; i++) {
-              if (form.contents[i].id === actualContentId) {
-                // Update the user_score property
-                console.log(`Found content in form, updating score from ${form.contents[i].user_score} to ${numericScore}`);
-                form.contents[i].user_score = numericScore;
-                contentFound = true;
-                break;
-              }
-            }
-            if (contentFound) break;
-          }
-        }
-        
-        if (!contentFound) {
-          console.warn(`Content with ID ${actualContentId} not found in any form or main content`);
-        }
-        
-        // Recalculate the total score
-        let totalScore = 0;
-        
-        // Add scores from main contents
-        contents.value.forEach(content => {
-          if (content.user_score !== undefined) {
-            console.log(`Adding ${content.user_score} from main content ${content.id} (${content.type})`);
-            totalScore += parseInt(content.user_score) || 0;
-          }
-        });
-        
-        // Add scores from forms
-        customForms.value.forEach(form => {
-          form.contents.forEach(content => {
-            if (content.user_score !== undefined) {
-              console.log(`Adding ${content.user_score} from form content ${content.id} (${content.type})`);
-              totalScore += parseInt(content.user_score) || 0;
-            }
-          });
-        });
-        
-        // Update the total score
-        lessonScore.value.total = totalScore;
-        
-        console.log(`Updated total score: ${lessonScore.value.total}/${lessonScore.value.max}`);
-        
-        // Save the updated score to localStorage
-        try {
-          localStorage.setItem(`lesson_score_${article.value.id}`, JSON.stringify(lessonScore.value));
-        } catch (error) {
-          console.error('Error saving score to localStorage:', error);
+      // Handle both formats: direct score value or object with score property
+      let numericScore = 0;
+      let actualContentId = contentId;
+      
+      if (typeof contentId === 'object' && contentId !== null) {
+        // New format: object with contentId and score properties
+        numericScore = parseInt(contentId.score) || 0;
+        actualContentId = contentId.contentId;
+        console.log(`Answer submitted in object format for content ${actualContentId} with score ${numericScore}`);
+      } else {
+        // Old format: direct contentId and score
+        numericScore = parseInt(score) || 0;
+        console.log(`Answer submitted in direct format for content ${contentId} with score ${numericScore}`);
+      }
+      
+      // Find the content in either main contents or forms
+      let contentFound = false;
+      
+      // Check in main contents
+      for (let i = 0; i < contents.value.length; i++) {
+        if (contents.value[i].id === actualContentId) {
+          // Update the user_score property
+          console.log(`Found content in main contents, updating score from ${contents.value[i].user_score} to ${numericScore}`);
+          contents.value[i].user_score = numericScore;
+          contentFound = true;
+          break;
         }
       }
+      
+      // If not found in main contents, check in forms
+      if (!contentFound) {
+        for (const form of customForms.value) {
+          for (let i = 0; i < form.contents.length; i++) {
+            if (form.contents[i].id === actualContentId) {
+              // Update the user_score property
+              console.log(`Found content in form, updating score from ${form.contents[i].user_score} to ${numericScore}`);
+              form.contents[i].user_score = numericScore;
+              contentFound = true;
+              break;
+            }
+          }
+          if (contentFound) break;
+        }
+      }
+      
+      if (!contentFound) {
+        console.warn(`Content with ID ${actualContentId} not found in any form or main content`);
+      }
+      
+      // Save the updated score to localStorage
+      saveScoreToLocalStorage();
     }
 
     const resetLessonProgress = () => {
       if (!confirm('Вы уверены, что хотите сбросить весь прогресс по этому уроку?')) return
       
-      // Reset score to 0 but keep max score
-      lessonScore.value = { total: 0, max: lessonScore.value.max };
+      // Reset score by clearing all user_score values
       isLessonCompleted.value = false;
       
       // Reset all form content answers if applicable
@@ -1027,13 +1032,16 @@ export default {
             delete content.user_score;
           }
           
-          // Clear quiz and code state from localStorage
+          // Clear quiz, code, and video state from localStorage
           if (content.id) {
             if (content.type === 'quiz') {
               localStorage.removeItem(`quiz_${content.id}`);
             }
             if (content.type === 'code') {
               localStorage.removeItem(`code_${content.id}`);
+            }
+            if (content.type === 'video') {
+              localStorage.removeItem(`video_${content.id}`);
             }
           }
         });
@@ -1045,13 +1053,16 @@ export default {
           delete content.user_score;
         }
         
-        // Clear quiz and code state from localStorage
+        // Clear quiz, code, and video state from localStorage
         if (content.id) {
           if (content.type === 'quiz') {
             localStorage.removeItem(`quiz_${content.id}`);
           }
           if (content.type === 'code') {
             localStorage.removeItem(`code_${content.id}`);
+          }
+          if (content.type === 'video') {
+            localStorage.removeItem(`video_${content.id}`);
           }
         }
       });
@@ -1071,19 +1082,41 @@ export default {
         console.error('Error removing score from localStorage:', error);
       }
       
-      // Force a reload of the page to reset all component states
-      showToast('Прогресс урока сброшен. Обновление страницы...', 'success');
-      
-      // Wait a moment for the toast to show, then reload
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
+      // Show success message
+      showToast('Прогресс урока успешно сброшен', 'success');
     }
 
     const markLessonAsCompleted = () => {
       if (isLessonCompleted.value) return
       
       isLessonCompleted.value = true
+      
+      // Auto-assign scores to non-interactive elements
+      const nonInteractiveTypes = ['image', 'table', 'file', 'text'];
+      
+      // Process main contents
+      contents.value.forEach(content => {
+        if (nonInteractiveTypes.includes(content.type) && content.user_score === undefined) {
+          const contentScore = parseInt(content.max_score) || 1;
+          content.user_score = contentScore;
+          console.log(`Auto-assigned ${contentScore} points to ${content.type} element (id: ${content.id})`);
+        }
+      });
+      
+      // Process form contents
+      customForms.value.forEach(form => {
+        form.contents.forEach(content => {
+          if (nonInteractiveTypes.includes(content.type) && content.user_score === undefined) {
+            const contentScore = parseInt(content.max_score) || 1;
+            content.user_score = contentScore;
+            console.log(`Auto-assigned ${contentScore} points to ${content.type} element in form (id: ${content.id})`);
+          }
+        });
+      });
+      
+      // Save the updated score to localStorage
+      saveScoreToLocalStorage();
+      
       showToast('Урок отмечен как пройденный!', 'success')
       
       // Here you would typically make an API call to update the user's progress
@@ -1113,6 +1146,19 @@ export default {
         }
       }
     }
+
+    // Function to save the current score to localStorage
+    const saveScoreToLocalStorage = () => {
+      try {
+        localStorage.setItem(`lesson_score_${article.value.id}`, JSON.stringify({
+          total: totalScore.value,
+          max: maxScore.value
+        }));
+        console.log(`Saved score to localStorage: ${totalScore.value}/${maxScore.value}`);
+      } catch (error) {
+        console.error('Error saving score to localStorage:', error);
+      }
+    };
 
     // Load article content when component is mounted
     onMounted(async () => {
@@ -1161,48 +1207,17 @@ export default {
         try {
           const savedScore = localStorage.getItem(`lesson_score_${lessonId}`);
           if (savedScore) {
-            lessonScore.value = JSON.parse(savedScore);
-            console.log('Loaded saved score:', lessonScore.value);
+            const savedScoreData = JSON.parse(savedScore);
+            console.log('Loaded saved score:', savedScoreData);
+            
+            // Apply saved user_score values to content elements
+            if (savedScoreData.total > 0) {
+              // This will trigger the computed properties to recalculate
+              console.log('Applying saved scores to content elements...');
+            }
           }
         } catch (error) {
           console.error('Error loading saved score:', error);
-        }
-        
-        // Calculate total maximum score
-        let maxScore = 0;
-        let totalScore = 0;
-        
-        contents.value.forEach(content => {
-          const contentMaxScore = parseInt(content.max_score) || 1;
-          maxScore += contentMaxScore;
-          
-          // Add user score if available
-          if (content.user_score !== undefined) {
-            totalScore += parseInt(content.user_score) || 0;
-          }
-        });
-        
-        customForms.value.forEach(form => {
-          form.contents.forEach(content => {
-            const contentMaxScore = parseInt(content.max_score) || 1;
-            maxScore += contentMaxScore;
-            
-            // Add user score if available
-            if (content.user_score !== undefined) {
-              totalScore += parseInt(content.user_score) || 0;
-            }
-          });
-        });
-        
-        // Only update scores if we didn't load from localStorage
-        if (!localStorage.getItem(`lesson_score_${lessonId}`)) {
-          lessonScore.value = {
-            total: totalScore || 0,
-            max: maxScore || 0
-          };
-        } else {
-          // Just update the max score
-          lessonScore.value.max = maxScore || 0;
         }
         
         // Get article title

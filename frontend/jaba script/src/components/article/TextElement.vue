@@ -79,9 +79,30 @@ export default {
 
     const onInput = () => {
       if (!editor.value) return
+      
+      // Save cursor position
+      const selection = window.getSelection();
+      let savedRange = null;
+      
+      if (selection.rangeCount > 0) {
+        savedRange = selection.getRangeAt(0).cloneRange();
+      }
+      
       const html = editor.value.innerHTML
       localContent.value.text = html
       emit('update:content', { ...localContent.value })
+      
+      // Restore cursor position after a short delay to ensure DOM updates
+      if (savedRange) {
+        setTimeout(() => {
+          try {
+            selection.removeAllRanges();
+            selection.addRange(savedRange);
+          } catch (e) {
+            console.error('Failed to restore cursor position after input:', e);
+          }
+        }, 0);
+      }
     }
 
     const onKeyDown = (event) => {
@@ -151,14 +172,30 @@ export default {
     }
 
     const onSelectionChange = () => {
-      if (!isFocused.value) return
+      if (!isFocused.value || !editor.value) return
+      
       const selection = window.getSelection()
       if (selection.rangeCount > 0) {
         const range = selection.getRangeAt(0)
+        
+        // Check if selection is within our editor
+        if (!editor.value.contains(range.commonAncestorContainer)) {
+          return
+        }
+        
+        // Fix empty selection with zero rect
         const rect = range.getBoundingClientRect()
-        if (rect.top === 0 && rect.left === 0) {
-          range.setStart(range.startContainer, range.startOffset)
-          range.setEnd(range.endContainer, range.endOffset)
+        if (rect.top === 0 && rect.left === 0 && rect.width === 0 && rect.height === 0) {
+          // Try to fix the range by moving it to a better position
+          if (range.startContainer.nodeType === Node.TEXT_NODE) {
+            // If we're in a text node, just reuse the same position
+            range.setStart(range.startContainer, range.startOffset)
+            range.setEnd(range.endContainer, range.endOffset)
+          } else if (editor.value.firstChild) {
+            // Otherwise try to position at the beginning of the editor
+            range.setStart(editor.value.firstChild, 0)
+            range.setEnd(editor.value.firstChild, 0)
+          }
         }
       }
     }
@@ -196,7 +233,31 @@ export default {
       }
       
       if (editor.value && localContent.value.text) {
-        editor.value.innerHTML = localContent.value.text
+        // Only update the innerHTML if it's different to avoid cursor reset
+        if (editor.value.innerHTML !== localContent.value.text) {
+          // Save cursor position
+          const selection = window.getSelection();
+          let savedRange = null;
+          let isEditorFocused = document.activeElement === editor.value;
+          
+          if (isEditorFocused && selection.rangeCount > 0) {
+            savedRange = selection.getRangeAt(0).cloneRange();
+          }
+          
+          // Update content
+          editor.value.innerHTML = localContent.value.text;
+          
+          // Restore cursor position if editor was focused
+          if (isEditorFocused && savedRange) {
+            // Try to restore the cursor position
+            try {
+              selection.removeAllRanges();
+              selection.addRange(savedRange);
+            } catch (e) {
+              console.error('Failed to restore cursor position:', e);
+            }
+          }
+        }
       }
     }, { deep: true })
 

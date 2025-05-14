@@ -6,6 +6,7 @@
         <span :class="{'score-success': userScore > 0}">
           {{ userScore }}/{{ localContent.max_score }}
         </span>
+        <button @click="resetVideo" class="reset-score-btn" title="Сбросить баллы">×</button>
       </template>
       <template v-else>
         <span class="score-pending">{{ localContent.max_score }} баллов</span>
@@ -34,6 +35,16 @@
         class="submit-btn"
       >
         Отметить видео как просмотренное
+      </button>
+    </div>
+    
+    <!-- Reset button when video is already marked as watched -->
+    <div v-if="readOnly && videoWatched && localContent.video_url" class="video-reset">
+      <button 
+        @click="resetVideo" 
+        class="reset-btn"
+      >
+        Сбросить статус просмотра
       </button>
     </div>
   </div>
@@ -105,6 +116,20 @@ onMounted(() => {
         const data = JSON.parse(savedData);
         videoWatched.value = data.videoWatched;
         userScore.value = data.userScore;
+        
+        console.log(`Loaded saved state for video ${props.content.id}:`, { 
+          videoWatched: videoWatched.value, 
+          userScore: userScore.value 
+        });
+        
+        // If we have a saved score, emit it to update the parent
+        if (userScore.value !== null) {
+          emit('answer-submitted', {
+            contentId: props.content.id,
+            score: userScore.value,
+            maxScore: localContent.value.max_score
+          });
+        }
       } catch (e) {
         console.error('Error loading video state:', e);
       }
@@ -154,10 +179,29 @@ const markVideoWatched = () => {
   // Emit event for parent components
   emit('answer-submitted', {
     contentId: props.content.id,
-    isWatched: true,
     score: userScore.value,
     maxScore: localContent.value.max_score
   });
+};
+
+// Reset video watched state
+const resetVideo = () => {
+  videoWatched.value = false;
+  userScore.value = null;
+  
+  // Clear saved state
+  if (props.content.id) {
+    localStorage.removeItem(`video_${props.content.id}`);
+  }
+  
+  // Emit event to reset score in parent component
+  emit('answer-submitted', {
+    contentId: props.content.id,
+    score: 0,
+    maxScore: localContent.value.max_score
+  });
+  
+  console.log('Reset video state for:', props.content.id);
 };
 
 const emitUpdate = () => {
@@ -363,10 +407,77 @@ const emitUpdate = () => {
   color: var(--text-color, #24222f);
   align-self: stretch;
   box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 :global(.dark-theme) .element-score-display {
   background: rgba(255, 255, 255, 0.08);
+  color: #e5e7eb;
+}
+
+:global(.dark-theme) .score-success {
+  color: #6bdb70;
+}
+
+:global(.dark-theme) .score-fail {
+  color: #ff6b6b;
+}
+
+.reset-score-btn {
+  background: var(--error-color, #da1f38);
+  color: white;
+  border: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.3s ease;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.reset-score-btn:hover {
+  background: var(--hover-delete, #c62828);
+  transform: scale(1.1);
+  opacity: 1;
+}
+
+:global(.dark-theme) .reset-score-btn {
+  background: #ff4d4d;
+}
+
+:global(.dark-theme) .reset-score-btn:hover {
+  background: #ff3333;
+}
+
+.video-reset {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.reset-btn {
+  background: #ff9800;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.reset-btn:hover {
+  background: #f57c00;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 </style>
 ```
