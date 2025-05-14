@@ -37,16 +37,6 @@
         Отметить видео как просмотренное
       </button>
     </div>
-    
-    <!-- Reset button when video is already marked as watched -->
-    <div v-if="readOnly && videoWatched && localContent.video_url" class="video-reset">
-      <button 
-        @click="resetVideo" 
-        class="reset-btn"
-      >
-        Сбросить статус просмотра
-      </button>
-    </div>
   </div>
 </template>
 
@@ -454,30 +444,6 @@ const emitUpdate = () => {
 
 :global(.dark-theme) .reset-score-btn:hover {
   background: #ff3333;
-}
-
-.video-reset {
-  display: flex;
-  justify-content: center;
-  margin-top: 10px;
-}
-
-.reset-btn {
-  background: #ff9800;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 15px;
-  font-weight: 600;
-  transition: all 0.3s ease;
-}
-
-.reset-btn:hover {
-  background: #f57c00;
-  transform: translateY(-2px);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 </style>
 ```

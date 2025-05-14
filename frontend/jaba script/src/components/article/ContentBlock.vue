@@ -12,7 +12,7 @@
       <div class="block-type">
         <span>{{ blockType }}</span>
       </div>
-      <div class="block-score">
+      <div v-if="!readOnly && !isScoreDisabled" class="block-score">
         <label for="block-max-score">Баллы:</label>
         <input 
           id="block-max-score"
@@ -118,6 +118,11 @@ const contentComponent = computed(() => {
   return contentComponents[props.content.type] || TextElement;
 });
 
+const isScoreDisabled = computed(() => {
+  const disabledTypes = ['text', 'image', 'table', 'file'];
+  return disabledTypes.includes(props.content.type);
+});
+
 const updateContent = (newContent) => {
   // Preserve the max_score when updating content
   const updatedContent = {
@@ -170,11 +175,14 @@ const removeBlock = () => {
 };
 
 const updateScore = () => {
-  // Ensure score is at least 1
-  if (localContent.value.max_score < 1) {
+  // Ensure score is at least 1 for non-disabled types
+  if (!isScoreDisabled.value && localContent.value.max_score < 1) {
     localContent.value.max_score = 1;
   }
-  
+  // Set score to 0 for disabled types
+  if (isScoreDisabled.value) {
+    localContent.value.max_score = 0;
+  }
   // Ensure score is an integer
   localContent.value.max_score = Math.floor(localContent.value.max_score);
   

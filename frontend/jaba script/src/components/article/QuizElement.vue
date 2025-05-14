@@ -138,6 +138,7 @@ const userScore = ref(null);
 
 // Initialize from localStorage if there's saved progress
 onMounted(() => {
+  // Load saved state from localStorage if available
   if (props.readOnly && props.content.id) {
     const savedData = localStorage.getItem(`quiz_${props.content.id}`);
     if (savedData) {
@@ -146,6 +147,20 @@ onMounted(() => {
         selectedAnswer.value = data.selectedAnswer;
         quizSubmitted.value = data.quizSubmitted;
         userScore.value = data.userScore;
+        console.log(`Loaded saved state for quiz ${props.content.id}:`, { selectedAnswer: selectedAnswer.value, quizSubmitted: quizSubmitted.value, userScore: userScore.value });
+        
+        // If we have a saved answer, emit it to update the parent score
+        if (quizSubmitted.value && selectedAnswer.value !== null) {
+          const isCorrect = selectedAnswer.value === localContent.value.correct_answer;
+          const score = isCorrect ? localContent.value.max_score : 0;
+          emit('answer-submitted', {
+            contentId: props.content.id,
+            selectedAnswer: selectedAnswer.value,
+            isCorrect: isCorrect,
+            score: score,
+            maxScore: localContent.value.max_score
+          });
+        }
       } catch (e) {
         console.error('Error loading quiz state:', e);
       }

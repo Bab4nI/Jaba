@@ -1,9 +1,6 @@
 <template>
   <div class="file-element" :class="{ 'read-only': readOnly }">
     <!-- Score display at the top when in read-only mode -->
-    <div v-if="readOnly && showScore" class="element-score-display">
-      <span class="score-pending">{{ localContent.max_score || 1 }} баллов</span>
-    </div>
     
     <div v-if="!localContent.file && !readOnly" class="file-upload-area" @click="triggerFileInput">
       <span>Нажмите для загрузки файла</span>

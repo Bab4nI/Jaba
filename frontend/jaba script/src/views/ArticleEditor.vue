@@ -147,16 +147,6 @@
               {{ lessonScore.total }}/{{ lessonScore.max }}
             </span>
           </div>
-          <div class="progress-actions">
-            <button 
-              @click="markLessonAsCompleted" 
-              class="mark-completed-btn"
-              :disabled="isLessonCompleted || isSaving"
-            >
-              <span v-if="isLessonCompleted">✓ Урок пройден</span>
-              <span v-else>Отметить урок как пройденный</span>
-            </button>
-          </div>
         </div>
       </div>
     </div>
@@ -354,15 +344,21 @@ export default {
       
       // Add scores from main contents
       contents.value.forEach(content => {
-        const contentMaxScore = parseInt(content.max_score) || 1;
-        total += contentMaxScore;
+        const disabledTypes = ['text', 'image', 'table', 'file'];
+        if (!disabledTypes.includes(content.type)) {
+          const contentMaxScore = parseInt(content.max_score) || 1;
+          total += contentMaxScore;
+        }
       });
       
       // Add scores from forms
       customForms.value.forEach(form => {
         form.contents.forEach(content => {
-          const contentMaxScore = parseInt(content.max_score) || 1;
-          total += contentMaxScore;
+          const disabledTypes = ['text', 'image', 'table', 'file'];
+          if (!disabledTypes.includes(content.type)) {
+            const contentMaxScore = parseInt(content.max_score) || 1;
+            total += contentMaxScore;
+          }
         });
       });
       

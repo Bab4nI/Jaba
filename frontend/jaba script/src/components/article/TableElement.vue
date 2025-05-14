@@ -1,9 +1,6 @@
 <template>
   <div class="table-element" :class="{ 'read-only': readOnly }">
     <!-- Score display at the top when in read-only mode -->
-    <div v-if="readOnly && showScore" class="element-score-display">
-      <span class="score-pending">{{ localContent.max_score || 1 }} баллов</span>
-    </div>
     
     <div v-if="!readOnly" class="table-controls">
       <button @click="addRow" class="control-btn">+ Строка</button>
