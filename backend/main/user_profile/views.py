@@ -14,11 +14,20 @@ class GetUserProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Получаем пользователя из запроса (автоматически через JWT)
         user = request.user
-        
+
+        # Определяем роль, если не задана явно
+        role = getattr(user, 'role', None)
+        if not role:
+            if getattr(user, 'is_superuser', False):
+                role = 'admin'
+            elif getattr(user, 'is_staff', False):
+                role = 'teacher'
+            else:
+                role = 'student'
+
         # Add debug logging
-        print(f"User profile request for {user.email}, role in DB: {user.role}, is_staff: {user.is_staff}")
+        print(f"User profile request for {user.email}, role in DB: {role}, is_staff: {user.is_staff}")
 
         # Формируем данные для ответа
         data = {
@@ -28,7 +37,7 @@ class GetUserProfileView(APIView):
             'email': user.email,
             'group': user.group,
             'avatar_base64': user.avatar_base64,
-            'role': user.role,
+            'role': role,
             'is_staff': user.is_staff,  # Adding this to help with debugging
             'id': user.id,  # Adding this to help with debugging
         }

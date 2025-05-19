@@ -397,7 +397,7 @@ export default {
       }
       
       // If user is a student, only show published courses
-      if (this.authStore.userRole === 'student') {
+      if (this.userRole === 'student') {
         filtered = filtered.filter(course => course.is_published);
       }
       
@@ -779,9 +779,15 @@ export default {
           await this.authStore.ready();
           console.log('✅ Токен инициализирован, isAuthenticated:', this.authStore.isAuthenticated);
           
-          // Get user role
-          this.userRole = this.authStore.userRole || localStorage.getItem('user_role');
-          console.log('User role:', this.userRole);
+          // Get user profile to determine role
+          try {
+            const response = await this.api.get('/profile/');
+            this.userRole = response.data.role;
+            console.log('User role from profile:', this.userRole);
+          } catch (error) {
+            console.error('Error fetching user profile:', error);
+            this.userRole = 'student'; // Default role if profile fetch fails
+          }
         } catch (error) {
           console.error('❌ Ошибка при инициализации токена:', error);
         }

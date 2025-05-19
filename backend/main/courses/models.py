@@ -5,6 +5,9 @@ from unidecode import unidecode
 import os
 from django.core.exceptions import ValidationError
 import uuid
+from django.utils import timezone
+from datetime import datetime
+from django.contrib.contenttypes.models import ContentType
 
 class Course(models.Model):
     title = models.CharField(max_length=255, verbose_name="Название курса")
@@ -109,30 +112,43 @@ class Lesson(models.Model):
     )
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    duration = models.PositiveIntegerField(default=0)
+    content = models.TextField(blank=True)
+    type = models.CharField(
+        max_length=20,
+        choices=LESSON_TYPES,
+        default='ARTICLE'
+    )
     order = models.PositiveIntegerField(default=0)
     thumbnail = models.ImageField(
         upload_to="thumbnails/lessons/",
         null=True,
         blank=True
     )
-    type = models.CharField(
-        max_length=20,
-        choices=LESSON_TYPES,
-        default='ARTICLE'
-    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    start_datetime = models.DateTimeField(null=True, blank=True, help_text="Дата и время начала урока")
+    end_datetime = models.DateTimeField(null=True, blank=True, help_text="Дата и время окончания урока")
+    duration = models.PositiveIntegerField(default=0)  # Duration in minutes
+    max_score = models.IntegerField(default=5)
 
     class Meta:
         verbose_name = "Урок"
         verbose_name_plural = "Уроки"
         ordering = ["order"]
-        unique_together = [("module", "title")]
+        unique_together = [("module", "order")]
 
     def __str__(self):
-        return f"{self.module.title} → {self.title}"
-    
+        return self.title
+
+    @property
+    def is_available(self):
+        now = timezone.now()
+        if self.start_datetime and now < self.start_datetime:
+            return False
+        if self.end_datetime and now > self.end_datetime:
+            return False
+        return True
+
     def get_content(self):
         return {
             'texts': self.contents.filter(content_type='TEXT'),

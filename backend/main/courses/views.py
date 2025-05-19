@@ -154,20 +154,49 @@ class ModuleViewSet(viewsets.ModelViewSet):
 
 class LessonViewSet(viewsets.ModelViewSet):
     serializer_class = LessonSerializer
-    parser_classes = [MultiPartParser, FormParser]  # Unchanged, as it handles file uploads
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-    
-    def get_queryset(self): 
-        return Lesson.objects.filter(
-            module__id=self.kwargs['module_id']
-        ).select_related('module').prefetch_related('contents').order_by('order')
-    
-    def perform_create(self, serializer):
-        module = get_object_or_404(Module, id=self.kwargs['module_id'])
-        last_order = Lesson.objects.filter(module=module).order_by('-order').first()
-        new_order = (last_order.order + 1) if last_order else 1
-        serializer.save(module=module, order=new_order)
-    
+    parser_classes = [MultiPartParser, FormParser]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        module_id = self.kwargs.get('module_id')
+        if not module_id:
+            return Lesson.objects.none()
+        return Lesson.objects.filter(module_id=module_id)
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if not instance.is_available:
+            return Response({
+                'error': 'Урок недоступен',
+                'title': instance.title,
+                'start_datetime': instance.start_datetime,
+                'end_datetime': instance.end_datetime,
+                'time_until_start': self.get_serializer(instance).get_time_until_start(instance),
+                'time_remaining': self.get_serializer(instance).get_time_remaining(instance)
+            }, status=status.HTTP_403_FORBIDDEN)
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def create(self, request, *args, **kwargs):
+        module_id = self.kwargs.get('module_id')
+        module = get_object_or_404(Module, id=module_id)
+        
+        # Calculate new order
+        last_order = Lesson.objects.filter(module=module).aggregate(
+            models.Max('order'))['order__max'] or 0
+        
+        # Add module and order to request data
+        data = request.data.copy()
+        data['module'] = module_id
+        data['order'] = last_order + 1
+        
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=True)

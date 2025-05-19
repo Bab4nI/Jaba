@@ -137,6 +137,26 @@
         </div>
         
         <div class="form-group">
+          <label>Дата и время начала:</label>
+          <input 
+            type="datetime-local" 
+            v-model="editingLesson.start_datetime"
+            class="datetime-input"
+            :min="new Date().toISOString().slice(0, 16)"
+          />
+        </div>
+        
+        <div class="form-group">
+          <label>Дата и время окончания:</label>
+          <input 
+            type="datetime-local" 
+            v-model="editingLesson.end_datetime"
+            class="datetime-input"
+            :min="editingLesson.start_datetime || new Date().toISOString().slice(0, 16)"
+          />
+        </div>
+        
+        <div class="form-group">
           <label>Порядок:</label>
           <input 
             type="number" 
@@ -448,6 +468,8 @@ export default {
       formData.append('type', lessonType);
       formData.append('duration', '0');
       formData.append('order', module.lessons ? module.lessons.length : 0);
+      formData.append('start_datetime', '');
+      formData.append('end_datetime', '');
 
       // Add default image based on type
       const defaultImage = await this.getDefaultImage(lessonType);
@@ -482,18 +504,44 @@ export default {
     editLesson(moduleIndex, lessonIndex) {
       const module = this.modules[moduleIndex];
       const lesson = module.lessons[lessonIndex];
+      
+      // Format datetime strings to remove 'Z' and milliseconds
+      const formatDateTime = (dateString) => {
+        if (!dateString) return null;
+        const date = new Date(dateString);
+        // Add 3 hours to compensate for UTC conversion
+        const adjustedDate = new Date(date.getTime() + (3 * 60 * 60 * 1000));
+        return adjustedDate.toISOString().slice(0, 16);
+      };
+
       this.editingLesson = {
         ...lesson,
         moduleIndex,
         lessonIndex,
+        start_datetime: formatDateTime(lesson.start_datetime),
+        end_datetime: formatDateTime(lesson.end_datetime)
       };
       this.editingModuleIndex = moduleIndex;
       this.editingLessonIndex = lessonIndex;
     },
 
-    openArticleEditor(moduleIndex, lessonIndex) {
+    async openArticleEditor(moduleIndex, lessonIndex) {
       const module = this.modules[moduleIndex];
       const lesson = module.lessons[lessonIndex];
+      
+      // Check if lesson is available
+      if (!lesson.is_available) {
+        let message = 'Урок пока недоступен.';
+        if (lesson.time_until_start > 0) {
+          const timeUntilStart = this.formatTimeRemaining(lesson.time_until_start);
+          message += ` Доступ откроется через: ${timeUntilStart}`;
+        } else if (lesson.time_remaining === 0) {
+          message = 'Время урока истекло.';
+        }
+        alert(message);
+        return;
+      }
+
       this.router.push({
         name: 'ArticleEditor',
         params: {
@@ -506,6 +554,23 @@ export default {
           type: lesson.type.toLowerCase(),
         },
       });
+    },
+
+    formatTimeRemaining(seconds) {
+      if (!seconds) return '';
+      
+      const days = Math.floor(seconds / (24 * 60 * 60));
+      const hours = Math.floor((seconds % (24 * 60 * 60)) / (60 * 60));
+      const minutes = Math.floor((seconds % (60 * 60)) / 60);
+      const remainingSeconds = Math.floor(seconds % 60);
+      
+      let result = '';
+      if (days > 0) result += `${days} д. `;
+      if (hours > 0) result += `${hours} ч. `;
+      if (minutes > 0) result += `${minutes} мин. `;
+      if (minutes === 0 && remainingSeconds > 0) result += `${remainingSeconds} сек.`;
+      
+      return result.trim();
     },
 
     async deleteLesson(moduleIndex, lessonIndex) {
@@ -553,6 +618,16 @@ export default {
       formData.append('type', lessonData.type || 'ARTICLE');
       formData.append('duration', lessonData.duration || 0);
       formData.append('order', lessonData.order || 0);
+      
+      // Convert input time to UTC for API
+      if (lessonData.start_datetime) {
+        const inputDate = new Date(lessonData.start_datetime);
+        formData.append('start_datetime', inputDate.toISOString().slice(0, 19));
+      }
+      if (lessonData.end_datetime) {
+        const inputDate = new Date(lessonData.end_datetime);
+        formData.append('end_datetime', inputDate.toISOString().slice(0, 19));
+      }
 
       // Handle thumbnail
       if (lessonData.thumbnail instanceof File) {
@@ -576,6 +651,19 @@ export default {
             },
           }
         );
+
+        // Convert UTC to Moscow time for display
+        if (response.data.start_datetime) {
+          const utcDate = new Date(response.data.start_datetime);
+          const moscowDate = new Date(utcDate.getTime() + (3 * 60 * 60 * 1000));
+          response.data.start_datetime = moscowDate.toISOString().slice(0, 16);
+        }
+        if (response.data.end_datetime) {
+          const utcDate = new Date(response.data.end_datetime);
+          const moscowDate = new Date(utcDate.getTime() + (3 * 60 * 60 * 1000));
+          response.data.end_datetime = moscowDate.toISOString().slice(0, 16);
+        }
+
         module.lessons[lessonIndex] = response.data;
         this.modules[moduleIndex] = { ...module };
         this.searchModules();
@@ -613,6 +701,104 @@ export default {
         return;
       }
       await this.loadModules();
+    },
+
+    openEditCourseModal(course) {
+      this.editCourseForm = {
+        slug: course.slug,
+        title: course.title,
+        description: course.description,
+        is_published: course.is_published,
+        thumbnail: course.thumbnail,
+        thumbnailPreview: null,
+        start_datetime: course.start_datetime ? course.start_datetime.slice(0, 16) : null,
+        end_datetime: course.end_datetime ? course.end_datetime.slice(0, 16) : null
+      };
+      this.showEditCourseModal = true;
+    },
+
+    async updateCourse() {
+      try {
+        console.log('Updating course with data:', this.editCourseForm);
+        
+        const formData = new FormData();
+        formData.append('title', this.editCourseForm.title || 'Без названия');
+        formData.append('description', this.editCourseForm.description || '');
+        formData.append('is_published', this.editCourseForm.is_published);
+        
+        // Add datetime fields if they exist
+        if (this.editCourseForm.start_datetime) {
+          formData.append('start_datetime', this.editCourseForm.start_datetime);
+        }
+        if (this.editCourseForm.end_datetime) {
+          formData.append('end_datetime', this.editCourseForm.end_datetime);
+        }
+
+        // Only include thumbnail if it's a File or explicitly cleared
+        if (this.editCourseForm.thumbnail instanceof File) {
+          formData.append('thumbnail', this.editCourseForm.thumbnail);
+        } else if (this.editCourseForm.thumbnail === '') {
+          formData.append('thumbnail', '');
+        }
+
+        // Always use trailing slash for Django compatibility
+        const response = await this.api.patch(`/courses/${this.editCourseForm.slug}/`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+
+        console.log('✅ Course updated successfully:', response.data);
+
+        // Invalidate course cache after updating
+        if (this.cache && typeof this.cache.remove === 'function') {
+          this.cache.remove(`cache_/courses/${this.editCourseForm.slug}/_{}`)
+          // Also invalidate courses list
+          this.cache.remove('cache_/courses/_{}');
+        }
+
+        const index = this.courses.findIndex(course => course.slug === this.editCourseForm.slug);
+        if (index !== -1) {
+          this.courses[index] = response.data;
+        }
+
+        this.showEditCourseModal = false;
+        this.resetEditCourseForm();
+      } catch (error) {
+        console.error('❌ Error updating course:', error);
+        console.error('Error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        });
+        
+        let errorMessage = 'Неизвестная ошибка';
+        if (error.response?.data?.detail) {
+          errorMessage = error.response.data.detail;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        alert('Не удалось обновить курс: ' + errorMessage);
+        
+        if (error.response?.status === 401) {
+          this.authStore.logout();
+          this.router.push({ name: 'SignIn' });
+        }
+      }
+    },
+
+    resetEditCourseForm() {
+      this.editCourseForm = {
+        slug: '',
+        title: '',
+        description: '',
+        is_published: false,
+        thumbnail: null,
+        thumbnailPreview: null,
+        start_datetime: null,
+        end_datetime: null
+      };
     },
   },
 
@@ -1226,5 +1412,34 @@ export default {
 
 .dark-theme .title-input:focus {
   background-color: var(--background-color) !important;
+}
+
+.datetime-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 14px;
+  background: var(--background-color);
+  color: var(--text-color);
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.datetime-input:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(160, 148, 184, 0.2);
+  outline: none;
+}
+
+/* Dark theme support for datetime input */
+.dark-theme .datetime-input {
+  background-color: var(--form-background);
+  border-color: var(--border-color);
+  color: var(--text-color);
+}
+
+.dark-theme .datetime-input:focus {
+  background-color: var(--background-color);
 }
 </style>

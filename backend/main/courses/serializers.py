@@ -2,6 +2,8 @@ from rest_framework import serializers
 from .models import Course, Module, Lesson, LessonContent, Comment, CommentReaction, UserProgress
 from rest_framework.exceptions import ValidationError
 import logging
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -112,18 +114,43 @@ class LessonContentSerializer(serializers.ModelSerializer):
 
 class LessonSerializer(serializers.ModelSerializer):
     contents = LessonContentSerializer(many=True, read_only=True)
+    is_available = serializers.BooleanField(read_only=True)
+    time_remaining = serializers.SerializerMethodField()
+    time_until_start = serializers.SerializerMethodField()
     
     class Meta:
         model = Lesson
         fields = [
-            'id', 'title', 'description', 'order', 'thumbnail',
-            'type', 'created_at', 'updated_at', 'duration', 'contents'
+            'id', 'title', 'description', 'content', 'type', 'module',
+            'order', 'thumbnail', 'created_at', 'updated_at',
+            'start_datetime', 'end_datetime', 'duration',
+            'is_available', 'time_remaining', 'time_until_start',
+            'contents'
         ]
+        read_only_fields = ['created_at', 'updated_at']
         extra_kwargs = {
-            'thumbnail': {'required': False, 'allow_null': True},
-            'description': {'required': False, 'allow_null': True},
-            'type': {'required': True},
+            'module': {'required': False},  # Make module optional in serializer
+            'duration': {'required': False, 'default': 0},  # Make duration optional with default 0
+            'max_score': {'required': False, 'default': 0},  # Make max_score optional with default 0
+            'start_datetime': {'required': False},  # Make start_datetime optional
+            'type': {'required': False, 'default': 'ARTICLE'}  # Make type optional with default ARTICLE
         }
+
+    def get_time_remaining(self, obj):
+        if not obj.end_datetime:
+            return None
+        now = timezone.now()
+        if now > obj.end_datetime:
+            return 0
+        return (obj.end_datetime - now).total_seconds()
+
+    def get_time_until_start(self, obj):
+        if not obj.start_datetime:
+            return None
+        now = timezone.now()
+        if now >= obj.start_datetime:
+            return 0
+        return (obj.start_datetime - now).total_seconds()
 
     def validate(self, data):
         module_id = self.context['view'].kwargs.get('module_id')
@@ -142,7 +169,12 @@ class LessonSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         module_id = self.context['view'].kwargs['module_id']
-        validated_data['module_id'] = module_id
+        module = get_object_or_404(Module, id=module_id)
+        validated_data['module'] = module
+        
+        # Convert duration to integer if it's a string
+        if 'duration' in validated_data and isinstance(validated_data['duration'], str):
+            validated_data['duration'] = int(validated_data['duration'])
         
         return super().create(validated_data)
 

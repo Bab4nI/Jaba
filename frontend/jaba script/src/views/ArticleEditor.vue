@@ -51,6 +51,14 @@
             >
               {{ mode === 'edit' ? 'Предпросмотр' : 'Редактировать' }}
             </button>
+            <button
+              @click="goBack"
+              class="back-button"
+              aria-label="Вернуться к модулям"
+            >
+              <span class="btn-icon">←</span>
+              К модулям
+            </button>
           </div>
         </div>
         
@@ -147,6 +155,15 @@
               <span v-else class="btn-icon">💾</span>
               {{ isSaving ? 'Сохранение...' : 'Сохранить работу' }}
               <span v-if="hasChanges" class="changes-indicator">*</span>
+            </button>
+
+            <button
+              @click="goBack"
+              class="back-button"
+              aria-label="Вернуться к модулям"
+            >
+              <span class="btn-icon">←</span>
+              К модулям
             </button>
           </div>
         </div>
@@ -1603,9 +1620,11 @@ export default {
 .mode-controls {
   display: flex;
   gap: 1rem;
+  align-items: center;
 }
 
-.mode-toggle-btn {
+.mode-toggle-btn,
+.back-button {
   background: var(--accent-color);
   color: var(--footer-text);
   border: none;
@@ -1615,11 +1634,17 @@ export default {
   font-size: 16px;
   font-weight: 400;
   transition: all 0.2s ease;
+  min-width: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   position: relative;
   overflow: hidden;
 }
 
-.mode-toggle-btn::before {
+.mode-toggle-btn::before,
+.back-button::before {
   content: '';
   position: absolute;
   top: 0;
@@ -1631,14 +1656,21 @@ export default {
   transition: transform 0.4s ease-out;
 }
 
-.mode-toggle-btn:hover {
-  background: #8b7ca5;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+.mode-toggle-btn:hover::before,
+.back-button:hover::before {
+  transform: translateX(0);
 }
 
-.mode-toggle-btn:hover::before {
-  transform: translateX(0);
+.mode-toggle-btn:hover:not(:disabled),
+.back-button:hover:not(:disabled) {
+  background: #8b7ca5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.mode-toggle-btn:active,
+.back-button:active {
+  transform: translateY(0);
 }
 
 .mode-toggle-btn.active {
@@ -3059,5 +3091,33 @@ export default {
 
 :global(.dark-theme) .ai-toggle-label::after {
   background-color: var(--background-color);
+}
+
+.back-button {
+  background: var(--accent-color);
+  color: var(--footer-text);
+  border: none;
+  padding: 12px 24px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 400;
+  transition: background-color 0.2s, transform 0.1s;
+  min-width: 120px;
+}
+
+.back-button:hover:not(:disabled) {
+  background: #8b7ca5;
+  transform: translateY(-1px);
+}
+
+.back-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.back-button .btn-icon {
+  font-size: 18px;
+  line-height: 1;
 }
 </style>
