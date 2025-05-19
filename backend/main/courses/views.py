@@ -26,6 +26,7 @@ import uuid
 from datetime import datetime
 from django.http import Http404
 from django.db import models
+from django.contrib.auth import get_user_model
 
 logger = logging.getLogger(__name__)
 
@@ -945,3 +946,129 @@ class UserProgressViewSet(viewsets.ModelViewSet):
             'lesson_id': lesson.id,
             'message': 'Progress reset successfully'
         })
+
+    @action(detail=False, methods=['GET'])
+    def groups(self, request):
+        """Get list of all groups in the system"""
+        User = get_user_model()
+        
+        # Get all unique groups from users
+        groups = User.objects.exclude(groups__isnull=True).values_list('groups__name', flat=True).distinct()
+        
+        # Add 'admins' group if user is staff
+        if request.user.is_staff:
+            groups = list(groups) + ['admins']
+            
+        return Response(list(groups))
+
+    @action(detail=False, methods=['GET'])
+    def group_statistics(self, request):
+        """Get statistics for a specific group in a course"""
+        try:
+            User = get_user_model()
+            DEFAULT_MAX_SCORE = 5  # Default maximum score for lessons
+            
+            course_slug = request.query_params.get('course_slug')
+            group_name = request.query_params.get('group')
+            
+            if not course_slug or not group_name:
+                return Response(
+                    {'error': 'Both course_slug and group parameters are required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            try:
+                course = Course.objects.get(slug=course_slug)
+            except Course.DoesNotExist:
+                return Response(
+                    {'error': f'Course with slug {course_slug} not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+                
+            # Get all lessons in the course
+            lessons = Lesson.objects.filter(module__course=course).order_by('module__order', 'order')
+            
+            # Get users in the group
+            if group_name == 'admins':
+                # Get users with role 'admin'
+                users = User.objects.filter(role='admin')
+            else:
+                users = User.objects.filter(groups__name=group_name)
+                
+            # Prepare response data
+            response_data = {
+                'course': {
+                    'id': course.id,
+                    'title': course.title,
+                    'slug': course.slug
+                },
+                'lessons': [],
+                'users': []
+            }
+            
+            # Add lessons data
+            for lesson in lessons:
+                response_data['lessons'].append({
+                    'id': lesson.id,
+                    'title': lesson.title,
+                    'type': getattr(lesson, 'type', 'ARTICLE'),
+                    'max_score': DEFAULT_MAX_SCORE
+                })
+                
+            # Add users data with their progress
+            for user in users:
+                try:
+                    user_data = {
+                        'id': user.id,
+                        'full_name': (f'{user.first_name} {user.last_name}'.strip() or user.email),
+                        'progress': {}
+                    }
+                    
+                    # Get progress for each lesson
+                    for lesson in lessons:
+                        # Get all progress records for this lesson (both lesson-level and content-level)
+                        progress_records = UserProgress.objects.filter(
+                            user=user,
+                            lesson=lesson
+                        )
+                        
+                        # Calculate total scores
+                        total_score = 0
+                        total_max_score = 0
+                        is_completed = False
+                        
+                        for progress in progress_records:
+                            if progress.content:  # Content-level progress
+                                total_score += progress.current_score or 0
+                                total_max_score += progress.max_score or DEFAULT_MAX_SCORE
+                            else:  # Lesson-level progress
+                                total_score = max(total_score, progress.current_score or 0)
+                                total_max_score = max(total_max_score, progress.max_score or DEFAULT_MAX_SCORE)
+                            
+                            is_completed = is_completed or progress.completed
+                        
+                        # If no progress records found, use default values
+                        if not progress_records:
+                            total_score = 0
+                            total_max_score = DEFAULT_MAX_SCORE
+                            is_completed = False
+                        
+                        user_data['progress'][str(lesson.id)] = {
+                            'completed': is_completed,
+                            'max_score': total_max_score,
+                            'current_score': total_score
+                        }
+                            
+                    response_data['users'].append(user_data)
+                except Exception as e:
+                    logger.error(f"Error processing user {user.id}: {str(e)}", exc_info=True)
+                    continue  # Skip this user and continue with others
+                
+            return Response(response_data)
+            
+        except Exception as e:
+            logger.error(f"Error in group_statistics: {str(e)}", exc_info=True)
+            return Response(
+                {'error': f'Internal server error: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

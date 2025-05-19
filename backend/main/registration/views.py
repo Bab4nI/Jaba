@@ -104,6 +104,8 @@ class RegisterView(APIView):
             # If role is admin, make sure we're handling it
             if role == 'admin':
                 logger.info(f"Creating admin user for {data.get('email')}")
+                # Set group to 'admins' for admin users
+                data['group'] = 'admins'
             
             user = serializer.save()
             logger.info(f"User created with ID {user.id}, role: {user.role}")
@@ -304,3 +306,29 @@ class VerifyEmailCodeView(APIView):
             {"status": "Email успешно изменен"},
             status=status.HTTP_200_OK
         )
+
+class UpdateAdminGroupsView(APIView):
+    def post(self, request):
+        try:
+            # Get all users with role 'admin'
+            admin_users = User.objects.filter(role='admin')
+            updated_count = 0
+            
+            for user in admin_users:
+                if user.group != 'admins':
+                    user.group = 'admins'
+                    user.save()
+                    updated_count += 1
+            
+            return Response({
+                "status": "success",
+                "message": f"Updated {updated_count} admin users",
+                "total_admins": admin_users.count()
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Error updating admin groups: {str(e)}")
+            return Response(
+                {"error": f"Failed to update admin groups: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

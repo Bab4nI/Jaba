@@ -151,6 +151,16 @@ urlpatterns = [
         name='reset-lesson-progress'
     ),
     path(
+        'groups/',
+        UserProgressViewSet.as_view({'get': 'groups'}),
+        name='groups-list'
+    ),
+    path(
+        'group-statistics/',
+        UserProgressViewSet.as_view({'get': 'group_statistics'}),
+        name='group-statistics'
+    ),
+    path(
         'lesson-contents/<int:pk>/submit-answer/',
         LessonContentViewSet.as_view({'post': 'submit_answer'}),
         name='submit-content-answer'

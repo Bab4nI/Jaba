@@ -11,12 +11,12 @@
       </div>
     
     <div class="group-select-row" v-if="selectedCourse">
-      <select v-model="selectedGroup" class="course-select" @change="loadGroupData">
+      <select v-model="selectedGroup" class="course-select" @change="onGroupChange">
         <option value="admins">Преподаватели</option>
         <option v-for="group in groups" :key="group" :value="group">{{ group }}</option>
       </select>
       <span class="select-arrow">&#9662;</span>
-          </div>
+    </div>
           
     <div v-if="loading" class="loading-indicator">Загрузка данных...</div>
     <div v-else-if="!selectedCourse" class="no-selection-message">Выберите курс для просмотра статистики</div>
@@ -57,7 +57,7 @@ import api from '@/api';
 
 const loading = ref(false);
 const groups = ref([]);
-const selectedGroup = ref('');
+const selectedGroup = ref('admins');
 const courses = ref([]);
 const selectedCourse = ref('');
 const courseName = ref('');
@@ -93,9 +93,8 @@ const loadGroups = async () => {
     groups.value = groupsResponse.data;
   } catch (error) {
     console.error('Ошибка загрузки групп:', error);
-    // Fallback to hardcoded groups if API fails
-    groups.value = ['КТсо2-4', 'КТсо2-3'];
-      }
+    groups.value = [];
+  }
 };
 
 // Функция для обработки изменения выбранного курса
@@ -112,19 +111,19 @@ const onCourseChange = async () => {
     courseName.value = course.title;
     
     // Подготавливаем массив работ (lessons)
-    const lessonPromises = [];
+    const allLessons = [];
     
     // Для каждого модуля загружаем уроки
     for (const module of course.modules) {
       const lessonsResponse = await api.get(`/courses/${selectedCourse.value}/modules/${module.id}/lessons/`);
-      lessonPromises.push(...lessonsResponse.data);
-  }
+      allLessons.push(...lessonsResponse.data);
+    }
   
     // Преобразуем уроки в формат работ для таблицы
-    works.value = lessonPromises.map(lesson => ({
+    works.value = allLessons.map(lesson => ({
       id: lesson.id,
       title: lesson.title,
-      max_score: 5, // Максимальный балл
+      max_score: lesson.max_score || 5, // Используем max_score из урока или 5 по умолчанию
       type: lesson.type || 'ARTICLE'
     }));
     
@@ -147,90 +146,76 @@ const onCourseChange = async () => {
   }
 };
 
-// Загрузка данных о студентах группы или админах
+// Функция для обработки изменения выбранной группы
+const onGroupChange = async () => {
+  console.log('Group changed to:', selectedGroup.value);
+  if (selectedGroup.value) {
+    await loadGroupData();
+  }
+};
+
+// Загрузка данных о студентах группы или админов
 const loadGroupData = async () => {
-  if (!selectedGroup.value || !selectedCourse.value) return;
+  if (!selectedGroup.value || !selectedCourse.value) {
+    console.log('Missing required data:', { group: selectedGroup.value, course: selectedCourse.value });
+    return;
+  }
   
   try {
     loading.value = true;
+    console.log('Loading group data for:', { course: selectedCourse.value, group: selectedGroup.value });
     
-    let endpoint = '';
-    // Определяем, загружать ли студентов группы или админов
-    if (selectedGroup.value === 'admins') {
-      endpoint = '/admins/';
-    } else {
-      endpoint = `/group-users/?group=${selectedGroup.value}`;
-    }
+    // Получаем статистику группы
+    const response = await api.get(`/group-statistics/?course_slug=${selectedCourse.value}&group=${selectedGroup.value}`);
+    console.log('Group statistics response:', response.data);
     
-    // Получаем список студентов/админов
-    const studentsResponse = await api.get(endpoint);
-    students.value = studentsResponse.data;
+    const data = response.data;
     
-    // Инициализируем объект для хранения прогресса
+    // Обновляем название курса
+    courseName.value = data.course.title;
+    
+    // Обновляем список работ
+    works.value = data.lessons.map(lesson => ({
+      id: lesson.id,
+      title: lesson.title,
+      max_score: lesson.max_score || 5,
+      type: lesson.type || 'ARTICLE'
+    }));
+    
+    // Обновляем список студентов и их прогресс
+    students.value = data.users.map(user => ({
+      id: user.id,
+      full_name: user.full_name || user.username
+    }));
+    
+    // Обновляем данные о прогрессе
     const newProgressData = {};
-    
-    // Загружаем прогресс для каждого студента/админа
-    for (const student of students.value) {
-      newProgressData[student.id] = {};
-      
-      try {
-        // Реальный API-вызов для получения прогресса
-        const progressResponse = await api.get(`/student-progress/?student_id=${student.id}&course_slug=${selectedCourse.value}`);
-        
-        // Обрабатываем полученные данные
-        const progress = progressResponse.data;
-        
-        // Преобразуем данные в формат для отображения в таблице
-        works.value.forEach(work => {
-          if (progress[work.id]) {
-            // Если есть данные о прогрессе для этого lesson_id
-            const lessonProgress = progress[work.id];
-            
-            // Рассчитываем общий балл по содержимому урока
-            let totalScore = 0;
-            let maxPossibleScore = work.max_score;
-            
-            // Если есть детальные данные по контенту
-            if (lessonProgress.contents && Object.keys(lessonProgress.contents).length > 0) {
-              totalScore = Object.values(lessonProgress.contents).reduce((sum, content) => sum + content.score, 0);
-              maxPossibleScore = Object.values(lessonProgress.contents).reduce((sum, content) => sum + content.max_score, 0);
-            } else if (lessonProgress.completed) {
-              // Если просто отмечено как завершенное
-              totalScore = maxPossibleScore;
-            }
-            
-            newProgressData[student.id][work.id] = {
-              score: totalScore,
-              completed: lessonProgress.completed,
-              max_score: maxPossibleScore
-            };
-          } else {
-            // Если нет данных, ставим нули
-            newProgressData[student.id][work.id] = {
-              score: 0,
-              completed: false,
-              max_score: work.max_score
-            };
-          }
-        });
-      } catch (error) {
-        console.error(`Ошибка загрузки прогресса для студента ${student.id}:`, error);
-        
-        // Если ошибка при загрузке, инициализируем все нулями
-        works.value.forEach(work => {
-          newProgressData[student.id][work.id] = {
+    data.users.forEach(user => {
+      newProgressData[user.id] = {};
+      works.value.forEach(work => {
+        const progress = user.progress[work.id];
+        if (progress) {
+          newProgressData[user.id][work.id] = {
+            score: progress.current_score || 0,
+            completed: progress.completed || false,
+            max_score: progress.max_score || work.max_score
+          };
+        } else {
+          newProgressData[user.id][work.id] = {
             score: 0,
             completed: false,
             max_score: work.max_score
           };
-        });
-      }
-    }
+        }
+      });
+    });
     
     progressData.value = newProgressData;
   } catch (error) {
-    console.error('Ошибка загрузки студентов:', error);
+    console.error('Ошибка загрузки статистики группы:', error);
     students.value = [];
+    works.value = [];
+    progressData.value = {};
   } finally {
     loading.value = false;
   }
@@ -276,15 +261,26 @@ const getStudentTotal = (student) => {
 const emptyRows = computed(() => Math.max(0, 10 - students.value.length));
 
 // Обновляем данные при изменении курса
-watch(() => selectedCourse.value, (newValue) => {
+watch(() => selectedCourse.value, async (newValue) => {
   if (newValue) {
-    onCourseChange();
+    await onCourseChange();
+    // Если группа уже выбрана, загружаем данные группы
+    if (selectedGroup.value) {
+      await loadGroupData();
+    }
   } else {
     // Если курс не выбран, сбрасываем данные
     works.value = [];
     students.value = [];
     progressData.value = {};
     courseName.value = '';
+  }
+});
+
+// Добавляем watch для selectedGroup
+watch(() => selectedGroup.value, async (newValue) => {
+  if (newValue && selectedCourse.value) {
+    await loadGroupData();
   }
 });
 </script>
