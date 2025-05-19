@@ -2,23 +2,39 @@
   <div class="sidebar-container">
     <div class="course-progress-stats-container">
       <div class="course-progress-container">
-        <button 
+        <button
           :class="['sidebar-button', { 'active': activeTab === 'Мой профиль' }]" 
           @click="setActiveTab('Мой профиль')"
         >
           Мой профиль
         </button>
-        <button 
+        <button
+          v-if="userRole === 'student'"
           :class="['sidebar-button', { 'active': activeTab === 'Прогресс прохождения курса' }]" 
           @click="setActiveTab('Прогресс прохождения курса')"
         >
           Прогресс прохождения курса
         </button>
         <button 
-          :class="['sidebar-button', { 'active': activeTab === 'Статистика' }]" 
-          @click="setActiveTab('Статистика')"
+           v-if="userRole === 'admin'"
+          :class="['sidebar-button', { 'active': activeTab === 'Статистика прохождения курса' }]" 
+          @click="setActiveTab('Статистика прохождения курса')"
         >
-          Статистика
+          Статистика прохождения курса
+        </button>
+        <button 
+           v-if="userRole === 'admin'"
+          :class="['sidebar-button', { 'active': activeTab === 'Пригласить пользователя' }]" 
+          @click="setActiveTab('Пригласить пользователя')"
+        >
+          Пригласить пользователя
+        </button>
+        <button 
+           v-if="userRole === 'admin'"
+          :class="['sidebar-button', { 'active': activeTab === 'Управление новостями' }]" 
+          @click="setActiveTab('Управление новостями')"
+        >
+          Управление новостями
         </button>
       </div>
     </div>
@@ -28,66 +44,42 @@
   </div>
 </template>
 
-<script>
-import axios from 'axios';
+<script setup>
+// components/Sidebar.vue
+import { computed, onMounted } from 'vue';
+import { useUserStore } from '@/stores/user'; // Импортируем userStore
+import { useRefreshStore } from '@/stores/auth'; // Импортируем refreshStore
+import { useRouter } from 'vue-router';
 
-export default {
-  data() {
-    return {
-      activeTab: 'Мой профиль',
-      refreshTokenInterval: null,
-    };
-  },
-  methods: {
-    setActiveTab(tab) {
-      this.activeTab = tab;
-    },
-    async logout() {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      this.$router.push('/signin');
-    },
-    async refreshToken() {
-      const refreshToken = localStorage.getItem('refresh_token');
-      if (!refreshToken) {
-        this.logout();
-        return;
-      }
+const userStore = useUserStore();
+const refreshStore = useRefreshStore(); // Используем refreshStore
+const router = useRouter();
 
-      try {
-        const response = await axios.post('/api/token/refresh/', {
-          refresh: refreshToken,
-        });
+const activeTab = computed(() => userStore.activeTab);
+const userRole = computed(() => {
+  const role = userStore.role;
+  console.log('Current user role in Sidebar:', role);
+  return role;
+});
 
-        localStorage.setItem('access_token', response.data.access);
-        localStorage.setItem('refresh_token', response.data.refresh);
-      } catch (error) {
-        this.logout();
-      }
-    },
-    startTokenRefreshInterval() {
-      this.refreshTokenInterval = setInterval(() => {
-        const accessToken = localStorage.getItem('access_token');
-        if (accessToken) {
-          const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]));
-          const expirationTime = tokenPayload.exp * 1000;
-          const currentTime = Date.now();
+// Use the debounced version to prevent multiple requests, but only if needed
+onMounted(() => {
+  // Only fetch if we don't already have user data with role
+  if (!userStore.user || !userStore.role) {
+    console.log('Sidebar: No cached user data, fetching profile');
+    userStore.debouncedFetchProfile();
+  } else {
+    console.log('Sidebar: Using cached user data, role:', userStore.role);
+  }
+});
 
-          if (expirationTime - currentTime < 60000) { // Если до истечения токена осталось меньше минуты
-            this.refreshToken();
-          }
-        }
-      }, 30000); // Проверяем каждые 30 секунд
-    },
-  },
-  mounted() {
-    this.startTokenRefreshInterval();
-  },
-  beforeDestroy() {
-    if (this.refreshTokenInterval) {
-      clearInterval(this.refreshTokenInterval);
-    }
-  },
+const logout = () => {
+  refreshStore.logout(); // Используем logout из refreshStore
+  router.push('/');
+};
+
+const setActiveTab = (tab) => {
+  userStore.setActiveTab(tab);
 };
 </script>
   
@@ -97,69 +89,74 @@ export default {
     flex-direction: column;
     align-items: flex-start;
     padding: 20px;
-    background: #f5f9f8;
+    background: var(--form-background);
     border-radius: 15px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s ease;
+    width: 210px; /* Fixed width for container */
   }
   
   .sidebar-button {
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    width: auto;
-    min-width: 150px;
+    width: 100%; /* Fill container width */
     height: 47px;
-    padding: 0 20px;
+    padding: 0 15px;
     margin: 10px 0;
     font: 400 20px Raleway, sans-serif;
-    color: #24222f;
-    background: #f5f9f8;
-    border: 2px solid #a094b8;
+    color: var(--text-color);
+    background: var(--form-background);
+    border: 2px solid var(--accent-color);
     border-radius: 10px;
     cursor: pointer;
-    transition: background-color 0.3s ease, color 0.3s ease;
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
     text-align: left;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   
   .sidebar-button:hover {
-    background-color: #e0e4e8;
+    background-color: var(--hover-background);
   }
   
   .sidebar-button.active {
-    background-color: #a094b8;
-    color: #f5f9f8;
-    border-color: #a094b8;
+    background-color: var(--accent-color);
+    color: var(--footer-text);
+    border-color: var(--accent-color);
   }
   
   .progress-indicator-text-style {
     margin-top: 20px;
     font: 400 16px Raleway, sans-serif;
-    color: #da1f38;
+    color: var(--error-color);
     cursor: pointer;
+    transition: color 0.3s ease;
   }
 
   .logout-button {
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    width: auto;
-    min-width: 150px;
+    width: 100%; /* Fill container width */
     height: 47px;
-    padding: 0 20px;
+    padding: 0 15px;
     margin: 10px 0;
     font: 400 20px Raleway, sans-serif;
-    color: #24222f;
+    color: var(--footer-text);
     background: #ff4d4d;
-    border: 2px solid #a094b8;
+    border: 2px solid var(--accent-color);
     border-radius: 10px;
     cursor: pointer;
-    transition: background-color 0.3s ease, color 0.3s ease;
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
     text-align: left;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .logout-button:hover{
     background: #eb2929;
   }
-  </style>
+</style>

@@ -4,7 +4,72 @@
     <meta charset="UTF-8">
     <link rel="icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vite App</title>
+    <title>Jaba Script</title>
+    <!-- Встроенные стили для предотвращения мигания темы -->
+    <style>
+      :root {
+        /* Переменные для светлой темы (по умолчанию) */
+        --background-color: #f8f9fa;
+        --text-color: #24222f;
+        --form-background: #ffffff;
+        --border-color: #e5e7eb;
+        --accent-color: #a094b8;
+        --secondary-text: #575667;
+        --footer-text: #ffffff;
+        --hover-accent: #8b7ca5;
+        --hover-background: #f0f0f0;
+        --error-color: #ef4444;
+        --error-background: #fef2f2;
+        --transition-speed: 0.3s;
+      }
+      
+      :root.dark-theme {
+        /* Переменные для темной темы */
+        --background-color: #24222f;
+        --text-color: #f8f9fa;
+        --form-background: #333142;
+        --border-color: #4a4857;
+        --accent-color: #8b7ca5;
+        --secondary-text: #b5b3c2;
+        --footer-text: #ffffff;
+        --hover-accent: #a094b8;
+        --hover-background: #3e3c4e;
+        --error-color: #f87171;
+        --error-background: #471818;
+      }
+      
+      body {
+        background-color: var(--background-color);
+        color: var(--text-color);
+        transition: background-color 0.3s ease, color 0.3s ease;
+        margin: 0;
+      }
+    </style>
+    <script>
+      // Apply theme from localStorage immediately to prevent flashing
+      try {
+        const savedTheme = localStorage.getItem('theme');
+        // Проверяем тему и применяем её к документу
+        if (savedTheme === 'dark') {
+          document.documentElement.classList.add('dark-theme');
+        } else {
+          document.documentElement.classList.remove('dark-theme');
+        }
+        
+        // Синхронизация с системными настройками, если тема не задана явно
+        if (!savedTheme) {
+          const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (prefersDark) {
+            document.documentElement.classList.add('dark-theme');
+            localStorage.setItem('theme', 'dark');
+          } else {
+            localStorage.setItem('theme', 'light');
+          }
+        }
+      } catch (error) {
+        console.error('Error applying theme on load:', error);
+      }
+    </script>
   </head>
   <body>
     <div id="app" ></div>

@@ -87,7 +87,7 @@
               </div>
               </form>
             </div>
-            <img src="@/assets/images/login_day1.jpg" class="account-creation-image" />
+            <img :src="isDarkTheme ? loginNightImage : loginDayImage" class="account-creation-image" />
           </div>
         </div>
       </div>
@@ -97,101 +97,86 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { header } from '@/config/header.js';
-
-// Иконки для пароля
+import { useRoute } from 'vue-router';
+import { jwtDecode }  from 'jwt-decode';
+import axios from 'axios';
+import loginDayImage from '@/assets/images/login_day1.jpg';
+import loginNightImage from '@/assets/images/login_night1.jpg';
 import eyeOpen from '@/assets/images/psswd_open.png';
 import eyeClosed from '@/assets/images/psswd_close.png';
 
-// Состояния
 const route = useRoute();
-const router = useRouter();
 const isPasswordVisible = ref(false);
 const form = ref({
-lastName: '',
-firstName: '',
-email: '',
-group: '',
-password: '',
-confirmPassword: ''
+  lastName: '',
+  firstName: '',
+  email: '',
+  group: '',
+  password: '',
+  confirmPassword: '',
+  role: '',
 });
 
-// Заполнение полей из query параметров
+// Определение текущей темы
+const isDarkTheme = computed(() => {
+  return document.documentElement.classList.contains('dark-theme');
+});
+
+// ✅ Расшифровка токена при монтировании компонента
 onMounted(() => {
-form.value = {
-  lastName: route.query.last_name || '',
-  firstName: route.query.first_name || '',
-  email: route.query.email || '',
-  group: route.query.group || '',
-  password: '',
-  confirmPassword: ''
-}
+  const token = route.query.token;
+  if (token) {
+    try {
+      const decoded = jwtDecode(token);
+      form.value.lastName = decoded.last_name;
+      form.value.firstName = decoded.first_name;
+      form.value.email = decoded.email;
+      form.value.group = decoded.group;
+      form.value.role = decoded.role;
+    } catch (error) {
+      console.error('Ошибка при декодировании токена:', error);
+      alert('Ошибка при обработке данных регистрации');
+    }
+  }
 });
 
 // Логика пароля
 const passwordFieldType = computed(() => 
-isPasswordVisible.value ? 'text' : 'password'
+  isPasswordVisible.value ? 'text' : 'password'
 );
 
 const eyeIcon = computed(() => 
-isPasswordVisible.value ? eyeOpen : eyeClosed
+  isPasswordVisible.value ? eyeOpen : eyeClosed
 );
 
 const togglePasswordVisibility = () => {
-isPasswordVisible.value = !isPasswordVisible.value;
+  isPasswordVisible.value = !isPasswordVisible.value;
 };
 
-// Валидация формы
-const validateForm = () => {
-if (!form.value.password) {
-  alert('Пароль обязателен для заполнения');
-  return false;
-}
-
-if (form.value.password !== form.value.confirmPassword) {
-  alert('Пароли не совпадают');
-  return false;
-}
-
-if (form.value.password.length < 8) {
-  alert('Пароль должен содержать минимум 8 символов');
-  return false;
-}
-
-return true;
-};
-
-// Отправка формы
+// Обработка отправки формы
 const handleSubmit = async () => {
-if (!validateForm()) return;
+  if (form.value.password !== form.value.confirmPassword) {
+    alert('Пароли не совпадают');
+    return;
+  }
 
-try {
-  const response = await fetch('http://127.0.0.1:8000/api/register/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+  try {
+    const response = await axios.post('http://localhost:8000/api/register/', {
       last_name: form.value.lastName,
       first_name: form.value.firstName,
       email: form.value.email,
       group: form.value.group,
-      password: form.value.password
-    })
-  });
+      role: form.value.role,
+      password: form.value.password,
+    });
 
-  if (!response.ok) throw new Error('Ошибка регистрации');
-
-  const data = await response.json();
-  alert('Регистрация успешно завершена!');
-  router.push('/SignIn');
-  
-} catch (error) {
-  console.error('Registration error:', error);
-  alert(error.message || 'Произошла ошибка при регистрации');
-}
+    window.location.href = 'http://localhost:5173/SignIn';
+  } catch (error) {
+    console.error('Ошибка при регистрации:', error);
+    alert('Ошибка при регистрации');
+  }
 };
+
 </script>
 
 <style scoped>
@@ -201,7 +186,7 @@ try {
     padding: 0;
     margin: 0;
     font: 400 20px Raleway, sans-serif;
-    color: #24222f;
+    color: var(--text-color);
 }
 .primary-text-content-style:hover {
     text-decoration: underline;
@@ -216,7 +201,7 @@ try {
     align-items: stretch;
     justify-content: flex-start;
     min-width: 1480px;
-    background: #f5f9f8;
+    background: var(--background-color);
 }
 .center-column-flex-box {
   box-sizing: border-box;
@@ -236,14 +221,14 @@ try {
   align-items: flex-end;
   justify-content: space-between;
   padding: 30px 29px 40px 99px;
-  background: #f5f9f8;
+  background: var(--background-color);
 }
 .main-title-text-style {
   flex: 0 0 auto;
   padding: 0;
   margin: 0;
   font: 400 36px Helvetica;
-  color: #24222f;
+  color: var(--text-color);
 }
 .header-nav-container1 {
   display: flex;
@@ -266,7 +251,7 @@ try {
   flex: 0 0 auto;
   width: 1px;
   height: 29px;
-  border-left: 1px solid #24222f;
+  border-left: 1px solid var(--text-color);
 }
 
 .vertical-menu-nav-item {
@@ -279,13 +264,19 @@ try {
   width: 54px;
   padding-top: 3.5px;
 }
-
-.login-heading-text-style:hover {
-    text-decoration: underline;
-    text-underline-offset: 5px;
+.login-heading-text-style {
+  flex: 0 0 auto;
+  align-self: center;
+  padding: 0;
+  margin: 0;
+  font: 400 20px Raleway, sans-serif;
+  color: var(--text-color);
 }
-
-.main-nav-icon {
+.login-heading-text-style:hover {
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+.menu-icon {
   box-sizing: border-box;
   display: block;
   width: 42px;
@@ -318,7 +309,7 @@ try {
   justify-content: space-between;
   width: 100%;
   padding: 29px 30px 30px 62px;
-  background: #ebefef;
+  background: var(--form-background);
   border-radius: 35px;
 }
 .account-creation-form {
@@ -327,10 +318,8 @@ try {
   flex: 0 0 auto;
   flex-direction: column;
   align-items: stretch;
-  align-self: flex-start;
-  justify-content: flex-start;
+  justify-content: center;
   min-width: 504px;
-  padding-top: 153px;
 }
 .welcome-message-container {
   flex: 0 0 auto;
@@ -339,146 +328,128 @@ try {
   padding: 0;
   margin: 0;
   font: 700 32px Raleway, sans-serif;
-  color: #24222f;
+  color: var(--text-color);
 }
 .welcome-message-text-style {
   padding: 0;
   margin: 0;
   margin-top: 11px;
   font: 300 16px Raleway, sans-serif;
-  color: black;
+  color: var(--secondary-text);
 }
 .input-section {
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  margin-top: 29px;
+}
+.input-row {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: row;
   gap: 20px;
-  margin-top: 30px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
 }
 .input-container {
   box-sizing: border-box;
   display: flex;
+  flex: 1 1 0%;
   flex-direction: row;
   align-items: center;
-  justify-content: start;
-  width: 100%;
-  height: 44px;
-  padding-left: 21px;
-  font: 100 20px Raleway, sans-serif;
-  color: black;
-  background: #f5f9f8;
-  border: none;
-  border-radius: 20px;
+  justify-content: flex-start;
+  padding: 15px 19px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
 }
 .input-style {
+  flex: 1 1 auto;
+  min-width: 0;
   width: 100%;
-  font: 100 20px Raleway, sans-serif;
-  background: transparent;
+  min-height: 26px;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  font: 400 16px Raleway, sans-serif;
+  color: var(--text-color);
+  background-color: transparent;
   border: none;
   outline: none;
 }
+.input-style::placeholder {
+  color: var(--secondary-text);
+  opacity: 0.7;
+}
 .password-input-section {
+  box-sizing: border-box;
   display: flex;
-  flex: 0 0 auto;
   flex-direction: column;
-  gap: 27px;
   align-items: stretch;
-  justify-content: center;
-  margin-top: 48px;
+  justify-content: flex-start;
+  gap: 20px;
+  margin-top: 10px;
 }
 .password-input-container {
   box-sizing: border-box;
   display: flex;
-  flex: 0 0 auto;
   flex-direction: row;
-  gap: 8px;
   align-items: center;
   justify-content: space-between;
-  height: 44px;
-  padding-right: 13px;
-  padding-left: 21px;
-  background: #f5f9f8;
-  border-radius: 20px;
-}
-.password-prompt-text-style {
-  flex: 0 0 auto;
-  padding: 0;
-  margin: 0;
-  font: 100 20px Raleway, sans-serif;
-  color: black;
+  padding: 15px 19px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
 }
 .password-input-icon {
   box-sizing: border-box;
-  display: block;
-  width: 27px;
+  flex: 0 0 auto;
+  width: 24px;
   max-width: initial;
-  height: 27px;
+  height: 24px;
+  margin-left: 12px;
   border: none;
   object-fit: cover;
+  cursor: pointer;
 }
 .account-creation-button-container {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  margin-top: 30px;
+}
+.account-creation-button {
   box-sizing: border-box;
   display: flex;
   flex: 0 0 auto;
-  flex-direction: column;
-  align-items: stretch;
+  flex-direction: row;
+  align-items: center;
   justify-content: center;
-  height: 51px;
-  padding-right: 75px;
-  padding-left: 75px;
-  margin-top: 78px;
-  background: #a094b8;
-  border-radius: 20px;
-}
-.account-creation-button {
-  flex: 0 0 auto;
-  padding: 0;
-  margin: 0;
-  font: 400 20px Raleway, sans-serif;
-  color: #f5f9f8;
-  background: none;
+  padding: 15px 30px;
+  font: 500 16px Raleway, sans-serif;
+  color: var(--footer-text);
+  background: var(--accent-color);
   border: none;
+  border-radius: 10px;
   cursor: pointer;
+  transition: background-color 0.3s ease;
 }
-
-.account-creation-button-container:hover {
-  background: #7c54ca;
-  transition: 0.5s ease;
+.account-creation-button:hover {
+  background: var(--hover-accent);
 }
 .account-creation-image {
   box-sizing: border-box;
-  display: block;
-  width: 536px;
+  flex: 0 0 auto;
+  width: 600px;
   max-width: initial;
-  height: 723px;
+  height: 488px;
   border: none;
   border-radius: 35px;
   object-fit: cover;
-}
-.input-row {
-  display: flex;
-  flex-direction: row;
-  gap: 20px;
-  margin-bottom: 20px;
-}
-
-.password-input-container {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 20px;
-}
-
-.input-style {
-  width: 100%;
-  padding: 10px;
-  border: none;
-  border-radius: 5px;
-}
-
-.password-input-icon {
-  cursor: pointer;
-  width: 24px;
-  height: 24px;
 }
 </style>
 

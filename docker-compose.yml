@@ -1,0 +1,75 @@
+
+services:
+  backend:
+    build:
+      context: ./backend/main/
+      dockerfile: Dockerfile.backend
+    container_name: django-backend
+    volumes:
+      - ./backend/main:/usr/src/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/main/.env
+    environment:
+      - DB_HOST=db
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  db:
+    image: postgres:16
+    container_name: postgres-db
+    environment:
+      POSTGRES_DB: netlabai
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ananas002
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d netlabai"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+
+  frontend:
+    build:
+      context: "./frontend/jaba script/"
+      dockerfile: Dockerfile.frontend
+    container_name: vue-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: nginx-server
+    volumes:
+      - "./frontend/jaba script/nginx.conf:/etc/nginx/conf.d/default.conf"
+      - "./frontend/jaba script/dist:/usr/share/nginx/html"
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - app-network
+    restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres-data:

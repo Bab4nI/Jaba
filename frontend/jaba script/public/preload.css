@@ -1,0 +1,69 @@
+/* Preload CSS to prevent flash of unstyled content */
+:root {
+  /* Light theme (default) */
+  --background-color: #f5f9f8;
+  --text-color: #24222f;
+  --secondary-text: #575667;
+  --accent-color: #a094b8;
+  --border-color: #e5e7eb;
+  --form-background: #f5f9f8;
+  --footer-background: #575667;
+  --footer-text: #f5f9f8;
+  --footer-secondary: #a094b8;
+  --button-hover: #e5e7eb;
+  --code-background: #e5e7eb;
+  --table-header: #e5e7eb;
+  --hover-background: #e5e7eb;
+  --hover-accent: #8b7ca5;
+  --hover-delete: #e55a5a;
+  --modal-overlay: rgba(0, 0, 0, 0.7);
+  --error-background: #fef2f2;
+  --error-color: #ef4444;
+  
+  /* Fast transition for initial load */
+  --transition-speed: 150ms;
+  --transition-timing: ease-out;
+}
+
+.dark-theme {
+  /* Dark theme */
+  --background-color: #1f1f2c;
+  --text-color: #f5f9f8;
+  --secondary-text: #c8c8d0;
+  --accent-color: #a094b8;
+  --border-color: #3a3a4a;
+  --form-background: #2a2a36;
+  --footer-background: #2a2a36;
+  --footer-text: #f5f9f8;
+  --footer-secondary: #c8c8d0;
+  --button-hover: #3a3a4a;
+  --code-background: #323242;
+  --table-header: #3a3a4a;
+  --hover-background: #323242;
+  --hover-accent: #8b7ca5;
+  --hover-delete: #e55a5a;
+  --modal-overlay: rgba(0, 0, 0, 0.8);
+  --error-background: #42232b;
+  --error-color: #f87171;
+}
+
+/* Set initial body styles */
+body {
+  background-color: var(--background-color);
+  color: var(--text-color);
+  margin: 0;
+  padding: 0;
+}
+
+/* Apply quick transitions to commonly used elements */
+body, #app, .card, .container, .section, .component, 
+div[class*="container"], div[class*="section"], div[class*="wrapper"], 
+div[class*="component"], div[class*="view"] {
+  transition: background-color var(--transition-speed) var(--transition-timing), 
+              color var(--transition-speed) var(--transition-timing);
+}
+
+/* Disable transitions during initial load to prevent flashing */
+.no-transitions * {
+  transition: none !important;
+} 
