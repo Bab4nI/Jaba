@@ -1,12 +1,12 @@
 <template>
   <div class="fill-in-element" :class="{ 'read-only': readOnly }">
-    <!-- Score display at the top when in read-only mode -->
-    <div v-if="readOnly && showScore" class="element-score-display">
+    <!-- Score display -->
+    <div v-if="readOnly && showScore" class="element-score-display" :class="{ 'visible': quizSubmitted }">
       <template v-if="userScore !== null">
         <span :class="{'score-success': userScore === localContent.max_score, 'score-fail': userScore < localContent.max_score}">
           {{ userScore }}/{{ localContent.max_score }}
         </span>
-        <button @click="resetFillIn" class="reset-score-btn" title="Сбросить баллы">×</button>
+        <button v-if="!readOnly" @click="resetQuiz" class="reset-score-btn" title="Сбросить баллы">×</button>
       </template>
       <template v-else>
         <span class="score-pending">{{ localContent.max_score }} баллов</span>
@@ -216,7 +216,7 @@ const submitAnswers = () => {
   });
 };
 
-const resetFillIn = () => {
+const resetQuiz = () => {
   userAnswers.value = [];
   isSubmitted.value = false;
   userScore.value = null;

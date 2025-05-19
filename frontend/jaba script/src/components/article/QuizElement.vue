@@ -1,12 +1,12 @@
 <template>
   <div class="quiz-element" :class="{ 'read-only': readOnly }">
     <!-- Score display at the top when in read-only mode -->
-    <div v-if="readOnly && showScore" class="element-score-display">
+    <div v-if="readOnly && showScore && quizSubmitted" class="element-score-display" :class="{ 'visible': quizSubmitted }">
       <template v-if="userScore !== null">
         <span :class="{'score-success': userScore === localContent.max_score, 'score-fail': userScore < localContent.max_score}">
           {{ userScore }}/{{ localContent.max_score }}
         </span>
-        <button @click="resetQuiz" class="reset-score-btn" title="Сбросить баллы">×</button>
+        <button v-if="!readOnly" @click="resetQuiz" class="reset-score-btn" title="Сбросить баллы">×</button>
       </template>
       <template v-else>
         <span class="score-pending">{{ localContent.max_score }} баллов</span>
@@ -53,22 +53,19 @@
       </div>
       
       <!-- View Mode - Answer Items -->
-      <div v-else v-for="(answer, index) in localContent.answers" :key="'view-'+index" class="answer-item view-mode">
-        <input
-          type="radio"
-          :name="'quiz-' + uniqueId"
-          :checked="selectedAnswer === index"
-          @change="selectAnswer(index)"
-          class="correct-answer-radio"
-          :disabled="quizSubmitted"
-        />
-        <div class="answer-text" :class="{
-          'correct-answer': quizSubmitted && localContent.correct_answer === index,
-          'wrong-answer': quizSubmitted && selectedAnswer === index && localContent.correct_answer !== index
-        }">
+      <div v-else v-for="(answer, index) in localContent.answers" :key="'view-'+index" 
+        class="answer-item view-mode" 
+        :class="{
+          'selected': selectedAnswer === index,
+          'correct': quizSubmitted && localContent.correct_answer === index,
+          'incorrect': quizSubmitted && selectedAnswer === index && localContent.correct_answer !== index
+        }"
+        @click="!quizSubmitted && selectAnswer(index)"
+      >
+        <div class="answer-text">
           {{ answer || 'Ответ отсутствует' }}
-          <span v-if="quizSubmitted && localContent.correct_answer === index" class="answer-feedback">✓ Правильно</span>
-          <span v-if="quizSubmitted && selectedAnswer === index && localContent.correct_answer !== index" class="answer-feedback">✗ Неверно</span>
+          <span v-if="quizSubmitted && localContent.correct_answer === index" class="correct-feedback">✓ Правильно</span>
+          <span v-if="quizSubmitted && selectedAnswer === index && localContent.correct_answer !== index" class="incorrect-feedback">✗ Неверно</span>
         </div>
       </div>
     </div>
@@ -93,7 +90,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, nextTick } from 'vue';
+import { ref, watch, onMounted, nextTick, computed } from 'vue';
 import { useThemeStore } from '@/stores/themeStore';
 
 const props = defineProps({
@@ -388,94 +385,163 @@ watch(() => localContent.value.answers, () => {
 
 .answer-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
-  padding: 12px;
-  border: 1px solid var(--border-color, #c5c8cc);
-  border-radius: 6px;
-  background: var(--background-color, #ebefef);
+  padding: 12px 16px;
+  background: var(--background-color, #ffffff);
+  border: 2px solid var(--border-color, #e5e7eb);
+  border-radius: 12px;
   transition: all 0.3s ease;
-  width: 100%;
+  margin-bottom: 12px;
+  position: relative;
   overflow: hidden;
-  flex-wrap: wrap; /* Allow wrapping of content */
-}
-
-.answer-item.view-mode {
   cursor: pointer;
-  transition: all 0.2s ease;
+  resize: none;
+  min-height: 50px;
+  max-height: 200px;
 }
 
-.answer-item.view-mode:hover {
-  background: rgba(0, 0, 0, 0.08);
+.answer-item:hover {
+  border-color: var(--accent-color, #a094b8);
   transform: translateY(-2px);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.answer-item .correct-answer-radio {
-  margin: 0;
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent-color, #a094b8);
-  flex-shrink: 0;
+.answer-item.selected {
+  border-color: var(--accent-color, #a094b8);
+  background: rgba(160, 148, 184, 0.1);
+  box-shadow: 0 4px 12px rgba(160, 148, 184, 0.15);
+}
+
+.answer-item.correct {
+  border-color: #4CAF50;
+  background: rgba(76, 175, 80, 0.1);
+}
+
+.answer-item.incorrect {
+  border-color: #f44336;
+  background: rgba(244, 67, 54, 0.1);
+}
+
+.answer-item input[type="radio"] {
+  position: absolute;
+  opacity: 0;
   cursor: pointer;
-  margin-top: 3px;
+  height: 0;
+  width: 0;
 }
 
-.answer-input {
-  flex-grow: 1;
-  padding: 8px 12px;
-  border: 1px solid var(--border-color, #c5c8cc);
-  border-radius: 4px;
-  font-size: 15px;
-  background: var(--background-color, #ebefef);
-  color: var(--text-color, #24222f);
+.answer-item .radio-custom {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-color);
+  border-radius: 50%;
   transition: all 0.3s ease;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  min-height: 20px;
-  resize: vertical;
-  line-height: 1.5;
-  /* Ensure text wrapping */
-  max-width: 100%;
-  width: calc(100% - 60px); /* Account for radio button and remove button */
-  overflow: hidden; /* Remove scrolling */
-  white-space: pre-wrap; /* Preserve line breaks */
+  flex-shrink: 0;
+}
+
+.answer-item:hover .radio-custom {
+  border-color: var(--accent-color);
+  transform: scale(1.1);
+}
+
+.answer-item input[type="radio"]:checked + .radio-custom {
+  border-color: var(--accent-color);
+  background: var(--accent-color);
+}
+
+.answer-item input[type="radio"]:checked + .radio-custom::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.answer-item input[type="radio"]:focus + .radio-custom {
+  box-shadow: 0 0 0 3px rgba(160, 148, 184, 0.3);
+}
+
+.answer-item.correct .radio-custom {
+  border-color: #4CAF50;
+  background: #4CAF50;
+}
+
+.answer-item.incorrect .radio-custom {
+  border-color: #f44336;
+  background: #f44336;
+}
+
+.answer-item.correct input[type="radio"]:checked + .radio-custom::after,
+.answer-item.incorrect input[type="radio"]:checked + .radio-custom::after {
+  background: white;
 }
 
 .answer-text {
   flex-grow: 1;
-  padding: 8px 12px;
+  font-size: 16px;
   color: var(--text-color, #24222f);
-  font-size: 15px;
-  transition: all 0.3s ease;
+  transition: color 0.3s ease;
   word-wrap: break-word;
   overflow-wrap: break-word;
   white-space: pre-wrap;
-  line-height: 1.5;
-  position: relative;
-  /* Ensure text wrapping */
-  max-width: 100%;
-  display: block; /* Ensure block display for proper wrapping */
 }
 
-.answer-feedback {
-  margin-left: 8px;
-  font-size: 14px;
-  font-weight: bold;
+.answer-item.selected .answer-text {
+  font-weight: 500;
+  color: var(--accent-color, #a094b8);
 }
 
-.correct-answer {
-  color: #2e8b33;
-  background-color: rgba(76, 175, 80, 0.15);
+.answer-item.correct .answer-text {
+  color: #4CAF50;
+}
+
+.answer-item.incorrect .answer-text {
+  color: #f44336;
+}
+
+.answer-controls {
+  display: flex;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.answer-item:hover .answer-controls {
+  opacity: 1;
+}
+
+.answer-control-btn {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  padding: 4px;
   border-radius: 4px;
-  font-weight: 600;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.wrong-answer {
-  color: var(--error-color, #da1f38);
-  background-color: rgba(244, 67, 54, 0.15);
-  border-radius: 4px;
-  font-weight: 600;
+.answer-control-btn:hover {
+  background: rgba(160, 148, 184, 0.1);
+  color: var(--accent-color);
+  transform: scale(1.1);
+}
+
+.answer-control-btn.remove {
+  color: var(--error-color);
+}
+
+.answer-control-btn.remove:hover {
+  background: rgba(244, 67, 54, 0.1);
 }
 
 .remove-answer-btn {
@@ -612,6 +678,14 @@ watch(() => localContent.value.answers, () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: all 0.3s ease;
+}
+
+.element-score-display.visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 :global(.dark-theme) .element-score-display {
@@ -656,5 +730,64 @@ watch(() => localContent.value.answers, () => {
 
 :global(.dark-theme) .reset-score-btn:hover {
   background: #ff3333;
+}
+
+.correct-feedback {
+  margin-left: 8px;
+  font-weight: 500;
+  color: #4CAF50;
+}
+
+.incorrect-feedback {
+  margin-left: 8px;
+  font-weight: 500;
+  color: #f44336;
+}
+
+/* Dark theme styles */
+:global(.dark-theme) .correct-feedback {
+  color: #6bdb70;
+}
+
+:global(.dark-theme) .incorrect-feedback {
+  color: #ff6b6b;
+}
+
+.answer-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 6px;
+  background: var(--background-color, #ffffff);
+  color: var(--text-color, #24222f);
+  resize: none;
+  min-height: 50px;
+  max-height: 200px;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.5;
+  transition: all 0.3s ease;
+}
+
+.answer-input:focus {
+  outline: none;
+  border-color: var(--accent-color, #a094b8);
+  box-shadow: 0 0 0 2px rgba(160, 148, 184, 0.2);
+}
+
+/* Dark theme styles */
+:global(.dark-theme) .answer-input {
+  background: var(--background-color, #2d2c38);
+  border-color: var(--border-color, #3e3d49);
+  color: var(--text-color, #f5f9f8);
+}
+
+:global(.dark-theme) .answer-input:focus {
+  border-color: var(--accent-color, #a094b8);
+  box-shadow: 0 0 0 2px rgba(160, 148, 184, 0.3);
+}
+
+:global(.dark-theme) .answer-input::placeholder {
+  color: var(--secondary-text, #adadad);
 }
 </style>

@@ -34,6 +34,16 @@
             @click="handleTitleClick"
           >
           <div class="mode-controls" v-if="userStore.role === 'admin'">
+            <div class="ai-control" v-if="mode === 'edit'">
+              <label class="ai-toggle">
+                <input 
+                  type="checkbox" 
+                  v-model="aiStore.isEnabled"
+                  @change="aiStore.setAIEnabled($event.target.checked)"
+                >
+                <span class="ai-toggle-label">AI Чат</span>
+              </label>
+            </div>
             <button 
               @click="toggleMode" 
               class="mode-toggle-btn"
@@ -2955,5 +2965,93 @@ export default {
 .save-button .btn-icon {
   font-size: 18px;
   line-height: 1;
+}
+
+.ai-control {
+  display: flex;
+  align-items: center;
+  margin-right: 15px;
+}
+
+.ai-toggle {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding: 4px;
+  border-radius: 20px;
+  transition: background-color 0.3s ease;
+}
+
+.ai-toggle:hover {
+  background-color: rgba(160, 148, 184, 0.1);
+}
+
+.ai-toggle input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.ai-toggle-label {
+  font-size: 14px;
+  color: var(--text-color);
+  transition: color var(--transition-speed) var(--transition-timing);
+  margin-left: 32px;
+  position: relative;
+}
+
+.ai-toggle-label::before {
+  content: '';
+  position: absolute;
+  left: -32px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 14px;
+  background-color: var(--border-color);
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.ai-toggle-label::after {
+  content: '';
+  position: absolute;
+  left: -30px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 10px;
+  background-color: white;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.ai-toggle input[type="checkbox"]:checked + .ai-toggle-label::before {
+  background-color: var(--accent-color);
+}
+
+.ai-toggle input[type="checkbox"]:checked + .ai-toggle-label::after {
+  left: -16px;
+}
+
+.ai-toggle input[type="checkbox"]:focus + .ai-toggle-label::before {
+  box-shadow: 0 0 0 2px rgba(160, 148, 184, 0.3);
+}
+
+:global(.dark-theme) .ai-toggle-label {
+  color: var(--text-color);
+}
+
+:global(.dark-theme) .ai-toggle-label::before {
+  background-color: var(--border-color);
+}
+
+:global(.dark-theme) .ai-toggle-label::after {
+  background-color: var(--background-color);
 }
 </style>

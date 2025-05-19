@@ -1,12 +1,12 @@
 <template>
   <div class="video-element" :class="{ 'read-only': readOnly }">
     <!-- Score display at the top when in read-only mode -->
-    <div v-if="readOnly && showScore" class="element-score-display">
+    <div v-if="readOnly && showScore" class="element-score-display" :class="{ 'visible': videoWatched }">
       <template v-if="userScore !== null">
-        <span :class="{'score-success': userScore > 0}">
+        <span :class="{'score-success': userScore === localContent.max_score, 'score-fail': userScore < localContent.max_score}">
           {{ userScore }}/{{ localContent.max_score }}
         </span>
-        <button @click="resetVideo" class="reset-score-btn" title="Сбросить баллы">×</button>
+        <button v-if="!readOnly" @click="resetVideo" class="reset-score-btn" title="Сбросить баллы">×</button>
       </template>
       <template v-else>
         <span class="score-pending">{{ localContent.max_score }} баллов</span>
@@ -41,7 +41,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useThemeStore } from '@/stores/themeStore';
 
 const props = defineProps({
@@ -74,16 +74,23 @@ const localContent = ref({
 const videoUrl = ref('');
 const videoWatched = ref(false);
 const userScore = ref(null);
+const videoFrame = ref(null);
+const watchProgress = ref(0);
+const isWatched = ref(false);
+const progressCheckInterval = ref(null);
+
+// Generate a unique ID for this component instance
+const uniqueId = ref(`video-${Date.now()}-${Math.floor(Math.random() * 10000)}`);
 
 const embedCode = computed(() => {
   if (!localContent.value.video_url) return '';
   if (localContent.value.video_url.includes('youtube.com') || localContent.value.video_url.includes('youtu.be')) {
     const videoId = extractYouTubeId(localContent.value.video_url);
-    return `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>`;
+    return `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/${videoId}?enablejsapi=1&origin=${window.location.origin}" frameborder="0" allowfullscreen></iframe>`;
   }
   if (localContent.value.video_url.includes('vimeo.com')) {
     const videoId = localContent.value.video_url.split('/').pop();
-    return `<iframe src="https://player.vimeo.com/video/${videoId}" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>`;
+    return `<iframe src="https://player.vimeo.com/video/${videoId}?api=1&player_id=vimeo_player" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>`;
   }
   return '<p>Неподдерживаемый видео-сервис</p>';
 });
@@ -162,7 +169,9 @@ const markVideoWatched = () => {
   if (props.content.id) {
     localStorage.setItem(`video_${props.content.id}`, JSON.stringify({
       videoWatched: videoWatched.value,
-      userScore: userScore.value
+      userScore: userScore.value,
+      progress: watchProgress.value,
+      isWatched: isWatched.value
     }));
   }
   
@@ -178,6 +187,8 @@ const markVideoWatched = () => {
 const resetVideo = () => {
   videoWatched.value = false;
   userScore.value = null;
+  watchProgress.value = 0;
+  isWatched.value = false;
   
   // Clear saved state
   if (props.content.id) {
@@ -198,6 +209,124 @@ const emitUpdate = () => {
   if (props.readOnly) return;
   emit('update:content', { ...localContent.value });
 };
+
+const onVideoLoad = () => {
+  if (!props.readOnly || !videoFrame.value) return;
+  
+  // Initialize video progress tracking
+  startProgressTracking();
+  
+  // Load saved progress
+  loadSavedProgress();
+};
+
+const startProgressTracking = () => {
+  // Clear any existing interval
+  if (progressCheckInterval.value) {
+    clearInterval(progressCheckInterval.value);
+  }
+  
+  // Check progress every second
+  progressCheckInterval.value = setInterval(() => {
+    if (!videoFrame.value) return;
+    
+    try {
+      const player = videoFrame.value.contentWindow;
+      if (player) {
+        if (localContent.value.video_url.includes('youtube.com') || localContent.value.video_url.includes('youtu.be')) {
+          // YouTube API
+          player.postMessage('{"event":"listening"}', '*');
+          player.postMessage('{"method":"getCurrentTime"}', '*');
+        } else if (localContent.value.video_url.includes('vimeo.com')) {
+          // Vimeo API
+          player.postMessage('{"method":"getCurrentTime"}', '*');
+        }
+      }
+    } catch (error) {
+      console.error('Error tracking video progress:', error);
+    }
+  }, 1000);
+};
+
+const handleVideoProgress = (event) => {
+  if (!event.data) return;
+  
+  try {
+    const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+    
+    if (data.event === 'onReady' || data.event === 'onStateChange') {
+      // Video player is ready
+      if (videoFrame.value) {
+        videoFrame.value.contentWindow.postMessage('{"method":"getDuration"}', '*');
+      }
+    }
+    else if (data.event === 'onVideoProgress') {
+      // Update progress
+      const progress = (data.data.currentTime / data.data.duration) * 100;
+      watchProgress.value = Math.min(100, Math.max(0, progress));
+      
+      // Check if video is watched enough (80% or more)
+      if (watchProgress.value >= 80 && !isWatched.value) {
+        isWatched.value = true;
+        markVideoWatched(); // Automatically mark as watched
+      }
+      
+      // Save progress
+      saveProgress();
+    }
+  } catch (error) {
+    console.error('Error handling video progress:', error);
+  }
+};
+
+const saveProgress = () => {
+  if (props.content.id) {
+    localStorage.setItem(`video_${props.content.id}`, JSON.stringify({
+      progress: watchProgress.value,
+      isWatched: isWatched.value,
+      videoWatched: videoWatched.value,
+      userScore: userScore.value
+    }));
+  }
+};
+
+const loadSavedProgress = () => {
+  if (props.content.id) {
+    const savedData = localStorage.getItem(`video_${props.content.id}`);
+    if (savedData) {
+      try {
+        const data = JSON.parse(savedData);
+        watchProgress.value = data.progress;
+        isWatched.value = data.isWatched;
+        videoWatched.value = data.videoWatched;
+        userScore.value = data.userScore;
+        
+        if (isWatched.value || videoWatched.value) {
+          emit('answer-submitted', {
+            contentId: props.content.id,
+            score: localContent.value.max_score,
+            maxScore: localContent.value.max_score,
+            progress: watchProgress.value
+          });
+        }
+      } catch (error) {
+        console.error('Error loading video progress:', error);
+      }
+    }
+  }
+};
+
+// Add event listener for video progress
+onMounted(() => {
+  window.addEventListener('message', handleVideoProgress);
+});
+
+onUnmounted(() => {
+  if (progressCheckInterval.value) {
+    clearInterval(progressCheckInterval.value);
+  }
+  window.removeEventListener('message', handleVideoProgress);
+});
 </script>
 
 <style scoped>
@@ -446,4 +575,3 @@ const emitUpdate = () => {
   background: #ff3333;
 }
 </style>
-```

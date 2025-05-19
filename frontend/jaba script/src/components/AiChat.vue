@@ -124,7 +124,7 @@ export default {
       // First remove any existing button
       removeExistingButton()
       
-      if (!selectedText || selectedText.trim().length < 5) return
+      if (!selectedText || selectedText.trim().length < 5 || !aiStore.isEnabled) return
       
       const button = document.createElement('button')
       button.className = 'ai-floating-btn'

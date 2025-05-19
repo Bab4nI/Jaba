@@ -7,11 +7,20 @@ export const useAIStore = defineStore('ai', {
     selectedText: '',
     modalVisible: false,
     isLoading: false,
-    aiResponse: '',
+    aiResponse: null,
     error: null,
+    isEnabled: false
   }),
 
   actions: {
+    toggleAI() {
+      this.isEnabled = !this.isEnabled
+    },
+
+    setAIEnabled(enabled) {
+      this.isEnabled = enabled
+    },
+
     setSelectedText(text) {
       this.selectedText = text
       this.modalVisible = true
@@ -37,7 +46,7 @@ export const useAIStore = defineStore('ai', {
 
     reset() {
       this.selectedText = ''
-      this.aiResponse = ''
+      this.aiResponse = null
       this.error = null
       this.modalVisible = false
     },
