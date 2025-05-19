@@ -138,7 +138,12 @@ onMounted(() => {
         }
       } catch (e) {
         console.error('Error loading fill-in state:', e);
+        // Reset state if there's an error loading saved data
+        resetQuiz();
       }
+    } else {
+      // Reset state if no saved data exists
+      resetQuiz();
     }
   }
 });
@@ -243,6 +248,29 @@ watch(() => props.content, (newVal) => {
     ...newVal
   };
 }, { deep: true });
+
+// Add watch for readOnly prop to handle reset
+watch(() => props.readOnly, (newVal) => {
+  if (newVal) {
+    // Reset the component state when readOnly changes to true
+    userAnswers.value = [];
+    isSubmitted.value = false;
+    userScore.value = null;
+    
+    // Clear localStorage
+    if (props.content.id) {
+      localStorage.removeItem(`fillin_${props.content.id}`);
+    }
+    
+    // Emit reset
+    emit('answer-submitted', {
+      contentId: props.content.id,
+      userAnswers: [],
+      score: 0,
+      maxScore: localContent.value.max_score
+    });
+  }
+});
 </script>
 
 <style scoped>

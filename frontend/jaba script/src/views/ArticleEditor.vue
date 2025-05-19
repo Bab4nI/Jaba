@@ -1077,6 +1077,9 @@ export default {
             if (content.type === 'video') {
               localStorage.removeItem(`video_${content.id}`);
             }
+            if (content.type === 'fillin') {
+              localStorage.removeItem(`fillin_${content.id}`);
+            }
           }
         });
       });
@@ -1095,6 +1098,9 @@ export default {
           }
           if (content.type === 'video') {
             localStorage.removeItem(`video_${content.id}`);
+          }
+          if (content.type === 'fillin') {
+            localStorage.removeItem(`fillin_${content.id}`);
           }
         }
       });
