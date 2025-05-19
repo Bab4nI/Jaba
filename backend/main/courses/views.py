@@ -19,7 +19,7 @@ from django.core.cache import cache
 import openai
 from rest_framework.decorators import action
 from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_page
+from django.views.decorators.cache import cache_page, cache_control
 from django.core.exceptions import ValidationError, PermissionDenied
 import os
 import uuid
@@ -27,6 +27,7 @@ from datetime import datetime
 from django.http import Http404
 from django.db import models
 from django.contrib.auth import get_user_model
+from django.db.models import Prefetch
 
 logger = logging.getLogger(__name__)
 
@@ -772,8 +773,87 @@ class UserProgressViewSet(viewsets.ModelViewSet):
     serializer_class = UserProgressSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self):
-        return UserProgress.objects.filter(user=self.request.user)
+    @method_decorator(cache_control(no_cache=True, no_store=True, must_revalidate=True))
+    def list(self, request, *args, **kwargs):
+        course_slug = request.query_params.get('course_slug')
+        group = request.query_params.get('group')
+        
+        if not course_slug or not group:
+            return Response({'error': 'Missing required parameters'}, status=400)
+            
+        try:
+            # Получаем курс с предзагрузкой модулей и уроков
+            course = Course.objects.prefetch_related(
+                Prefetch(
+                    'modules',
+                    queryset=Module.objects.prefetch_related(
+                        Prefetch(
+                            'lessons',
+                            queryset=Lesson.objects.select_related('content_type')
+                        )
+                    )
+                )
+            ).get(slug=course_slug)
+            
+            # Получаем всех пользователей группы
+            if group == 'admins':
+                users = User.objects.filter(is_staff=True)
+            else:
+                users = User.objects.filter(groups__name=group)
+            
+            # Получаем прогресс пользователей с предзагрузкой
+            progress = UserProgress.objects.filter(
+                user__in=users,
+                lesson__module__course=course
+            ).select_related('user', 'lesson')
+            
+            # Формируем ответ
+            response_data = {
+                'course': {
+                    'id': course.id,
+                    'title': course.title,
+                    'slug': course.slug
+                },
+                'lessons': [],
+                'users': []
+            }
+            
+            # Собираем все уроки
+            for module in course.modules.all():
+                for lesson in module.lessons.all():
+                    response_data['lessons'].append({
+                        'id': lesson.id,
+                        'title': lesson.title,
+                        'type': lesson.content_type.model if lesson.content_type else 'ARTICLE',
+                        'max_score': lesson.max_score or 5
+                    })
+            
+            # Собираем данные пользователей
+            for user in users:
+                user_data = {
+                    'id': user.id,
+                    'username': user.username,
+                    'full_name': f"{user.first_name} {user.last_name}".strip() or user.username,
+                    'progress': {}
+                }
+                
+                # Добавляем прогресс по каждому уроку
+                for lesson in response_data['lessons']:
+                    lesson_progress = progress.filter(user=user, lesson_id=lesson['id']).first()
+                    user_data['progress'][lesson['id']] = {
+                        'current_score': lesson_progress.current_score if lesson_progress else 0,
+                        'max_score': lesson['max_score'],
+                        'completed': lesson_progress.completed if lesson_progress else False
+                    }
+                
+                response_data['users'].append(user_data)
+            
+            return Response(response_data)
+            
+        except Course.DoesNotExist:
+            return Response({'error': 'Course not found'}, status=404)
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
 
     @action(detail=False, methods=['GET'])
     def course_progress(self, request, course_slug=None):

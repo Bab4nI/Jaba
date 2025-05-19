@@ -63,6 +63,8 @@ const courses = ref([]);
 const selectedCourse = ref('');
 const courseName = ref('');
 const courseStore = useCourseStore();
+const lastFetchTime = ref(null);
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
 
 // Учебные работы (лабораторные, контрольные, статьи)
 const works = ref([]);
@@ -74,8 +76,12 @@ const progressData = ref({});
 onMounted(async () => {
   loading.value = true;
   try {
-    // Загружаем доступные курсы
-    const coursesResponse = await api.get('/courses/');
+    // Загружаем доступные курсы с предотвращением кэширования
+    const coursesResponse = await api.get('/courses/', {
+      params: {
+        _t: new Date().getTime()
+      }
+    });
     courses.value = coursesResponse.data;
     
     // Загружаем доступные группы
@@ -90,13 +96,23 @@ onMounted(async () => {
 // Загрузка групп
 const loadGroups = async () => {
   try {
-    // Запрос на список уникальных групп через API
-    const groupsResponse = await api.get('/groups/');
+    // Запрос на список уникальных групп через API с предотвращением кэширования
+    const groupsResponse = await api.get('/groups/', {
+      params: {
+        _t: new Date().getTime()
+      }
+    });
     groups.value = groupsResponse.data;
   } catch (error) {
     console.error('Ошибка загрузки групп:', error);
     groups.value = [];
   }
+};
+
+// Функция для проверки необходимости обновления данных
+const shouldRefreshData = () => {
+  if (!lastFetchTime.value) return true;
+  return Date.now() - lastFetchTime.value > CACHE_DURATION;
 };
 
 // Функция для обработки изменения выбранного курса
@@ -105,8 +121,12 @@ const onCourseChange = async () => {
   
   loading.value = true;
   try {
-    // Загружаем данные курса (модули, уроки)
-    const courseResponse = await api.get(`/courses/${selectedCourse.value}/`);
+    // Загружаем данные курса (модули, уроки) с предотвращением кэширования
+    const courseResponse = await api.get(`/courses/${selectedCourse.value}/`, {
+      params: {
+        _t: new Date().getTime()
+      }
+    });
     const course = courseResponse.data;
     
     // Сохраняем название курса
@@ -117,7 +137,11 @@ const onCourseChange = async () => {
     
     // Для каждого модуля загружаем уроки
     for (const module of course.modules) {
-      const lessonsResponse = await api.get(`/courses/${selectedCourse.value}/modules/${module.id}/lessons/`);
+      const lessonsResponse = await api.get(`/courses/${selectedCourse.value}/modules/${module.id}/lessons/`, {
+        params: {
+          _t: new Date().getTime()
+        }
+      });
       allLessons.push(...lessonsResponse.data);
     }
   
@@ -125,7 +149,7 @@ const onCourseChange = async () => {
     works.value = allLessons.map(lesson => ({
       id: lesson.id,
       title: lesson.title,
-      max_score: lesson.max_score || 5, // Используем max_score из урока или 5 по умолчанию
+      max_score: lesson.max_score || 5,
       type: lesson.type || 'ARTICLE'
     }));
     
@@ -138,6 +162,9 @@ const onCourseChange = async () => {
     
     // Загружаем данные по выбранной группе
     await loadGroupData();
+    
+    // Обновляем время последней загрузки
+    lastFetchTime.value = Date.now();
     
   } catch (error) {
     console.error('Ошибка загрузки данных курса:', error);
@@ -167,8 +194,14 @@ const loadGroupData = async () => {
     loading.value = true;
     console.log('Loading group data for:', { course: selectedCourse.value, group: selectedGroup.value });
     
-    // Получаем статистику группы
-    const response = await api.get(`/group-statistics/?course_slug=${selectedCourse.value}&group=${selectedGroup.value}`);
+    // Получаем статистику группы с предотвращением кэширования
+    const response = await api.get(`/group-statistics/`, {
+      params: {
+        course_slug: selectedCourse.value,
+        group: selectedGroup.value,
+        _t: new Date().getTime()
+      }
+    });
     console.log('Group statistics response:', response.data);
     
     const data = response.data;
@@ -177,13 +210,22 @@ const loadGroupData = async () => {
     courseName.value = data.course.title;
     
     // Получаем актуальные названия уроков из API
-    const courseResponse = await api.get(`/courses/${selectedCourse.value}/`);
+    const courseResponse = await api.get(`/courses/${selectedCourse.value}/`, {
+      params: {
+        _t: new Date().getTime()
+      }
+    });
     const course = courseResponse.data;
     const allLessons = [];
     for (const module of course.modules) {
-      const lessonsResponse = await api.get(`/courses/${selectedCourse.value}/modules/${module.id}/lessons/`);
+      const lessonsResponse = await api.get(`/courses/${selectedCourse.value}/modules/${module.id}/lessons/`, {
+        params: {
+          _t: new Date().getTime()
+        }
+      });
       allLessons.push(...lessonsResponse.data);
     }
+    
     // Обновляем названия работ в works.value по id
     works.value = data.lessons.map(lesson => {
       const fresh = allLessons.find(l => l.id === lesson.id);
@@ -222,6 +264,10 @@ const loadGroupData = async () => {
     });
     
     progressData.value = newProgressData;
+    
+    // Обновляем время последней загрузки
+    lastFetchTime.value = Date.now();
+    
   } catch (error) {
     console.error('Ошибка загрузки статистики группы:', error);
     students.value = [];
@@ -274,7 +320,9 @@ const emptyRows = computed(() => Math.max(0, 10 - students.value.length));
 // Обновляем данные при изменении курса
 watch(() => selectedCourse.value, async (newValue) => {
   if (newValue) {
-    await onCourseChange();
+    if (shouldRefreshData()) {
+      await onCourseChange();
+    }
     // Если группа уже выбрана, загружаем данные группы
     if (selectedGroup.value) {
       await loadGroupData();
@@ -291,13 +339,17 @@ watch(() => selectedCourse.value, async (newValue) => {
 // Добавляем watch для selectedGroup
 watch(() => selectedGroup.value, async (newValue) => {
   if (newValue && selectedCourse.value) {
-    await loadGroupData();
+    if (shouldRefreshData()) {
+      await loadGroupData();
+    }
   }
 });
 
 // Добавляем watch для refreshTrigger из стора
 watch(() => courseStore.refreshTrigger, async () => {
   if (selectedCourse.value && selectedGroup.value) {
+    // Принудительно обновляем данные при изменении refreshTrigger
+    lastFetchTime.value = null;
     await loadGroupData();
   }
 });
