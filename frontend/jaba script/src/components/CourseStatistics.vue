@@ -54,6 +54,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
 import api from '@/api';
+import { useCourseStore } from '@/stores/course';
 
 const loading = ref(false);
 const groups = ref([]);
@@ -61,6 +62,7 @@ const selectedGroup = ref('admins');
 const courses = ref([]);
 const selectedCourse = ref('');
 const courseName = ref('');
+const courseStore = useCourseStore();
 
 // Учебные работы (лабораторные, контрольные, статьи)
 const works = ref([]);
@@ -174,13 +176,22 @@ const loadGroupData = async () => {
     // Обновляем название курса
     courseName.value = data.course.title;
     
-    // Обновляем список работ
-    works.value = data.lessons.map(lesson => ({
-      id: lesson.id,
-      title: lesson.title,
-      max_score: lesson.max_score || 5,
-      type: lesson.type || 'ARTICLE'
-    }));
+    // Получаем актуальные названия уроков из API
+    const courseResponse = await api.get(`/courses/${selectedCourse.value}/`);
+    const course = courseResponse.data;
+    const allLessons = [];
+    for (const module of course.modules) {
+      const lessonsResponse = await api.get(`/courses/${selectedCourse.value}/modules/${module.id}/lessons/`);
+      allLessons.push(...lessonsResponse.data);
+    }
+    // Обновляем названия работ в works.value по id
+    works.value = data.lessons.map(lesson => {
+      const fresh = allLessons.find(l => l.id === lesson.id);
+      return {
+        ...lesson,
+        title: fresh ? fresh.title : lesson.title
+      };
+    });
     
     // Обновляем список студентов и их прогресс
     students.value = data.users.map(user => ({
@@ -280,6 +291,13 @@ watch(() => selectedCourse.value, async (newValue) => {
 // Добавляем watch для selectedGroup
 watch(() => selectedGroup.value, async (newValue) => {
   if (newValue && selectedCourse.value) {
+    await loadGroupData();
+  }
+});
+
+// Добавляем watch для refreshTrigger из стора
+watch(() => courseStore.refreshTrigger, async () => {
+  if (selectedCourse.value && selectedGroup.value) {
     await loadGroupData();
   }
 });

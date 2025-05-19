@@ -148,15 +148,7 @@
             <span class="score-value" :class="{'score-success': lessonScore.total === lessonScore.max && lessonScore.max > 0, 'score-partial': lessonScore.total > 0 && lessonScore.total < lessonScore.max}">
               {{ lessonScore.total }}/{{ lessonScore.max }}
             </span>
-            <button
-              v-if="!isLessonCompleted"
-              @click="markLessonAsCompleted"
-              class="mark-completed-btn"
-              :disabled="isSaving"
-            >
-              <span class="btn-icon">✓</span>
-              Отметить урок как пройденный
-            </button>
+            <!-- Кнопка 'Отметить урок как пройденный' убрана -->
           </div>
         </div>
       </div>
@@ -1020,10 +1012,26 @@ export default {
       
       // Save the updated score to localStorage
       saveScoreToLocalStorage();
+      // Сохраняем прогресс на сервере
+      saveProgressToServer();
     }
 
-    const resetLessonProgress = () => {
+    const resetLessonProgress = async () => {
       if (!confirm('Вы уверены, что хотите сбросить весь прогресс по этому уроку?')) return
+      
+      // Сбросить прогресс на сервере
+      try {
+        isSaving.value = true;
+        await api.post(`/lessons/${article.value.id}/reset-progress/`, {
+          lesson_id: article.value.id
+        });
+        showToast('Прогресс на сервере успешно сброшен', 'success');
+      } catch (error) {
+        console.error('Ошибка сброса прогресса на сервере:', error);
+        showToast('Не удалось сбросить прогресс на сервере', 'error');
+      } finally {
+        isSaving.value = false;
+      }
       
       // Reset score by clearing all user_score values
       isLessonCompleted.value = false;
@@ -1038,7 +1046,6 @@ export default {
           if (content.user_score !== undefined) {
             delete content.user_score;
           }
-          
           // Clear quiz, code, and video state from localStorage
           if (content.id) {
             if (content.type === 'quiz') {
@@ -1053,13 +1060,11 @@ export default {
           }
         });
       });
-      
       // Reset user_score for main contents
       contents.value.forEach(content => {
         if (content.user_score !== undefined) {
           delete content.user_score;
         }
-        
         // Clear quiz, code, and video state from localStorage
         if (content.id) {
           if (content.type === 'quiz') {
@@ -1073,11 +1078,9 @@ export default {
           }
         }
       });
-      
       // Clear saved score from localStorage
       try {
         localStorage.removeItem(`lesson_score_${article.value.id}`);
-        
         // Remove from completed lessons
         const completedLessons = JSON.parse(localStorage.getItem('completed_lessons') || '[]');
         const index = completedLessons.indexOf(article.value.id);
@@ -1088,10 +1091,37 @@ export default {
       } catch (error) {
         console.error('Error removing score from localStorage:', error);
       }
-      
       // Show success message
       showToast('Прогресс урока успешно сброшен', 'success');
     }
+
+    // Добавим переменную для хранения id прогресса
+    const userProgressId = ref(null);
+
+    // Функция для отправки прогресса на сервер
+    const saveProgressToServer = async () => {
+      try {
+        const payload = {
+          lesson_id: article.value.id,
+          max_score: lessonScore.value.max,
+          current_score: lessonScore.value.total
+        };
+        let response;
+        if (!userProgressId.value) {
+          // Создать новую запись
+          response = await api.post(`/lessons/${article.value.id}/mark-completed/`, payload);
+          if (response.data && response.data.id) {
+            userProgressId.value = response.data.id;
+          }
+        } else {
+          // Обновить существующую запись
+          response = await api.patch(`/user-progress/${userProgressId.value}/`, payload);
+        }
+        // Можно добавить обработку успешного ответа
+      } catch (error) {
+        console.error('Ошибка сохранения прогресса:', error);
+      }
+    };
 
     const markLessonAsCompleted = async () => {
       if (isLessonCompleted.value) return;

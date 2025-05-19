@@ -181,6 +181,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import { useRefreshStore } from '@/stores/auth';
+import { useCourseStore } from '@/stores/course';
 import articleImg from '@/assets/images/article.png';
 import labImg from '@/assets/images/lab.png';
 import pracImg from '@/assets/images/prac.png';
@@ -192,6 +193,7 @@ export default {
     const router = useRouter();
     const route = useRoute();
     const authStore = useRefreshStore();
+    const courseStore = useCourseStore();
 
     const api = axios.create({
       baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
@@ -237,6 +239,7 @@ export default {
       route,
       api,
       authStore,
+      courseStore,
     };
   },
 
@@ -396,6 +399,7 @@ export default {
         });
         console.log('✅ Модуль сохранен:', module);
         alert('Модуль успешно сохранен');
+        this.courseStore.triggerRefresh();
       } catch (error) {
         console.error('❌ Ошибка сохранения модуля:', error);
         const errorMessage = error.response?.data?.title || error.response?.data?.detail || 'Неизвестная ошибка';
@@ -578,6 +582,7 @@ export default {
         this.editingLesson = null;
         console.log('✅ Работа обновлена:', response.data);
         alert('Работа успешно обновлена');
+        this.courseStore.triggerRefresh();
       } catch (error) {
         console.error('❌ Ошибка обновления работы:', error);
         let errorMessage = 'Неизвестная ошибка';
