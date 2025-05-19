@@ -13,7 +13,7 @@
     <div class="group-select-row" v-if="selectedCourse">
       <select v-model="selectedGroup" class="course-select" @change="onGroupChange">
         <option value="admins">Преподаватели</option>
-        <option v-for="group in groups" :key="group" :value="group">{{ group }}</option>
+        <option v-for="group in filteredGroups" :key="group" :value="group">{{ group }}</option>
       </select>
       <span class="select-arrow">&#9662;</span>
     </div>
@@ -283,6 +283,9 @@ watch(() => selectedGroup.value, async (newValue) => {
     await loadGroupData();
   }
 });
+
+// Фильтр для групп, чтобы не было дублирующегося 'admins'
+const filteredGroups = computed(() => groups.value.filter(g => g !== 'admins'));
 </script>
 
 <style scoped>
