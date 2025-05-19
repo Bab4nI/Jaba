@@ -12,7 +12,7 @@
           <div class="neural-response-container2" v-if="aiStore.aiResponse">
             <div class="neural-answer-container">AI</div>
             <div class="neural-response-container">
-              <p class="neural-response-text">{{ aiStore.aiResponse }}</p>
+              <p class="neural-response-text" v-html="renderMarkdown(aiStore.aiResponse)"></p>
               <p class="time-stamp-text-style">{{ getCurrentTime() }}</p>
             </div>
           </div>
@@ -78,6 +78,8 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useAIStore } from '@/stores/aiStore'
 import { useThemeStore } from '@/stores/themeStore'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 
 export default {
   name: 'AIChat',
@@ -93,6 +95,21 @@ export default {
     const themeStore = useThemeStore()
     const aiUserPrompt = ref('')
     let isSelecting = false
+
+    // Configure marked options
+    marked.setOptions({
+      breaks: true,
+      gfm: true,
+      headerIds: false,
+      mangle: false
+    })
+
+    // Function to safely render markdown
+    const renderMarkdown = (text) => {
+      if (!text) return ''
+      const html = marked(text)
+      return DOMPurify.sanitize(html)
+    }
 
     // Remove any existing floating button from the DOM
     const removeExistingButton = () => {
@@ -291,7 +308,8 @@ export default {
       aiExplainText,
       aiSimplifyText,
       aiAskCustom,
-      closeAiModal
+      closeAiModal,
+      renderMarkdown
     }
   }
 }
@@ -631,5 +649,118 @@ export default {
   .ai-action-btn {
     width: 100%;
   }
+}
+
+/* Add Markdown styles */
+:deep(.neural-response-text) {
+  font-size: 14px;
+  color: var(--text-color);
+  margin: 0;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  transition: color var(--transition-speed) var(--transition-timing);
+}
+
+:deep(.neural-response-text h1),
+:deep(.neural-response-text h2),
+:deep(.neural-response-text h3),
+:deep(.neural-response-text h4),
+:deep(.neural-response-text h5),
+:deep(.neural-response-text h6) {
+  margin: 1em 0 0.5em;
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+:deep(.neural-response-text h1) { font-size: 1.5em; }
+:deep(.neural-response-text h2) { font-size: 1.3em; }
+:deep(.neural-response-text h3) { font-size: 1.2em; }
+:deep(.neural-response-text h4) { font-size: 1.1em; }
+:deep(.neural-response-text h5) { font-size: 1em; }
+:deep(.neural-response-text h6) { font-size: 0.9em; }
+
+:deep(.neural-response-text p) {
+  margin: 0.5em 0;
+}
+
+:deep(.neural-response-text ul),
+:deep(.neural-response-text ol) {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+:deep(.neural-response-text li) {
+  margin: 0.3em 0;
+}
+
+:deep(.neural-response-text code) {
+  background: var(--hover-background);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+
+:deep(.neural-response-text pre) {
+  background: var(--hover-background);
+  padding: 1em;
+  border-radius: 5px;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+
+:deep(.neural-response-text pre code) {
+  background: none;
+  padding: 0;
+  font-size: 0.9em;
+}
+
+:deep(.neural-response-text blockquote) {
+  border-left: 3px solid var(--accent-color);
+  margin: 0.5em 0;
+  padding: 0.5em 1em;
+  background: var(--hover-background);
+  border-radius: 0 5px 5px 0;
+}
+
+:deep(.neural-response-text a) {
+  color: var(--accent-color);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+:deep(.neural-response-text a:hover) {
+  text-decoration: underline;
+}
+
+:deep(.neural-response-text img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 5px;
+  margin: 0.5em 0;
+}
+
+:deep(.neural-response-text table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5em 0;
+}
+
+:deep(.neural-response-text th),
+:deep(.neural-response-text td) {
+  border: 1px solid var(--border-color);
+  padding: 0.5em;
+  text-align: left;
+}
+
+:deep(.neural-response-text th) {
+  background: var(--hover-background);
+  font-weight: 600;
+}
+
+:deep(.neural-response-text hr) {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 1em 0;
 }
 </style> 
