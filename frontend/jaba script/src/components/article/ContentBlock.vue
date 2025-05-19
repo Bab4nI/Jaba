@@ -51,6 +51,7 @@ import CodeElement from './CodeElement.vue';
 import QuizElement from './QuizElement.vue';
 import TableElement from './TableElement.vue';
 import FileElement from './FileElement.vue';
+import FillInElement from './FillInElement.vue';
 
 const props = defineProps({
   content: {
@@ -98,7 +99,8 @@ const contentComponents = {
   code: CodeElement,
   quiz: QuizElement,
   table: TableElement,
-  file: FileElement
+  file: FileElement,
+  fillin: FillInElement
 };
 
 const blockType = computed(() => {
@@ -109,7 +111,8 @@ const blockType = computed(() => {
     code: 'Код',
     quiz: 'Тест',
     table: 'Таблица',
-    file: 'Файл'
+    file: 'Файл',
+    fillin: 'Пропущенное слово'
   };
   return types[props.content.type] || props.content.type;
 });
@@ -441,5 +444,65 @@ onMounted(() => {
   --error-border: #ff6b6b;
   --error-color: #ff6b6b;
   --hover-delete-bg: #5a2323;
+}
+
+.block-max-score {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.score-label {
+  color: var(--text-color);
+  font-size: 0.9em;
+  opacity: 0.8;
+}
+
+.score-input {
+  width: 60px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--background-color);
+  color: var(--text-color);
+  font-size: 0.9em;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.score-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(var(--accent-color-rgb), 0.1);
+}
+
+.score-input::-webkit-inner-spin-button,
+.score-input::-webkit-outer-spin-button {
+  opacity: 1;
+  height: 24px;
+}
+
+.score-input::placeholder {
+  color: var(--text-color);
+  opacity: 0.5;
+}
+
+/* Dark theme support */
+:root {
+  --accent-color-rgb: 147, 112, 219;
+}
+
+.dark-theme .score-input {
+  background: var(--background-secondary);
+  border-color: var(--border-color-dark);
+}
+
+.dark-theme .score-input:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(var(--accent-color-rgb), 0.2);
+}
+
+.dark-theme .score-label {
+  color: var(--text-color-dark);
 }
 </style> 

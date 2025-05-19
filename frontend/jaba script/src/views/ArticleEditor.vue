@@ -229,6 +229,7 @@ const CONTENT_TYPES = {
   table: 'TABLE',
   file: 'FILE',
   form: 'FORM',
+  fillin: 'FILLIN',
 }
 
 // Add form type to our content types
@@ -243,50 +244,57 @@ const DEFAULT_CONTENT = {
   table: { headers: ['Заголовок 1', 'Заголовок 2'], data: [['', ''], ['', '']], readOnly: false, max_score: 1 },
   file: { file: null, filename: null, readOnly: false, max_score: 1 },
   form: { fields: [], readOnly: false, max_score: 1 },
+  fillin: { text: '', answers: [], readOnly: false, max_score: 1 },
 }
 
 const BLOCK_TYPES = [
   {
     value: 'text',
-    label: 'Текстовый блок',
-    description: 'Блок для ввода и форматирования текста',
-    icon: '📝'
+    label: 'Текст',
+    icon: '📝',
+    description: 'Добавить текстовый блок'
   },
   {
     value: 'image',
     label: 'Изображение',
-    description: 'Добавление изображений с подписями',
-    icon: '🖼️'
+    icon: '🖼️',
+    description: 'Добавить изображение'
   },
   {
     value: 'video',
     label: 'Видео',
-    description: 'Вставка видео с YouTube или других платформ',
-    icon: '🎥'
+    icon: '🎥',
+    description: 'Добавить видео'
   },
   {
     value: 'code',
     label: 'Код',
-    description: 'Блок для демонстрации кода с подсветкой синтаксиса',
-    icon: '💻'
+    icon: '💻',
+    description: 'Добавить блок кода'
   },
   {
     value: 'quiz',
     label: 'Тест',
-    description: 'Создание тестовых вопросов с вариантами ответов',
-    icon: '❓'
+    icon: '❓',
+    description: 'Добавить тестовый вопрос'
   },
   {
     value: 'table',
     label: 'Таблица',
-    description: 'Создание структурированных таблиц',
-    icon: '📊'
+    icon: '📊',
+    description: 'Добавить таблицу'
   },
   {
     value: 'file',
     label: 'Файл',
-    description: 'Загрузка файлов для скачивания',
-    icon: '📎'
+    icon: '📎',
+    description: 'Добавить файл для скачивания'
+  },
+  {
+    value: 'fillin',
+    label: 'Пропущенное слово',
+    icon: '✏️',
+    description: 'Добавить задание на вставку пропущенного слова'
   }
 ]
 
@@ -544,6 +552,7 @@ export default {
         table: 'Таблица',
         file: 'Файл',
         form: 'Форма',
+        fillin: 'Задание на вставку пропущенного слова',
       }
       return types[type] || type
     }
@@ -558,6 +567,7 @@ export default {
         table: 'TableElement',
         file: 'FileElement',
         form: 'FormElement',
+        fillin: 'FillinElement',
       }
       return components[type] || 'TextElement'
     }
