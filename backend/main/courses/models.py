@@ -340,3 +340,63 @@ class UserProgress(models.Model):
 
     def __str__(self):
         return f"{self.user.username}'s progress in {self.lesson.title}"
+
+class HomeworkAssignment(models.Model):
+    student = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='homework_assignments',
+        verbose_name="Студент",
+        limit_choices_to={'role': 'student'}
+    )
+    lesson = models.ForeignKey(
+        Lesson,
+        on_delete=models.CASCADE,
+        related_name='homework_assignments',
+        verbose_name="Урок"
+    )
+    assigned_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='assigned_homeworks',
+        verbose_name="Назначено",
+        limit_choices_to={'is_staff': True}
+    )
+    assigned_at = models.DateTimeField(
+        default=timezone.now,
+        verbose_name="Дата назначения"
+    )
+    deadline = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Срок выполнения"
+    )
+    is_completed = models.BooleanField(
+        default=False,
+        verbose_name="Выполнено"
+    )
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Дата выполнения"
+    )
+    comment = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Комментарий преподавателя"
+    )
+
+    class Meta:
+        verbose_name = "Домашнее задание"
+        verbose_name_plural = "Домашние задания"
+        ordering = ['-assigned_at']
+        unique_together = ['student', 'lesson']  # Одно задание на урок для студента
+
+    def __str__(self):
+        return f"{self.student} - {self.lesson}"
+
+    def save(self, *args, **kwargs):
+        # Автоматически устанавливаем назначившего текущего пользователя
+        if not self.assigned_by_id and hasattr(self, '_current_user'):
+            self.assigned_by = self._current_user
+        super().save(*args, **kwargs)
