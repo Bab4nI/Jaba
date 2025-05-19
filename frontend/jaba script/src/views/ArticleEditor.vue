@@ -1,5 +1,9 @@
 <template>
   <div class="main-content-container">
+    <!-- Add countdown timer -->
+    <div v-if="timeRemaining > 0" class="countdown-timer">
+      Осталось времени: {{ formatTimeRemaining(timeRemaining) }}
+    </div>
 
     <!-- Toast notification -->
     <div v-if="toastMessage" class="toast-notification" :class="toastType">
@@ -23,17 +27,17 @@
       
       <!-- Show content when loaded -->
       <div v-else class="main-content-container1">
-        <div class="article-header" :class="{'preview-mode': mode !== 'edit'}">
+        <div class="article-header" :class="{'preview-mode': mode !== 'edit' || isTimeExpired}">
           <input
             v-model="article.title"
             type="text"
             class="article-title"
             :placeholder="isEditMode ? 'Название работы' : ''"
-            :readonly=true
-            :disabled="mode !== 'edit'"
+            :readonly="mode !== 'edit' || isTimeExpired"
+            :disabled="mode !== 'edit' || isTimeExpired"
             @click="handleTitleClick"
           >
-          <div class="mode-controls" v-if="userStore.role === 'admin'">
+          <div class="mode-controls" v-if="userStore.role === 'admin' && !isTimeExpired">
             <div class="ai-control" v-if="mode === 'edit'">
               <label class="ai-toggle">
                 <input 
@@ -237,10 +241,11 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useAIStore } from '@/stores/aiStore'
+import { useRefreshStore } from '@/stores/auth'
 import api from '@/api'
 import { debounce } from 'lodash-es'
 import ContentBlock from '@/components/article/ContentBlock.vue'
@@ -345,6 +350,7 @@ export default {
     const router = useRouter()
     const userStore = useUserStore()
     const aiStore = useAIStore()
+    const refreshStore = useRefreshStore()
 
     const article = ref({
       id: route.params.lessonId,
@@ -375,6 +381,9 @@ export default {
     const currentFormIndex = ref(-1)
     const activeFormIndex = ref(-1)
     const isLessonCompleted = ref(false)
+    const timeRemaining = ref(0)
+    const countdownInterval = ref(null)
+    const isTimeExpired = ref(false)
     
     // Calculate total maximum score based on all content elements
     const maxScore = computed(() => {
@@ -1230,11 +1239,72 @@ export default {
       }
     };
 
+    const formatTimeRemaining = (ms) => {
+      const seconds = Math.floor(ms / 1000)
+      const minutes = Math.floor(seconds / 60)
+      const hours = Math.floor(minutes / 60)
+      const days = Math.floor(hours / 24)
+
+      const remainingHours = hours % 24
+      const remainingMinutes = minutes % 60
+      const remainingSeconds = seconds % 60
+
+      let result = ''
+      if (days > 0) result += `${days} д. `
+      if (remainingHours > 0) result += `${remainingHours} ч. `
+      if (remainingMinutes > 0) result += `${remainingMinutes} мин. `
+      if (remainingSeconds > 0 && minutes === 0) result += `${remainingSeconds} сек.`
+
+      return result.trim()
+    }
+
+    const startCountdown = (endTime) => {
+      if (!endTime) return
+      
+      const updateCountdown = () => {
+        const now = new Date()
+        const end = new Date(endTime)
+        const diff = end - now
+
+        if (diff <= 0) {
+          timeRemaining.value = 0
+          isTimeExpired.value = true
+          clearInterval(countdownInterval.value)
+          mode.value = 'preview' // Switch to preview mode when time expires
+          showToast('Время истекло. Редактирование недоступно.', 'info')
+          return
+        }
+
+        timeRemaining.value = diff
+      }
+
+      // Initial update
+      updateCountdown()
+      
+      // Update every second
+      countdownInterval.value = setInterval(updateCountdown, 1000)
+    }
+
+    // Watch for changes in mode to prevent editing when time expires
+    watch(timeRemaining, (newValue) => {
+      if (newValue === 0 && mode.value === 'edit') {
+        mode.value = 'preview';
+      }
+    });
+
     // Load article content when component is mounted
     onMounted(async () => {
       try {
         isLoading.value = true;
         loadError.value = null;
+        
+        // First, ensure we have valid tokens
+        const authStore = useRefreshStore();
+        const isReady = await authStore.ready();
+        
+        if (!isReady) {
+          throw new Error('Authentication required. Please log in again.');
+        }
         
         const courseSlug = route.params.courseSlug;
         const moduleId = route.params.moduleId;
@@ -1251,6 +1321,12 @@ export default {
         const response = await api.get(contentUrl);
         contents.value = response.data.sort((a, b) => a.order - b.order);
         originalContents.value = JSON.parse(JSON.stringify(contents.value));
+        
+        // Get lesson details including end time
+        const lessonResponse = await api.get(`/courses/${courseSlug}/modules/${moduleId}/lessons/${lessonId}/`);
+        if (lessonResponse.data.end_datetime) {
+          startCountdown(lessonResponse.data.end_datetime);
+        }
         
         // Load custom forms from localStorage or create empty array if none exists
         try {
@@ -1279,12 +1355,6 @@ export default {
           if (savedScore) {
             const savedScoreData = JSON.parse(savedScore);
             console.log('Loaded saved score:', savedScoreData);
-            
-            // Apply saved user_score values to content elements
-            if (savedScoreData.total > 0) {
-              // This will trigger the computed properties to recalculate
-              console.log('Applying saved scores to content elements...');
-            }
           }
         } catch (error) {
           console.error('Error loading saved score:', error);
@@ -1292,14 +1362,21 @@ export default {
         
         // Get article title
         if (response.data.length > 0 && article.value.title === 'Новая работа') {
-          const lessonResponse = await api.get(`/courses/${courseSlug}/modules/${moduleId}/lessons/${lessonId}/`);
           article.value.title = lessonResponse.data.title || 'Новая работа';
         }
         
         showToast('Содержимое загружено успешно', 'success');
       } catch (error) {
         console.error('Error loading article content:', error);
-        loadError.value = error.response?.data?.detail || error.message || 'Ошибка загрузки содержимого';
+        if (error.message === 'Authentication required. Please log in again.') {
+          loadError.value = 'Требуется авторизация. Пожалуйста, войдите снова.';
+          // Redirect to login page after a short delay
+          setTimeout(() => {
+            router.push('/signin');
+          }, 2000);
+        } else {
+          loadError.value = error.response?.data?.detail || error.message || 'Ошибка загрузки содержимого';
+        }
       } finally {
         isLoading.value = false;
       }
@@ -1317,6 +1394,9 @@ export default {
       document.removeEventListener('mouseup', handleGlobalTextSelection);
       document.removeEventListener('touchend', handleGlobalTextSelection);
       window.removeEventListener('beforeunload', beforeUnloadHandler);
+      if (countdownInterval.value) {
+        clearInterval(countdownInterval.value);
+      }
     });
 
     const handleTitleClick = (e) => {
@@ -1398,6 +1478,9 @@ export default {
       updateContentOrder,
       saveOrder,
       handleTitleClick,
+      timeRemaining,
+      formatTimeRemaining,
+      isTimeExpired,
     }
   },
 }
@@ -3119,5 +3202,45 @@ export default {
 .back-button .btn-icon {
   font-size: 18px;
   line-height: 1;
+}
+
+.countdown-timer {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: var(--accent-color);
+  color: var(--footer-text);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.preview-mode {
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.preview-mode .article-title {
+  border-color: transparent;
+  cursor: default;
+}
+
+.preview-mode .mode-controls {
+  display: none;
 }
 </style>
