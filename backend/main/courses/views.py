@@ -265,48 +265,52 @@ class LessonContentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['POST'])
     def submit_answer(self, request, pk=None):
         content = self.get_object()
-        
-        if content.content_type not in ['CODE', 'QUIZ']:
+        if content.content_type not in ['QUIZ', 'CODE']:
             return Response(
-                {"error": "This content type doesn't support answer submission"},
+                {"detail": "This content type does not support answer submission"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         answer = request.data.get('answer')
-        if answer is None:
+        if not answer:
             return Response(
-                {"error": "Answer is required"},
+                {"detail": "Answer is required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Calculate score based on content type
-        score = 0
-        if content.content_type == 'CODE':
-            # For code exercises, you might want to run tests
-            # This is a simplified scoring - you should implement proper test running
-            score = content.max_score if answer.strip() else 0
-        elif content.content_type == 'QUIZ':
-            # For quizzes, check against correct answers
-            correct_answer = content.correct_answer  # You'll need to add this field
-            score = content.max_score if answer == correct_answer else 0
-
-        # Update user progress
-        progress, _ = UserProgress.objects.get_or_create(
+        # Get or create progress
+        progress, created = UserProgress.objects.get_or_create(
             user=request.user,
             lesson=content.lesson,
             content=content,
-            defaults={'completed': True, 'score': score}
+            defaults={
+                'completed': True,
+                'max_score': content.max_score,
+                'current_score': 0
+            }
         )
-        
-        if not progress.completed:
-            progress.completed = True
-            progress.score = score
-            progress.save()
+
+        # Calculate score based on content type
+        if content.content_type == 'QUIZ':
+            correct_answer = content.quiz_data.get('correct_answer')
+            if answer == correct_answer:
+                progress.current_score = content.max_score
+            else:
+                progress.current_score = 0
+        elif content.content_type == 'CODE':
+            # For code exercises, the score is determined by the code execution result
+            # This is handled by the CodeExecutionView
+            pass
+
+        progress.completed = True
+        progress.save()
 
         return Response({
-            'score': score,
-            'max_score': content.max_score,
-            'completed': True
+            'content_id': content.id,
+            'completed': True,
+            'max_score': progress.max_score,
+            'current_score': progress.current_score,
+            'completed_at': progress.completed_at
         })
 
 class CodeExecutionView(APIView):
@@ -314,118 +318,156 @@ class CodeExecutionView(APIView):
     
     def validate_request(self, request_data):
         required_fields = ['source_code', 'language_id']
-        missing_fields = [field for field in required_fields if field not in request_data]
-        
-        if missing_fields:
-            raise ValidationError(f"Missing required fields: {', '.join(missing_fields)}")
-            
-        if len(request_data['source_code']) > 100_000:
-            raise ValidationError('Source code is too large (max 100 KB)')
-            
-        language_id = request_data['language_id']
-        if language_id not in settings.JUDGE0_LANGUAGE_IDS:
-            raise ValidationError(f'Unsupported language: {language_id}')
-            
-        interpreter = request_data.get('interpreter', 'default')
-        judge0_language_id = settings.JUDGE0_LANGUAGE_IDS[language_id].get(
-            interpreter, 
-            settings.JUDGE0_LANGUAGE_IDS[language_id].get('default')
-        )
-        
-        if not judge0_language_id:
-            raise ValidationError(
-                f'Unsupported interpreter: {interpreter} for language: {language_id}'
-            )
-            
-        return judge0_language_id
-    
+        for field in required_fields:
+            if field not in request_data:
+                raise ValidationError(f"{field} is required")
+        return request_data
+
     def post(self, request):
         try:
-            judge0_language_id = self.validate_request(request.data)
+            data = self.validate_request(request.data)
+            source_code = data['source_code']
+            language_id = data['language_id']
+            stdin = data.get('stdin', '')
+            content_id = data.get('content_id')
+
+            # Execute the code
+            result = self.execute_code(source_code, language_id, stdin)
+
+            # If content_id is provided, update user progress
+            if content_id:
+                try:
+                    content = LessonContent.objects.get(id=content_id)
+                    progress, created = UserProgress.objects.get_or_create(
+                        user=request.user,
+                        lesson=content.lesson,
+                        content=content,
+                        defaults={
+                            'completed': True,
+                            'max_score': content.max_score,
+                            'current_score': 0
+                        }
+                    )
+
+                    # Calculate score based on execution result
+                    if result.get('status', {}).get('id') == 3:  # Accepted
+                        progress.current_score = content.max_score
+                    else:
+                        progress.current_score = 0
+
+                    progress.completed = True
+                    progress.save()
+
+                    result['progress'] = {
+                        'content_id': content.id,
+                        'completed': True,
+                        'max_score': progress.max_score,
+                        'current_score': progress.current_score,
+                        'completed_at': progress.completed_at
+                    }
+                except LessonContent.DoesNotExist:
+                    pass
+
+            return Response(result)
         except ValidationError as e:
             return Response(
-                {'error': str(e)},
+                {"detail": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
-            
-        source_code = request.data['source_code']
-        stdin = request.data.get('stdin', '')
-        cache_key = f"code_execution:{hash(source_code + str(judge0_language_id) + stdin)}"
-        
-        cached_result = cache.get(cache_key)
-        if cached_result:
-            logger.info(f"Returning cached result for {cache_key}")
-            return Response(cached_result, status=status.HTTP_200_OK)
-            
-        try:
-            result = self.execute_code(
-                source_code=source_code,
-                language_id=judge0_language_id,
-                stdin=stdin
-            )
-            cache.set(cache_key, result, timeout=3600)
-            return Response(result, status=status.HTTP_200_OK)
-            
-        except requests.RequestException as e:
-            logger.error(f"Judge0 API error: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error executing code: {str(e)}")
             return Response(
-                {'error': 'Failed to execute code'},
+                {"detail": "Failed to execute code"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
     def execute_code(self, source_code, language_id, stdin):
         headers = {
             'Content-Type': 'application/json',
+            'X-RapidAPI-Key': settings.JUDGE0_API_KEY,
+            'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com'
         }
-        if hasattr(settings, 'JUDGE0_API_KEY') and settings.JUDGE0_API_KEY:
-            headers.update({
-                'x-rapidapi-key': settings.JUDGE0_API_KEY,
-                'x-rapidapi-host': 'judge0-ce.p.rapidapi.com'
-            })
+
+        # Map language_id to Judge0 language ID
+        language_map = {
+            'javascript': 63,  # Node.js
+            'python': 71,      # Python 3
+            'java': 62,        # Java
+            'cpp': 54,         # C++
+            'csharp': 51,      # C#
+            'php': 68,         # PHP
+            'ruby': 72,        # Ruby
+            'swift': 83,       # Swift
+            'go': 60,          # Go
+            'rust': 73,        # Rust
+            'kotlin': 78,      # Kotlin
+            'scala': 81        # Scala
+        }
+
+        # Get the correct language ID
+        judge0_language_id = language_map.get(language_id.lower(), 71)  # Default to Python if language not found
 
         submission_data = {
             'source_code': source_code,
-            'language_id': language_id,
+            'language_id': judge0_language_id,
             'stdin': stdin,
+            'cpu_time_limit': 5,  # 5 seconds
+            'memory_limit': 128000,  # 128MB
+            'stack_limit': 128000,  # 128MB
+            'max_processes_and_or_threads': 60,
+            'enable_per_process_and_thread_time_limit': False,
+            'enable_network': False
         }
 
         logger.info(f"Sending submission to Judge0: {submission_data}")
-        response = requests.post(
-            f'{settings.JUDGE0_API_URL}/submissions?base64_encoded=false&wait=false',
-            json=submission_data,
-            headers=headers,
-            timeout=10
-        )
-        response.raise_for_status()
-        logger.info(f"Judge0 submission response: {response.status_code} {response.text}")
+        
+        try:
+            response = requests.post(
+                f'{settings.JUDGE0_API_URL}/submissions?base64_encoded=false&wait=false',
+                json=submission_data,
+                headers=headers,
+                timeout=10
+            )
+            response.raise_for_status()
+            logger.info(f"Judge0 submission response: {response.status_code} {response.text}")
 
-        token = response.json().get('token')
-        if not token:
-            raise requests.RequestException("No token received from Judge0")
+            token = response.json().get('token')
+            if not token:
+                raise requests.RequestException("No token received from Judge0")
 
-        result = self.poll_submission_result(token, headers)
-        return {
-            'stdout': result.get('stdout', ''),
-            'stderr': result.get('stderr', ''),
-            'compile_output': result.get('compile_output', ''),
-            'status': result.get('status', {}).get('description', 'Unknown'),
-            'time': result.get('time', ''),
-            'memory': result.get('memory', '')
-        }
+            result = self.poll_submission_result(token, headers)
+            return {
+                'stdout': result.get('stdout', ''),
+                'stderr': result.get('stderr', ''),
+                'compile_output': result.get('compile_output', ''),
+                'status': result.get('status', {}),
+                'time': result.get('time', ''),
+                'memory': result.get('memory', '')
+            }
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Judge0 API error: {str(e)}")
+            if hasattr(e.response, 'text'):
+                logger.error(f"Response text: {e.response.text}")
+            raise
     
     def poll_submission_result(self, token, headers, max_attempts=10, delay=1):
         for attempt in range(max_attempts):
             time.sleep(delay)
-            result_response = requests.get(
-                f'{settings.JUDGE0_API_URL}/submissions/{token}?base64_encoded=false',
-                headers=headers,
-                timeout=10
-            )
-            result_response.raise_for_status()
-            result = result_response.json()
+            try:
+                result_response = requests.get(
+                    f'{settings.JUDGE0_API_URL}/submissions/{token}?base64_encoded=false',
+                    headers=headers,
+                    timeout=10
+                )
+                result_response.raise_for_status()
+                result = result_response.json()
 
-            if result.get('status', {}).get('id', 0) > 2:
-                return result
+                if result.get('status', {}).get('id', 0) > 2:
+                    return result
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Error polling submission result: {str(e)}")
+                if attempt == max_attempts - 1:
+                    raise
 
         raise requests.RequestException("Submission timeout")
 
@@ -735,202 +777,171 @@ class UserProgressViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['GET'])
     def course_progress(self, request, course_slug=None):
         # Get course_slug from URL kwargs if not provided directly
-        if not course_slug:
-            course_slug = request.query_params.get('course_slug')
-            
+        course_slug = course_slug or request.query_params.get('course_slug')
         if not course_slug:
             return Response(
-                {"error": "course_slug is required"},
+                {"detail": "Course slug is required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        course = get_object_or_404(Course, slug=course_slug)
-        
+        try:
+            course = Course.objects.get(slug=course_slug)
+        except Course.DoesNotExist:
+            return Response(
+                {"detail": "Course not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
         # Get all lessons in the course
         lessons = Lesson.objects.filter(module__course=course)
         
-        # Get user's progress for this course
-        progress = UserProgress.objects.filter(
-            user=request.user,
-            lesson__module__course=course
-        )
-
-        # Calculate statistics
-        total_lessons = lessons.count()
-        completed_lessons = progress.filter(completed=True).values('lesson').distinct().count()
-        total_score = progress.aggregate(total=models.Sum('score'))['total'] or 0
-        max_possible_score = LessonContent.objects.filter(
-            lesson__module__course=course
-        ).aggregate(total=models.Sum('max_score'))['total'] or 0
+        # Get progress for all lessons
+        progress_data = []
+        total_max_score = 0
+        total_current_score = 0
+        
+        for lesson in lessons:
+            progress = UserProgress.objects.filter(
+                user=request.user,
+                lesson=lesson
+            ).first()
+            
+            if progress:
+                total_max_score += progress.max_score
+                total_current_score += progress.current_score
+                
+            progress_data.append({
+                'lesson_id': lesson.id,
+                'lesson_title': lesson.title,
+                'completed': bool(progress and progress.completed),
+                'max_score': progress.max_score if progress else 0,
+                'current_score': progress.current_score if progress else 0,
+                'completed_at': progress.completed_at if progress else None
+            })
 
         return Response({
-            'total_lessons': total_lessons,
-            'completed_lessons': completed_lessons,
-            'completion_percentage': (completed_lessons / total_lessons * 100) if total_lessons > 0 else 0,
-            'total_score': total_score,
-            'max_possible_score': max_possible_score,
-            'score_percentage': (total_score / max_possible_score * 100) if max_possible_score > 0 else 0
+            'course_id': course.id,
+            'course_title': course.title,
+            'total_lessons': len(lessons),
+            'completed_lessons': sum(1 for p in progress_data if p['completed']),
+            'total_max_score': total_max_score,
+            'total_current_score': total_current_score,
+            'progress_percentage': (total_current_score / total_max_score * 100) if total_max_score > 0 else 0,
+            'lessons': progress_data
         })
-        
+
     @action(detail=False, methods=['GET'])
     def student_progress(self, request):
-        """
-        Get detailed progress for a specific student across all work items.
-        Query params:
-        - student_id: ID of the student (required for admins, ignored for students)
-        - course_slug: Filter by course (optional)
-        """
-        # Check if the requesting user is an admin and can view other students' progress
-        user_id = request.user.id
-        if request.user.role == 'admin' and request.query_params.get('student_id'):
-            user_id = request.query_params.get('student_id')
+        # Get all courses the student is enrolled in
+        courses = Course.objects.filter(
+            modules__lessons__user_progress__user=request.user
+        ).distinct()
+
+        progress_data = []
+        for course in courses:
+            # Get all lessons in the course
+            lessons = Lesson.objects.filter(module__course=course)
             
-        # Filter by course if provided
-        course_filter = {}
-        if course_slug := request.query_params.get('course_slug'):
-            course_filter['lesson__module__course__slug'] = course_slug
+            # Calculate course progress
+            total_max_score = 0
+            total_current_score = 0
+            completed_lessons = 0
             
-        # Get all progress records for this user
-        progress = UserProgress.objects.filter(
-            user_id=user_id, 
-            **course_filter
-        ).select_related('lesson', 'content')
-        
-        # Group by lesson for easier consumption by the frontend
-        result = {}
-        for p in progress:
-            lesson_id = p.lesson_id
-            content_id = p.content_id if p.content else None
-            
-            if lesson_id not in result:
-                result[lesson_id] = {
-                    'lesson_id': lesson_id,
-                    'lesson_title': p.lesson.title,
-                    'completed': p.completed,
-                    'contents': {}
-                }
+            for lesson in lessons:
+                progress = UserProgress.objects.filter(
+                    user=request.user,
+                    lesson=lesson
+                ).first()
                 
-            if content_id:
-                result[lesson_id]['contents'][content_id] = {
-                    'content_id': content_id,
-                    'completed': p.completed,
-                    'score': p.score,
-                    'max_score': p.content.max_score if p.content else 0,
-                    'content_type': p.content.content_type if p.content else None,
-                    'completed_at': p.completed_at
-                }
-                
-        return Response(result)
+                if progress:
+                    total_max_score += progress.max_score
+                    total_current_score += progress.current_score
+                    if progress.completed:
+                        completed_lessons += 1
+
+            progress_data.append({
+                'course_id': course.id,
+                'course_title': course.title,
+                'total_lessons': len(lessons),
+                'completed_lessons': completed_lessons,
+                'total_max_score': total_max_score,
+                'total_current_score': total_current_score,
+                'progress_percentage': (total_current_score / total_max_score * 100) if total_max_score > 0 else 0
+            })
+
+        return Response(progress_data)
 
     @action(detail=False, methods=['POST'])
     def mark_completed(self, request, lesson_id=None):
         # First check if lesson_id is in URL params
-        if lesson_id is None:
-            # If not in URL params, try to get from request data
-            lesson_id = request.data.get('lesson_id')
-            
+        lesson_id = lesson_id or request.data.get('lesson_id')
         if not lesson_id:
             return Response(
-                {"error": "lesson_id is required"},
+                {"detail": "Lesson ID is required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        content_id = request.data.get('content_id')
-        score = request.data.get('score', 1)  # Default score is 1 for non-quiz/code content
-        additional_score = request.data.get('additional_score', 0)
-        auto_score_content_types = request.data.get('auto_score_content_types', [])
-
-        lesson = get_object_or_404(Lesson, id=lesson_id)
-        
-        # If content_id is provided, mark specific content as completed
-        if content_id:
-            content = get_object_or_404(LessonContent, id=content_id)
-            progress, created = UserProgress.objects.get_or_create(
-                user=request.user,
-                lesson=lesson,
-                content=content,
-                defaults={'completed': True, 'score': min(score, content.max_score)}
+        try:
+            lesson = Lesson.objects.get(id=lesson_id)
+        except Lesson.DoesNotExist:
+            return Response(
+                {"detail": "Lesson not found"},
+                status=status.HTTP_404_NOT_FOUND
             )
-            if not created:
-                progress.completed = True
-                progress.score = min(score, content.max_score)
-                progress.save()
-        else:
-            # Mark the entire lesson as completed
-            progress, created = UserProgress.objects.get_or_create(
-                user=request.user,
-                lesson=lesson,
-                defaults={'completed': True, 'score': 1}
-            )
-            if not created:
-                progress.completed = True
-                progress.save()
-                
-            # Process auto-scored content types
-            if auto_score_content_types and additional_score > 0:
-                # Get all content items for this lesson that match the auto-score types
-                contents = LessonContent.objects.filter(
-                    lesson=lesson,
-                    content_type__in=[t.upper() for t in auto_score_content_types]
-                )
-                
-                # Create or update progress for each content item
-                for content in contents:
-                    # Check if we already have progress for this content
-                    content_progress = UserProgress.objects.filter(
-                        user=request.user,
-                        lesson=lesson,
-                        content=content
-                    ).first()
-                    
-                    # Only create/update if no progress exists or score is 0
-                    if not content_progress or content_progress.score == 0:
-                        if not content_progress:
-                            content_progress = UserProgress(
-                                user=request.user,
-                                lesson=lesson,
-                                content=content,
-                                completed=True,
-                                score=1  # Each auto-scored item gets 1 point
-                            )
-                        else:
-                            content_progress.completed = True
-                            content_progress.score = 1
-                        
-                        content_progress.save()
 
-        return Response({'status': 'success'})
-        
+        # Get max_score and current_score from request data
+        max_score = request.data.get('max_score', 0)
+        current_score = request.data.get('current_score', 0)
+
+        # Get or create progress
+        progress, created = UserProgress.objects.get_or_create(
+            user=request.user,
+            lesson=lesson,
+            defaults={
+                'completed': True,
+                'max_score': max_score,
+                'current_score': current_score
+            }
+        )
+
+        if not created:
+            progress.completed = True
+            progress.max_score = max_score
+            progress.current_score = current_score
+            progress.save()
+
+        return Response({
+            'lesson_id': lesson.id,
+            'completed': True,
+            'max_score': progress.max_score,
+            'current_score': progress.current_score,
+            'completed_at': progress.completed_at
+        })
+
     @action(detail=False, methods=['POST'])
     def reset_progress(self, request, lesson_id=None):
-        """
-        Reset a user's progress for a specific lesson.
-        This will delete all progress records for the lesson and its contents.
-        """
-        # First check if lesson_id is in URL params
-        if lesson_id is None:
-            # If not in URL params, try to get from request data
-            lesson_id = request.data.get('lesson_id')
-            
+        lesson_id = lesson_id or request.data.get('lesson_id')
         if not lesson_id:
             return Response(
-                {"error": "lesson_id is required"},
+                {"detail": "Lesson ID is required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        lesson = get_object_or_404(Lesson, id=lesson_id)
-        
-        # Delete all progress records for this lesson and user
-        deleted_count, _ = UserProgress.objects.filter(
+        try:
+            lesson = Lesson.objects.get(id=lesson_id)
+        except Lesson.DoesNotExist:
+            return Response(
+                {"detail": "Lesson not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Delete all progress for this lesson
+        UserProgress.objects.filter(
             user=request.user,
             lesson=lesson
         ).delete()
-        
-        # Also clear any localStorage data on the client side
-        # (This will be handled by the frontend)
-        
+
         return Response({
-            'status': 'success',
-            'message': f'Progress reset for lesson {lesson_id}',
-            'deleted_records': deleted_count
+            'lesson_id': lesson.id,
+            'message': 'Progress reset successfully'
         })

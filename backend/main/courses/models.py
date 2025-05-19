@@ -330,7 +330,8 @@ class UserProgress(models.Model):
     lesson = models.ForeignKey('Lesson', on_delete=models.CASCADE, related_name='user_progress')
     content = models.ForeignKey('LessonContent', on_delete=models.CASCADE, related_name='user_progress', null=True, blank=True)
     completed = models.BooleanField(default=False)
-    score = models.IntegerField(default=0)  # For code exercises and quizzes
+    max_score = models.IntegerField(default=0)  # Maximum possible score for this content
+    current_score = models.IntegerField(default=0)  # Current score achieved by the user
     completed_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

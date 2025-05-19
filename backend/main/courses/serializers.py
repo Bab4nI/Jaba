@@ -329,7 +329,7 @@ class CommentSerializer(serializers.ModelSerializer):
 class UserProgressSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProgress
-        fields = ['id', 'user', 'lesson', 'content', 'completed', 'score', 'completed_at']
+        fields = ['id', 'user', 'lesson', 'content', 'completed', 'max_score', 'current_score', 'completed_at']
         read_only_fields = ['user', 'completed_at']
 
     def create(self, validated_data):

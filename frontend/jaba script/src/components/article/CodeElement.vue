@@ -540,7 +540,7 @@ const runCode = async () => {
 
     const result = response.data
 
-    if (result.status === 'Accepted') {
+    if (result.status?.id === 3) {  // 3 is the ID for "Accepted" status in Judge0
       executionResult.value = result.stdout || 'Program executed without output.'
       
       // Check if result matches expected result after setting executionResult
@@ -557,7 +557,7 @@ const runCode = async () => {
       }
     } else {
       executionError.value = true
-      executionResult.value = result.stderr || result.compile_output || `Error: ${result.status}`
+      executionResult.value = result.stderr || result.compile_output || `Error: ${result.status?.description || 'Unknown error'}`
     }
     
     // Restore scroll position after a short delay to ensure DOM updates

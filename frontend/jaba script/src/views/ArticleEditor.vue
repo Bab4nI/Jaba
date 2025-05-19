@@ -148,6 +148,15 @@
             <span class="score-value" :class="{'score-success': lessonScore.total === lessonScore.max && lessonScore.max > 0, 'score-partial': lessonScore.total > 0 && lessonScore.total < lessonScore.max}">
               {{ lessonScore.total }}/{{ lessonScore.max }}
             </span>
+            <button
+              v-if="!isLessonCompleted"
+              @click="markLessonAsCompleted"
+              class="mark-completed-btn"
+              :disabled="isSaving"
+            >
+              <span class="btn-icon">✓</span>
+              Отметить урок как пройденный
+            </button>
           </div>
         </div>
       </div>
@@ -1084,51 +1093,41 @@ export default {
       showToast('Прогресс урока успешно сброшен', 'success');
     }
 
-    const markLessonAsCompleted = () => {
-      if (isLessonCompleted.value) return
+    const markLessonAsCompleted = async () => {
+      if (isLessonCompleted.value) return;
       
-      isLessonCompleted.value = true
-      
-      // Auto-assign scores to non-interactive elements
-      const nonInteractiveTypes = ['image', 'table', 'file', 'text'];
-      
-      // Process main contents
-      contents.value.forEach(content => {
-        if (nonInteractiveTypes.includes(content.type) && content.user_score === undefined) {
-          const contentScore = parseInt(content.max_score) || 1;
-          content.user_score = contentScore;
-          console.log(`Auto-assigned ${contentScore} points to ${content.type} element (id: ${content.id})`);
-        }
-      });
-      
-      // Process form contents
-      customForms.value.forEach(form => {
-        form.contents.forEach(content => {
-          if (nonInteractiveTypes.includes(content.type) && content.user_score === undefined) {
-            const contentScore = parseInt(content.max_score) || 1;
-            content.user_score = contentScore;
-            console.log(`Auto-assigned ${contentScore} points to ${content.type} element in form (id: ${content.id})`);
-          }
-        });
-      });
-      
-      // Save the updated score to localStorage
-      saveScoreToLocalStorage();
-      
-      showToast('Урок отмечен как пройденный!', 'success')
-      
-      // Here you would typically make an API call to update the user's progress
-      // For now, we'll just store it locally
       try {
-        const completedLessons = JSON.parse(localStorage.getItem('completed_lessons') || '[]')
-        if (!completedLessons.includes(article.value.id)) {
-          completedLessons.push(article.value.id)
-          localStorage.setItem('completed_lessons', JSON.stringify(completedLessons))
+        isSaving.value = true;
+        
+        // Send completion status to server with current scores
+        const response = await api.post(`/lessons/${article.value.id}/mark-completed/`, {
+          lesson_id: article.value.id,
+          max_score: lessonScore.value.max,
+          current_score: lessonScore.value.total
+        });
+        
+        if (response.data) {
+          isLessonCompleted.value = true;
+          showToast('Урок отмечен как пройденный!', 'success');
+          
+          // Add to completed lessons in localStorage
+          try {
+            const completedLessons = JSON.parse(localStorage.getItem('completed_lessons') || '[]');
+            if (!completedLessons.includes(article.value.id)) {
+              completedLessons.push(article.value.id);
+              localStorage.setItem('completed_lessons', JSON.stringify(completedLessons));
+            }
+          } catch (error) {
+            console.error('Error saving completed lesson:', error);
+          }
         }
       } catch (error) {
-        console.error('Error saving completed lesson:', error)
+        console.error('Error marking lesson as completed:', error);
+        showToast('Не удалось отметить урок как пройденный', 'error');
+      } finally {
+        isSaving.value = false;
       }
-    }
+    };
 
     const updateContentScore = (contentId, score) => {
       // Find the content in any form and update its score
@@ -2816,18 +2815,19 @@ export default {
 }
 
 .mark-completed-btn {
-  padding: 12px 24px;
-  font-size: 16px;
-  font-weight: 400;
+  margin-left: 16px;
+  padding: 8px 16px;
   background: var(--accent-color);
   color: var(--footer-text);
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
   display: flex;
   align-items: center;
   gap: 8px;
+  transition: all 0.2s ease;
 }
 
 .mark-completed-btn:hover:not(:disabled) {
@@ -2838,6 +2838,10 @@ export default {
 .mark-completed-btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+}
+
+.mark-completed-btn .btn-icon {
+  font-size: 16px;
 }
 
 .loading-indicator {
