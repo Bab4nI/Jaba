@@ -89,7 +89,7 @@ onMounted(async () => {
   z-index: 100;
 }
 
-.header-section::after {
+/* .header-section::after {
   content: '';
   position: absolute;
   bottom: 0;
@@ -104,7 +104,7 @@ onMounted(async () => {
 
 .header-section:hover::after {
   transform: scaleX(1);
-}
+} */
 
 .header-section.dark-theme {
   background: #2a2a36;

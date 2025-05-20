@@ -762,7 +762,8 @@ export default {
             
             changedIndices.value.clear()
             lastSavedAt.value = new Date()
-            showToast('Все изменения сохранены.', 'success')
+            // Remove the save success toast
+            // showToast('Все изменения сохранены.', 'success')
             
             // Switch to preview mode after saving
             if (mode.value === 'edit') {
@@ -814,7 +815,8 @@ export default {
           activeFormIndex.value = -1;
         }
         
-        showToast(`Режим изменен на ${mode.value === 'edit' ? 'редактирование' : 'предпросмотр'}.`, 'info')
+        // Remove the mode change toast
+        // showToast(`Режим изменен на ${mode.value === 'edit' ? 'редактирование' : 'предпросмотр'}.`, 'info')
       }
     }
     
@@ -1779,7 +1781,8 @@ export default {
   padding-bottom: 12px;
   padding-left: 10px;
   padding-right: 10px;
-  border-bottom: 2px solid var(--border-color);
+  /* Remove the border-bottom */
+  /* border-bottom: 2px solid var(--border-color); */
   transition: border-color 0.3s ease;
   position: relative;
 }
