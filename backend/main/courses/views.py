@@ -1,10 +1,10 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-from .models import Course, Module, Lesson, LessonContent, Comment, CommentReaction, UserProgress
+from .models import Course, Module, Lesson, LessonContent, Comment, CommentReaction, UserProgress, CustomForm
 from .serializers import (
     CourseSerializer, ModuleSerializer, LessonSerializer, 
     LessonContentSerializer, CommentSerializer, CommentReactionSerializer,
-    UserProgressSerializer
+    UserProgressSerializer, CustomFormSerializer
 )
 from django.shortcuts import get_object_or_404
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser  # Add JSONParser
@@ -156,7 +156,7 @@ class ModuleViewSet(viewsets.ModelViewSet):
 
 class LessonViewSet(viewsets.ModelViewSet):
     serializer_class = LessonSerializer
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]  # Add JSONParser
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
@@ -207,10 +207,15 @@ class LessonViewSet(viewsets.ModelViewSet):
         
         # Handle thumbnail deletion if empty string is passed
         if 'thumbnail' in request.data and request.data['thumbnail'] == '':
-            instance.thumbnail.delete(save=False)
+            if instance.thumbnail:
+                instance.thumbnail.delete(save=False)
+                instance.thumbnail = None
         
         self.perform_update(serializer)
         return Response(serializer.data)
+
+    def perform_update(self, serializer):
+        serializer.save()
 
 class LessonContentViewSet(viewsets.ModelViewSet):
     serializer_class = LessonContentSerializer
@@ -1002,6 +1007,36 @@ class UserProgressViewSet(viewsets.ModelViewSet):
 
         return Response(progress_data)
 
+    @action(detail=False, methods=['GET'])
+    def lesson_progress(self, request, lesson_id=None):
+        """
+        Get progress for a specific lesson
+        """
+        try:
+            lesson = get_object_or_404(Lesson, id=lesson_id)
+            progress = UserProgress.objects.filter(
+                user=request.user,
+                lesson=lesson
+            ).first()
+
+            if not progress:
+                return Response({
+                    'lesson_id': lesson_id,
+                    'completed': False,
+                    'current_score': 0,
+                    'max_score': 0,
+                    'completed_at': None
+                })
+
+            serializer = self.get_serializer(progress)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Error getting lesson progress: {str(e)}")
+            return Response(
+                {"detail": f"Failed to get lesson progress: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
     @action(detail=False, methods=['POST'])
     def mark_completed(self, request, lesson_id=None):
         # First check if lesson_id is in URL params
@@ -1202,3 +1237,165 @@ class UserProgressViewSet(viewsets.ModelViewSet):
                 {'error': f'Internal server error: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+class CustomFormViewSet(viewsets.ModelViewSet):
+    serializer_class = CustomFormSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_queryset(self):
+        lesson_id = self.kwargs.get('lesson_id')
+        if not lesson_id:
+            return CustomForm.objects.none()
+        return CustomForm.objects.filter(lesson_id=lesson_id).order_by('order')
+
+    def list(self, request, *args, **kwargs):
+        try:
+            queryset = self.get_queryset()
+            if not queryset.exists():
+                # Return empty list with proper structure
+                return Response([{
+                    'id': None,
+                    'lesson': None,
+                    'title': '',
+                    'contents': [],
+                    'order': 0,
+                    'created_at': None,
+                    'updated_at': None,
+                    'total': 0
+                }])
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Error listing forms: {str(e)}")
+            return Response([{
+                'id': None,
+                'lesson': None,
+                'title': '',
+                'contents': [],
+                'order': 0,
+                'created_at': None,
+                'updated_at': None,
+                'total': 0
+            }], status=status.HTTP_200_OK)
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Error retrieving form: {str(e)}")
+            # Return empty form structure
+            return Response({
+                'id': None,
+                'lesson': None,
+                'title': '',
+                'contents': [],
+                'order': 0,
+                'created_at': None,
+                'updated_at': None,
+                'total': 0
+            }, status=status.HTTP_200_OK)
+
+    def create(self, request, *args, **kwargs):
+        try:
+            logger.info(f"Creating form with data: {request.data}")
+            
+            # Ensure we have a valid data structure
+            data = request.data.copy()
+            if not isinstance(data, dict):
+                data = {}
+            
+            # Convert contents array to fields object
+            if 'contents' in data and isinstance(data['contents'], list):
+                data['contents'] = {'fields': data['contents']}
+            elif 'contents' not in data:
+                data['contents'] = {'fields': []}
+            
+            # Set default values if not provided
+            if 'title' not in data:
+                data['title'] = ''
+            
+            serializer = self.get_serializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        except Exception as e:
+            logger.error(f"Error creating form: {str(e)}")
+            return Response({
+                'id': None,
+                'lesson': None,
+                'title': '',
+                'contents': [],
+                'order': 0,
+                'created_at': None,
+                'updated_at': None,
+                'total': 0
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    def perform_create(self, serializer):
+        lesson_id = self.kwargs.get('lesson_id')
+        lesson = get_object_or_404(Lesson, id=lesson_id)
+        last_order = CustomForm.objects.filter(lesson=lesson).aggregate(
+            models.Max('order'))['order__max'] or 0
+        
+        # Handle contents if it's a string
+        data = serializer.validated_data.copy()
+        if 'contents' in data and isinstance(data['contents'], str):
+            try:
+                data['contents'] = json.loads(data['contents'])
+            except json.JSONDecodeError:
+                data['contents'] = {'fields': []}
+        
+        serializer.save(lesson=lesson, order=last_order + 1, **data)
+
+    def update(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            data = request.data.copy()
+            
+            # Ensure we have valid data
+            if not isinstance(data, dict):
+                data = {}
+            
+            # Convert contents array to fields object
+            if 'contents' in data and isinstance(data['contents'], list):
+                data['contents'] = {'fields': data['contents']}
+            elif 'contents' not in data:
+                data['contents'] = instance.contents or {'fields': []}
+            
+            if 'title' not in data:
+                data['title'] = instance.title or ''
+            
+            serializer = self.get_serializer(instance, data=data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Error updating form: {str(e)}")
+            return Response({
+                'id': None,
+                'lesson': None,
+                'title': '',
+                'contents': [],
+                'order': 0,
+                'created_at': None,
+                'updated_at': None,
+                'total': 0
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    def perform_update(self, serializer):
+        # Handle contents if it's a string
+        data = serializer.validated_data.copy()
+        if 'contents' in data and isinstance(data['contents'], str):
+            try:
+                data['contents'] = json.loads(data['contents'])
+            except json.JSONDecodeError:
+                data['contents'] = {'fields': []}
+        
+        serializer.save(**data)
+
+    def perform_destroy(self, instance):
+        instance.delete()

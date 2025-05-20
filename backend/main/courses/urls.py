@@ -4,22 +4,44 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     CourseViewSet, ModuleViewSet, LessonViewSet,
     LessonContentViewSet, CommentViewSet, CommentReactionViewSet,
-    CodeExecutionView, AIChatView, MediaUploadView, UserProgressViewSet
+    CodeExecutionView, AIChatView, MediaUploadView, UserProgressViewSet,
+    CustomFormViewSet
 )
 
 # Use trailing_slash=True to match Django's default behavior
 router = DefaultRouter(trailing_slash=True)
 router.register(r'courses', CourseViewSet, basename='course')
-router.register(r'modules', ModuleViewSet, basename='module')
-router.register(r'lessons', LessonViewSet, basename='lesson')
-router.register(r'lesson-contents', LessonContentViewSet, basename='lesson-content')
-router.register(r'comments', CommentViewSet, basename='comment')
-router.register(r'comment-reactions', CommentReactionViewSet, basename='comment-reaction')
+router.register(r'courses/(?P<course_slug>[^/.]+)/modules', ModuleViewSet, basename='module')
+router.register(r'courses/(?P<course_slug>[^/.]+)/modules/(?P<module_id>\d+)/lessons', LessonViewSet, basename='lesson')
+router.register(r'courses/(?P<course_slug>[^/.]+)/modules/(?P<module_id>\d+)/lessons/(?P<lesson_id>\d+)/contents', LessonContentViewSet, basename='lesson-content')
+router.register(r'courses/(?P<course_slug>[^/.]+)/modules/(?P<module_id>\d+)/lessons/(?P<lesson_id>\d+)/comments', CommentViewSet, basename='comment')
+router.register(r'courses/(?P<course_slug>[^/.]+)/modules/(?P<module_id>\d+)/lessons/(?P<lesson_id>\d+)/comments/(?P<comment_id>\d+)/reactions', CommentReactionViewSet, basename='comment-reaction')
+router.register(r'courses/(?P<course_slug>[^/.]+)/modules/(?P<module_id>\d+)/lessons/(?P<lesson_id>\d+)/forms', CustomFormViewSet, basename='form')
 router.register(r'progress', UserProgressViewSet, basename='progress')
 
 urlpatterns = [
     # Include the router URLs
     path('', include(router.urls)),
+    
+    # Form-specific paths
+    path(
+        'courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/forms/',
+        CustomFormViewSet.as_view({
+            'get': 'list',
+            'post': 'create'
+        }),
+        name='form-list'
+    ),
+    path(
+        'courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/forms/<int:pk>/',
+        CustomFormViewSet.as_view({
+            'get': 'retrieve',
+            'put': 'update',
+            'patch': 'partial_update',
+            'delete': 'destroy'
+        }),
+        name='form-detail'
+    ),
     
     # Add explicit course list endpoint with POST support
     path(
@@ -126,8 +148,8 @@ urlpatterns = [
     ),
 
     path('execute-code/', CodeExecutionView.as_view(), name='execute-code'),
-    path('ai/chat/', AIChatView.as_view(), name='ai-chat'),
-    path('upload/', MediaUploadView.as_view(), name='media-upload'),
+    path('ai-chat/', AIChatView.as_view(), name='ai-chat'),
+    path('upload-media/', MediaUploadView.as_view(), name='upload-media'),
 
     # Add progress-specific paths
     path(
@@ -139,6 +161,11 @@ urlpatterns = [
         'student-progress/',
         UserProgressViewSet.as_view({'get': 'student_progress'}),
         name='student-progress'
+    ),
+    path(
+        'lessons/<int:lesson_id>/progress/',
+        UserProgressViewSet.as_view({'get': 'lesson_progress'}),
+        name='lesson-progress'
     ),
     path(
         'lessons/<int:lesson_id>/mark-completed/',

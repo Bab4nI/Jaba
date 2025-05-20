@@ -356,3 +356,19 @@ class UserProgress(models.Model):
 
     def __str__(self):
         return f"{self.user.username}'s progress in {self.lesson.title}"
+
+class CustomForm(models.Model):
+    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='forms')
+    title = models.CharField(max_length=255)
+    contents = models.JSONField(default=list)
+    order = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order']
+        verbose_name = 'Custom Form'
+        verbose_name_plural = 'Custom Forms'
+
+    def __str__(self):
+        return f"{self.title} - {self.lesson.title}"
