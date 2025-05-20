@@ -128,8 +128,15 @@ api.interceptors.request.use(
     
     // Кэширование для GET запросов
     if (config.method === 'get') {
-      // Special handling for profile requests to prevent multiple simultaneous calls
-      if (config.url.includes('/profile')) {
+      // Отключаем кэширование для форм, контента и урока
+      if (
+        config.url.includes('/forms') ||
+        config.url.includes('/contents') ||
+        (config.url.match(/\/lessons(\/|$)/) && !config.url.includes('/profile'))
+      ) {
+        config.skipCache = true;
+      } else if (config.url.includes('/profile')) {
+        // Special handling for profile requests to prevent multiple simultaneous calls
         const now = Date.now();
         const timeSinceLastRequest = now - lastProfileRequest;
         const PROFILE_CACHE_KEY = 'user_profile_data';

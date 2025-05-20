@@ -81,7 +81,17 @@
               @move-down="moveFormContentDown(formIndex, elementIndex)"
               @remove="removeFormContent(formIndex, elementIndex)"
               @answer-submitted="onAnswerSubmitted"
-            />
+            >
+              <template #actions>
+                <button
+                  v-if="isEditMode && activeFormIndex >= 0"
+                  @click="addContentToForm(elementIndex)"
+                  class="add-to-form-btn"
+                >
+                  ➕ В форму
+                </button>
+              </template>
+            </ContentBlock>
           </div>
           <div v-else class="preview-content">
             <ContentBlock
@@ -674,7 +684,6 @@ export default {
     const saveAllChanges = async () => {
       isSaving.value = true
       const errors = []
-
       try {
         const courseSlug = route.params.courseSlug
         const moduleId = route.params.moduleId
@@ -701,13 +710,12 @@ export default {
         for (const form of customForms.value) {
           const formData = {
             title: form.title || 'Новая форма',
-            contents: form.contents || [],
+            contents: Array.isArray(form.contents) ? form.contents : [],
           }
+          console.log('Сохраняем форму:', formData)
           if (typeof form.id === 'number') {
-            // PATCH если id числовой
             await api.patch(`/courses/${courseSlug}/modules/${moduleId}/lessons/${lessonId}/forms/${form.id}/`, formData)
           } else {
-            // POST если id нет или временный
             const response = await api.post(`/courses/${courseSlug}/modules/${moduleId}/lessons/${lessonId}/forms/`, formData)
             form.id = response.data.id
           }
@@ -835,17 +843,39 @@ export default {
           const lessonId = route.params.lessonId
           await api.delete(`/courses/${courseSlug}/modules/${moduleId}/lessons/${lessonId}/forms/${form.id}/`)
         }
+        showToast('Форма удалена.', 'success')
       } catch (error) {
-        showToast('Ошибка при удалении формы', 'error')
-        return
+        // Если 404 — форма уже удалена, всё равно обновим список
+        if (error.response && error.response.status === 404) {
+          showToast('Форма уже была удалена или не найдена.', 'info')
+        } else {
+          showToast('Ошибка при удалении формы', 'error')
+          return
+        }
       }
-      customForms.value.splice(index, 1)
+      // После удаления или 404 — всегда обновляем список форм с сервера
+      try {
+        const courseSlug = route.params.courseSlug
+        const moduleId = route.params.moduleId
+        const lessonId = route.params.lessonId
+        const formsResponse = await api.get(`/courses/${courseSlug}/modules/${moduleId}/lessons/${lessonId}/forms/`)
+        if (formsResponse.data && Array.isArray(formsResponse.data)) {
+          customForms.value = formsResponse.data.map(form => ({
+            ...form,
+            contents: Array.isArray(form.contents) ? form.contents : [],
+            total: Array.isArray(form.contents) ? form.contents.length : 0
+          }))
+        } else {
+          customForms.value = []
+        }
+      } catch (e) {
+        showToast('Ошибка при обновлении списка форм', 'error')
+      }
       if (activeFormIndex.value === index) {
         activeFormIndex.value = -1
       } else if (activeFormIndex.value > index) {
         activeFormIndex.value--
       }
-      showToast('Форма удалена.', 'success')
     }
 
     const onFormContentUpdate = (formIndex, contentIndex, updatedContent) => {
@@ -1286,29 +1316,44 @@ export default {
       const newContent = {
         id: generateUniqueId(),
         type,
-        order: contents.value.length + 1,
+        order: customForms.value[activeFormIndex.value]?.contents.length + 1 || 1,
         ...JSON.parse(JSON.stringify(DEFAULT_CONTENT[type])),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
-      
-      if (currentFormIndex.value >= 0) {
-        const formIndex = currentFormIndex.value
+      if (activeFormIndex.value >= 0) {
+        const formIndex = activeFormIndex.value
         if (!customForms.value[formIndex]) return
-        
-        newContent.order = customForms.value[formIndex].contents.length + 1
         customForms.value[formIndex].contents.push(newContent)
         customForms.value[formIndex].total = customForms.value[formIndex].contents.length
         updateFormContentOrder(formIndex)
         showToast(`Элемент "${getContentTypeName(type)}" добавлен в форму "${customForms.value[formIndex].title}"`, 'success')
-        currentFormIndex.value = -1
+        console.log('Текущее содержимое формы:', customForms.value[formIndex].contents)
       } else {
         contents.value.push(newContent)
         changedIndices.value.add(contents.value.length - 1)
         showToast(`Элемент "${getContentTypeName(type)}" добавлен`, 'success')
       }
-      
       closeBlockModal()
+    }
+
+    const addContentToForm = (contentIndex) => {
+      if (activeFormIndex.value < 0) {
+        showToast('Сначала выберите форму', 'warning')
+        return
+      }
+      const content = contents.value[contentIndex]
+      if (!content) return
+      // Копируем блок (глубокая копия)
+      const newContent = JSON.parse(JSON.stringify(content))
+      newContent.id = generateUniqueId()
+      newContent.order = customForms.value[activeFormIndex.value].contents.length + 1
+      newContent.created_at = new Date().toISOString()
+      newContent.updated_at = new Date().toISOString()
+      customForms.value[activeFormIndex.value].contents.push(newContent)
+      customForms.value[activeFormIndex.value].total = customForms.value[activeFormIndex.value].contents.length
+      updateFormContentOrder(activeFormIndex.value)
+      showToast('Блок добавлен в форму', 'success')
     }
 
     return {
@@ -1383,6 +1428,7 @@ export default {
       timeRemaining,
       formatTimeRemaining,
       isTimeExpired,
+      addContentToForm,
     }
   },
 }
@@ -3145,5 +3191,20 @@ export default {
 
 .preview-mode .mode-controls {
   display: none;
+}
+
+.add-to-form-btn {
+  margin-left: 10px;
+  background: #a094b8;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+.add-to-form-btn:hover {
+  background: #8275a0;
 }
 </style>

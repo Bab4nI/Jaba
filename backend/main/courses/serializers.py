@@ -375,148 +375,54 @@ class UserProgressSerializer(serializers.ModelSerializer):
 
 class CustomFormSerializer(serializers.ModelSerializer):
     total = serializers.SerializerMethodField()
-    contents = serializers.SerializerMethodField()
+    contents = serializers.JSONField(required=False, default=list)
 
     class Meta:
         model = CustomForm
         fields = ['id', 'lesson', 'title', 'contents', 'order', 'created_at', 'updated_at', 'total']
-        read_only_fields = ['created_at', 'updated_at', 'total', 'contents']
+        read_only_fields = ['created_at', 'updated_at', 'total']
         extra_kwargs = {
-            'title': {'required': False, 'allow_blank': True},
+            'lesson': {'required': True},
+            'title': {'required': True},
             'order': {'required': False},
-            'lesson': {'required': False}
         }
 
     def get_contents(self, obj):
-        try:
-            if not obj or not hasattr(obj, 'contents'):
+        if isinstance(obj.contents, str):
+            try:
+                return json.loads(obj.contents)
+            except json.JSONDecodeError:
                 return []
-            if not obj.contents:
-                return []
-            if isinstance(obj.contents, dict):
-                fields = obj.contents.get('fields', [])
-                return fields if isinstance(fields, list) else []
-            if isinstance(obj.contents, str):
-                try:
-                    parsed = json.loads(obj.contents)
-                    if isinstance(parsed, dict):
-                        fields = parsed.get('fields', [])
-                        return fields if isinstance(fields, list) else []
-                except json.JSONDecodeError:
-                    pass
-            return []
-        except Exception:
-            return []
+        return obj.contents or []
 
     def get_total(self, obj):
-        try:
-            if not obj or not hasattr(obj, 'contents'):
-                return 0
-            if not obj.contents:
-                return 0
-            if isinstance(obj.contents, dict):
-                fields = obj.contents.get('fields', [])
-                return len(fields) if isinstance(fields, list) else 0
-            return 0
-        except Exception:
-            return 0
+        contents = self.get_contents(obj)
+        return len(contents) if isinstance(contents, list) else 0
 
     def to_representation(self, instance):
-        try:
-            if not instance:
-                return self.get_empty_form()
-            
-            data = super().to_representation(instance)
-            # Ensure contents is always an array
-            if not data.get('contents'):
-                data['contents'] = []
-            elif not isinstance(data['contents'], list):
-                data['contents'] = []
-            
-            # Ensure total is always present
-            data['total'] = self.get_total(instance)
-            return data
-        except Exception:
-            return self.get_empty_form()
-
-    def get_empty_form(self):
-        return {
-            'id': None,
-            'lesson': None,
-            'title': '',
-            'contents': [],
-            'order': 0,
-            'created_at': None,
-            'updated_at': None,
-            'total': 0
-        }
+        data = super().to_representation(instance)
+        contents = self.get_contents(instance)
+        data['contents'] = contents
+        return data
 
     def validate_contents(self, value):
-        try:
-            if value is None:
-                return {'fields': []}
-            if isinstance(value, str):
-                try:
-                    parsed = json.loads(value)
-                    if isinstance(parsed, dict):
-                        if 'fields' not in parsed:
-                            parsed['fields'] = []
-                        elif not isinstance(parsed['fields'], list):
-                            parsed['fields'] = []
-                        return parsed
-                    return {'fields': []}
-                except json.JSONDecodeError:
-                    return {'fields': []}
-            if isinstance(value, dict):
-                if 'fields' not in value:
-                    value['fields'] = []
-                elif not isinstance(value['fields'], list):
-                    value['fields'] = []
-                return value
-            return {'fields': []}
-        except Exception:
-            return {'fields': []}
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Contents must be a list")
+        return value
 
     def validate(self, data):
-        try:
-            # Set default values if not provided
-            if 'contents' not in data or data['contents'] is None:
-                data['contents'] = {'fields': []}
-            if 'title' not in data or data['title'] is None:
-                data['title'] = ''
-            return data
-        except Exception:
-            return {'contents': {'fields': []}, 'title': ''}
+        if 'contents' in data and not isinstance(data['contents'], list):
+            raise serializers.ValidationError({
+                'contents': 'Contents must be a list'
+            })
+        return data
 
     def to_internal_value(self, data):
-        try:
-            # Handle string contents before validation
-            if isinstance(data, dict):
-                if 'contents' in data:
-                    if isinstance(data['contents'], str):
-                        try:
-                            parsed = json.loads(data['contents'])
-                            if isinstance(parsed, dict):
-                                if 'fields' not in parsed:
-                                    parsed['fields'] = []
-                                elif not isinstance(parsed['fields'], list):
-                                    parsed['fields'] = []
-                                data['contents'] = parsed
-                            else:
-                                data['contents'] = {'fields': []}
-                        except json.JSONDecodeError:
-                            data['contents'] = {'fields': []}
-                    elif data['contents'] is None:
-                        data['contents'] = {'fields': []}
-                    elif isinstance(data['contents'], dict):
-                        if 'fields' not in data['contents']:
-                            data['contents']['fields'] = []
-                        elif not isinstance(data['contents']['fields'], list):
-                            data['contents']['fields'] = []
-                    else:
-                        data['contents'] = {'fields': []}
-                else:
-                    data['contents'] = {'fields': []}
-            return super().to_internal_value(data)
-        except Exception:
-            return {'contents': {'fields': []}, 'title': ''}   
+        if 'contents' in data and isinstance(data['contents'], str):
+            try:
+                data['contents'] = json.loads(data['contents'])
+            except json.JSONDecodeError:
+                raise serializers.ValidationError({
+                    'contents': 'Invalid JSON format'
+                })
+        return super().to_internal_value(data)   

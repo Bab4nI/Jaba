@@ -1299,41 +1299,50 @@ class CustomFormViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
-        try:
-            logger.info(f"Creating form with data: {request.data}")
-            
-            # Ensure we have a valid data structure
-            data = request.data.copy()
-            if not isinstance(data, dict):
-                data = {}
-            
-            # Convert contents array to fields object
-            if 'contents' in data and isinstance(data['contents'], list):
-                data['contents'] = {'fields': data['contents']}
-            elif 'contents' not in data:
-                data['contents'] = {'fields': []}
-            
-            # Set default values if not provided
-            if 'title' not in data:
-                data['title'] = ''
-            
-            serializer = self.get_serializer(data=data)
-            serializer.is_valid(raise_exception=True)
-            self.perform_create(serializer)
-            headers = self.get_success_headers(serializer.data)
-            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-        except Exception as e:
-            logger.error(f"Error creating form: {str(e)}")
-            return Response({
-                'id': None,
-                'lesson': None,
-                'title': '',
-                'contents': [],
-                'order': 0,
-                'created_at': None,
-                'updated_at': None,
-                'total': 0
-            }, status=status.HTTP_400_BAD_REQUEST)
+        lesson_id = self.kwargs.get('lesson_id')
+        if not lesson_id:
+            return Response(
+                {"detail": "Lesson ID is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get the last order number
+        last_order = CustomForm.objects.filter(lesson_id=lesson_id).aggregate(
+            models.Max('order'))['order__max'] or 0
+
+        # Add lesson and order to request data
+        data = request.data.copy()
+        data['lesson'] = lesson_id
+        data['order'] = last_order + 1
+
+        # Ensure contents is a list
+        if 'contents' in data and not isinstance(data['contents'], list):
+            data['contents'] = []
+
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        
+        # Ensure contents is a list
+        data = request.data.copy()
+        if 'contents' in data and not isinstance(data['contents'], list):
+            data['contents'] = []
+
+        serializer = self.get_serializer(instance, data=data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        return Response(serializer.data)
+
+    def perform_update(self, serializer):
+        serializer.save()
 
     def perform_create(self, serializer):
         lesson_id = self.kwargs.get('lesson_id')
@@ -1351,51 +1360,14 @@ class CustomFormViewSet(viewsets.ModelViewSet):
         
         serializer.save(lesson=lesson, order=last_order + 1, **data)
 
-    def update(self, request, *args, **kwargs):
+    def perform_destroy(self, instance):
         try:
             instance = self.get_object()
-            data = request.data.copy()
-            
-            # Ensure we have valid data
-            if not isinstance(data, dict):
-                data = {}
-            
-            # Convert contents array to fields object
-            if 'contents' in data and isinstance(data['contents'], list):
-                data['contents'] = {'fields': data['contents']}
-            elif 'contents' not in data:
-                data['contents'] = instance.contents or {'fields': []}
-            
-            if 'title' not in data:
-                data['title'] = instance.title or ''
-            
-            serializer = self.get_serializer(instance, data=data, partial=True)
-            serializer.is_valid(raise_exception=True)
-            self.perform_update(serializer)
-            return Response(serializer.data)
+            self.perform_destroy(instance)
+            logger.info(f"CustomForm deleted: id={instance.id}, lesson={instance.lesson_id}")
+            return Response(status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
-            logger.error(f"Error updating form: {str(e)}")
+            logger.error(f"Error deleting form: {str(e)}")
             return Response({
-                'id': None,
-                'lesson': None,
-                'title': '',
-                'contents': [],
-                'order': 0,
-                'created_at': None,
-                'updated_at': None,
-                'total': 0
+                'detail': f'Failed to delete form: {str(e)}'
             }, status=status.HTTP_400_BAD_REQUEST)
-
-    def perform_update(self, serializer):
-        # Handle contents if it's a string
-        data = serializer.validated_data.copy()
-        if 'contents' in data and isinstance(data['contents'], str):
-            try:
-                data['contents'] = json.loads(data['contents'])
-            except json.JSONDecodeError:
-                data['contents'] = {'fields': []}
-        
-        serializer.save(**data)
-
-    def perform_destroy(self, instance):
-        instance.delete()
