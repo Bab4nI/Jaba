@@ -27,44 +27,19 @@
       
       <!-- Show content when loaded -->
       <div v-else class="main-content-container1">
-        <div class="article-header" :class="{'preview-mode': mode !== 'edit' || isTimeExpired}">
-          <input
-            v-model="article.title"
-            type="text"
-            class="article-title"
-            :placeholder="isEditMode ? 'Название работы' : ''"
-            :readonly="mode !== 'edit' || isTimeExpired"
-            :disabled="mode !== 'edit' || isTimeExpired"
-            @click="handleTitleClick"
-          >
-          <div class="mode-controls" v-if="userStore.role === 'admin' && !isTimeExpired">
-            <div class="ai-control" v-if="mode === 'edit'">
-              <label class="ai-toggle">
-                <input 
-                  type="checkbox" 
-                  v-model="aiStore.isEnabled"
-                  @change="aiStore.setAIEnabled($event.target.checked)"
-                >
-                <span class="ai-toggle-label">AI Чат</span>
-              </label>
-            </div>
-            <button 
-              @click="toggleMode" 
-              class="mode-toggle-btn"
-              :class="{ 'active': mode === 'edit' }"
-            >
-              {{ mode === 'edit' ? 'Предпросмотр' : 'Редактировать' }}
-            </button>
-            <button
-              @click="goBack"
-              class="back-button"
-              aria-label="Вернуться к модулям"
-            >
-              <span class="btn-icon">←</span>
-              К модулям
-            </button>
-          </div>
-        </div>
+        <ArticleHeader
+          :title="article.title"
+          :isEditMode="isEditMode"
+          :isAdmin="userStore.role === 'admin'"
+          :isTimeExpired="isTimeExpired"
+          :previewMode="mode !== 'edit' || isTimeExpired"
+          :aiEnabled="aiStore.isEnabled"
+          @update:title="val => article.title = val"
+          @toggle-mode="toggleMode"
+          @go-back="goBack"
+          @ai-toggle="aiStore.setAIEnabled"
+          @title-click="handleTitleClick"
+        />
         
         <!-- Custom Forms Container -->
         <div 
@@ -160,15 +135,6 @@
               {{ isSaving ? 'Сохранение...' : 'Сохранить работу' }}
               <span v-if="hasChanges" class="changes-indicator">*</span>
             </button>
-
-            <button
-              @click="goBack"
-              class="back-button"
-              aria-label="Вернуться к модулям"
-            >
-              <span class="btn-icon">←</span>
-              К модулям
-            </button>
           </div>
         </div>
         
@@ -251,6 +217,7 @@ import { debounce } from 'lodash-es'
 import ContentBlock from '@/components/article/ContentBlock.vue'
 import Comments from '@/components/Comments.vue'
 import AIChat from '@/components/AiChat.vue'
+import ArticleHeader from '@/components/ArticleHeader.vue'
 
 const CONTENT_TYPES = {
   text: 'TEXT',
@@ -343,6 +310,7 @@ export default {
     ContentBlock,
     Comments,
     AIChat,
+    ArticleHeader,
   },
 
   setup() {
@@ -1365,7 +1333,8 @@ export default {
           article.value.title = lessonResponse.data.title || 'Новая работа';
         }
         
-        showToast('Содержимое загружено успешно', 'success');
+        // Remove the success toast
+        // showToast('Содержимое загружено успешно', 'success');
       } catch (error) {
         console.error('Error loading article content:', error);
         if (error.message === 'Authentication required. Please log in again.') {
@@ -3206,7 +3175,7 @@ export default {
 
 .countdown-timer {
   position: fixed;
-  top: 20px;
+  bottom: 20px;
   right: 20px;
   background: var(--accent-color);
   color: var(--footer-text);
