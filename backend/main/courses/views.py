@@ -135,7 +135,9 @@ class CourseViewSet(viewsets.ModelViewSet):
 
     @method_decorator(cache_page(60 * 60))  # Cache for 1 hour
     def retrieve(self, request, *args, **kwargs):
-        return super().retrieve(request, *args, **kwargs)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
 
 class ModuleViewSet(viewsets.ModelViewSet):
     serializer_class = ModuleSerializer
@@ -165,15 +167,16 @@ class LessonViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
-        if not instance.is_available:
-            return Response({
-                'error': 'Урок недоступен',
-                'title': instance.title,
-                'start_datetime': instance.start_datetime,
-                'end_datetime': instance.end_datetime,
-                'time_until_start': self.get_serializer(instance).get_time_until_start(instance),
-                'time_remaining': self.get_serializer(instance).get_time_remaining(instance)
-            }, status=status.HTTP_403_FORBIDDEN)
+        # Разрешаем просмотр всегда, даже если is_available == False
+        # if not instance.is_available:
+        #     return Response({
+        #         'error': 'Урок недоступен',
+        #         'title': instance.title,
+        #         'start_datetime': instance.start_datetime,
+        #         'end_datetime': instance.end_datetime,
+        #         'time_until_start': self.get_serializer(instance).get_time_until_start(instance),
+        #         'time_remaining': self.get_serializer(instance).get_time_remaining(instance)
+        #     }, status=status.HTTP_403_FORBIDDEN)
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
@@ -296,6 +299,12 @@ class LessonContentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['POST'])
     def submit_answer(self, request, pk=None):
         content = self.get_object()
+        # Блокируем отправку, если урок недоступен (например, время истекло)
+        if not content.lesson.is_available:
+            return Response(
+                {"detail": "Время на выполнение задания истекло. Отправка ответов запрещена."},
+                status=status.HTTP_403_FORBIDDEN
+            )
         if content.content_type not in ['QUIZ', 'CODE']:
             return Response(
                 {"detail": "This content type does not support answer submission"},
@@ -361,6 +370,18 @@ class CodeExecutionView(APIView):
             language_id = data['language_id']
             stdin = data.get('stdin', '')
             content_id = data.get('content_id')
+
+            # Если content_id указан, проверяем доступность урока
+            if content_id:
+                try:
+                    content = LessonContent.objects.get(id=content_id)
+                    if not content.lesson.is_available:
+                        return Response(
+                            {"detail": "Время на выполнение задания истекло. Запуск кода запрещён."},
+                            status=status.HTTP_403_FORBIDDEN
+                        )
+                except LessonContent.DoesNotExist:
+                    pass
 
             # Execute the code
             result = self.execute_code(source_code, language_id, stdin)

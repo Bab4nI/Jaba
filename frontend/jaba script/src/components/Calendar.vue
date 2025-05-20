@@ -208,6 +208,10 @@ const fetchAssignments = async () => {
           const lessonsResponse = await api.get(`/api/courses/${course.slug}/modules/${module.id}/lessons/`);
           const lessons = Array.isArray(lessonsResponse.data) ? lessonsResponse.data : lessonsResponse.data.results || [];
           console.log(`Found ${lessons.length} lessons in module ${module.id}`);
+          lessons.forEach(lesson => {
+            lesson.courseSlug = course.slug;
+            lesson.moduleId = module.id;
+          });
           allLessons.push(...lessons);
         }
       } catch (err) {
@@ -238,7 +242,9 @@ const fetchAssignments = async () => {
           rooms: lesson.rooms || 'Не указано',
           type: lesson.type || 'ARTICLE',
           start_datetime: lesson.start_datetime,
-          end_datetime: lesson.end_datetime
+          end_datetime: lesson.end_datetime,
+          courseSlug: lesson.courseSlug,
+          moduleId: lesson.moduleId
         };
       });
     
@@ -391,7 +397,17 @@ const closeModal = () => {
 
 // Функция перехода к работе
 const goToAssignment = (id) => {
-  if (id) {
+  // Найти assignment по id
+  const assignment = assignments.value.find(a => a.id === id);
+  if (assignment && assignment.courseSlug && assignment.moduleId) {
+    // Формируем путь
+    const query = [];
+    if (assignment.title) query.push(`title=${encodeURIComponent(assignment.title)}`);
+    if (assignment.type) query.push(`type=${encodeURIComponent(assignment.type.toLowerCase())}`);
+    const queryString = query.length ? `?${query.join('&')}` : '';
+    router.push(`/courses/${assignment.courseSlug}/modules/${assignment.moduleId}/lessons/${assignment.id}${queryString}`);
+  } else if (id) {
+    // fallback
     router.push(`/lessons/${id}`);
   }
 };

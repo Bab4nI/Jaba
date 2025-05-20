@@ -535,11 +535,9 @@ export default {
         if (lesson.time_until_start > 0) {
           const timeUntilStart = this.formatTimeRemaining(lesson.time_until_start);
           message += ` Доступ откроется через: ${timeUntilStart}`;
-        } else if (lesson.time_remaining === 0) {
-          message = 'Время урока истекло.';
+          alert(message);
+          return;
         }
-        alert(message);
-        return;
       }
 
       this.router.push({

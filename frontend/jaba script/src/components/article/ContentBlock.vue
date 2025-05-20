@@ -1,11 +1,11 @@
 <template>
   <div class="content-block" :class="{ 'read-only': readOnly }" ref="blockRef">
-    <div v-if="!readOnly" class="block-toolbar">
+    <div v-if="!readOnly && !props.isTimeExpired" class="block-toolbar">
       <div class="block-controls">
-        <button @click="moveUp" :disabled="isFirst" title="Переместить вверх">
+        <button @click="moveUp" :disabled="isFirst || props.isTimeExpired" title="Переместить вверх">
           <span class="icon-up">↑</span>
         </button>
-        <button @click="moveDown" :disabled="isLast" title="Переместить вниз">
+        <button @click="moveDown" :disabled="isLast || props.isTimeExpired" title="Переместить вниз">
           <span class="icon-down">↓</span>
         </button>
       </div>
@@ -22,9 +22,10 @@
           max="10"
           class="score-input"
           @input="updateScore" 
+          :disabled="props.isTimeExpired"
         />
       </div>
-      <button @click="removeBlock" class="remove-btn" title="Удалить блок">
+      <button @click="removeBlock" class="remove-btn" title="Удалить блок" :disabled="props.isTimeExpired">
         <span class="icon-remove">×</span>
       </button>
     </div>
@@ -32,9 +33,10 @@
       <component
         :is="contentComponent"
         :content="content"
-        :read-only="readOnly"
+        :read-only="readOnly || props.isTimeExpired"
         :show-score="true"
         :allow-preview-edit="props.allowPreviewEdit"
+        :is-time-expired="props.isTimeExpired"
         @update:content="updateContent"
         @answer-submitted="handleAnswerSubmitted"
       />
@@ -71,6 +73,10 @@ const props = defineProps({
     default: false
   },
   allowPreviewEdit: {
+    type: Boolean,
+    default: false
+  },
+  isTimeExpired: {
     type: Boolean,
     default: false
   }
