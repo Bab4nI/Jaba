@@ -218,7 +218,10 @@ export const useUserStore = defineStore('user', {
         // для унификации кэширования запросов
         const response = await api.get('/profile/', {
           // Skip cache if force refresh is requested
-          skipCache: force
+          skipCache: force,
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         });
         
         this.SET_USER_DATA(response.data);
@@ -230,15 +233,24 @@ export const useUserStore = defineStore('user', {
         if (error.response && error.response.status === 401) {
           try {
             const refreshStore = useRefreshStore();
-            await refreshStore.refreshToken();
+            const newToken = await refreshStore.refreshToken();
 
-            if (refreshStore.accessToken) {
-              this.setAccessToken(refreshStore.accessToken);
+            if (newToken) {
+              this.setAccessToken(newToken);
               // Повторяем запрос после обновления токена
               return await this.fetchUserProfile(true);
+            } else {
+              // If refresh failed, clear user data and redirect to login
+              this.clearProfileCache();
+              localStorage.removeItem('access_token');
+              window.location.href = '/login';
             }
           } catch (refreshError) {
             console.error('Ошибка обновления токена при загрузке профиля:', refreshError);
+            // If refresh failed, clear user data and redirect to login
+            this.clearProfileCache();
+            localStorage.removeItem('access_token');
+            window.location.href = '/login';
           }
         }
         isLoading = false;

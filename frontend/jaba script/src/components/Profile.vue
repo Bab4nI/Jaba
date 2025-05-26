@@ -124,11 +124,20 @@ const avatarSrc = computed(() => {
 });
 
 // Загружаем профиль при монтировании компонента, только если нужно
-onMounted(() => {
+onMounted(async () => {
   // Проверяем, есть ли у нас уже данные пользователя
   if (!userStore.user || !userStore.role) {
     console.log('Profile component: No cached data, fetching profile');
-    userStore.debouncedFetchProfile();
+    try {
+      await userStore.debouncedFetchProfile();
+      if (!userStore.user) {
+        // If still no user data after fetch, redirect to login
+        window.location.href = '/login';
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      window.location.href = '/login';
+    }
   } else {
     console.log('Profile component: Using cached data, role:', userStore.role);
   }
@@ -210,13 +219,20 @@ const saveEmail = async () => {
       if (error.response.status === 400) {
         emailError.value = error.response.data.error || 'Этот email уже используется';
       } else if (error.response.status === 401) {
-        await refreshStore.refreshToken();
-        if (refreshStore.accessToken) {
-          userStore.setAccessToken(refreshStore.accessToken);
-          await saveEmail();
-          return;
+        try {
+          await refreshStore.refreshToken();
+          const newToken = refreshStore.accessToken;
+          if (newToken) {
+            userStore.setAccessToken(newToken);
+            await saveEmail();
+            return;
+          } else {
+            window.location.href = '/login';
+          }
+        } catch (refreshError) {
+          console.error('Error refreshing token:', refreshError);
+          window.location.href = '/login';
         }
-        emailError.value = 'Сессия истекла. Пожалуйста, войдите снова.';
       } else {
         emailError.value = 'Ошибка сервера при смене email';
       }
