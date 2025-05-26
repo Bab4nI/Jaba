@@ -180,7 +180,9 @@ export default {
       if (userStore.user?.avatar_base64) return userStore.user.avatar_base64;
       
       // If no avatar in store, use default avatar from assets
-      return defaultAvatarUrl;
+      return userStore.role === 'admin' 
+        ? new URL('@/assets/images/admin-avatar.png', import.meta.url).href 
+        : new URL('@/assets/images/default-avatar.png', import.meta.url).href;
     })
     
     // Create a constant for the default avatar URL
