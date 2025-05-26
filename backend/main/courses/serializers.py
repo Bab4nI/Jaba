@@ -425,7 +425,7 @@ class CustomFormSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'contents': 'Invalid JSON format'
                 })
-        return super().to_internal_value(data)
+        return super().to_internal_value(data)   
 
 class AIChatStateSerializer(serializers.ModelSerializer):
     class Meta:
