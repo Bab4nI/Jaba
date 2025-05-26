@@ -34,13 +34,18 @@
     <div class="answers-list">
       <!-- Edit Mode - Answer Items -->
       <div v-if="!readOnly" v-for="(answer, index) in localContent.answers" :key="index" class="answer-item">
-        <input
-          type="radio"
-          :name="'quiz-' + uniqueId"
-          :checked="localContent.correct_answer === index"
-          @change="setCorrectAnswer(index)"
-          class="correct-answer-radio"
-        />
+        <div class="checkbox-wrapper">
+          <input
+            type="checkbox"
+            :id="'correct-answer-' + index"
+            :checked="localContent.correct_answers.includes(index)"
+            @change="setCorrectAnswer(index)"
+            class="correct-answer-checkbox"
+          />
+          <label :for="'correct-answer-' + index" class="checkbox-label">
+            <span class="checkbox-custom"></span>
+          </label>
+        </div>
         <textarea
           v-model="localContent.answers[index]"
           @input="emitUpdate"
@@ -56,16 +61,26 @@
       <div v-else v-for="(answer, index) in localContent.answers" :key="'view-'+index" 
         class="answer-item view-mode" 
         :class="{
-          'selected': selectedAnswer === index,
-          'correct': quizSubmitted && localContent.correct_answer === index,
-          'incorrect': quizSubmitted && selectedAnswer === index && localContent.correct_answer !== index
+          'selected': selectedAnswers.includes(index),
+          'correct': quizSubmitted && localContent.correct_answers.includes(index),
+          'incorrect': quizSubmitted && selectedAnswers.includes(index) && !localContent.correct_answers.includes(index)
         }"
-        @click="!quizSubmitted && selectAnswer(index)"
       >
+        <input
+          v-if="!quizSubmitted"
+          type="checkbox"
+          :id="'quiz-view-checkbox-' + index"
+          :checked="selectedAnswers.includes(index)"
+          @change="selectAnswer(index)"
+          class="correct-answer-checkbox"
+        />
+        <label v-if="!quizSubmitted" :for="'quiz-view-checkbox-' + index" class="checkbox-label">
+          <span class="checkbox-custom"></span>
+        </label>
         <div class="answer-text">
           {{ answer || 'Ответ отсутствует' }}
-          <span v-if="quizSubmitted && localContent.correct_answer === index" class="correct-feedback">✓ Правильно</span>
-          <span v-if="quizSubmitted && selectedAnswer === index && localContent.correct_answer !== index" class="incorrect-feedback">✗ Неверно</span>
+          <span v-if="quizSubmitted && localContent.correct_answers.includes(index)" class="correct-feedback">✓ Правильно</span>
+          <span v-if="quizSubmitted && selectedAnswers.includes(index) && !localContent.correct_answers.includes(index)" class="incorrect-feedback">✗ Неверно</span>
         </div>
       </div>
     </div>
@@ -81,7 +96,7 @@
       <button 
         @click="submitQuiz" 
         class="submit-btn" 
-        :disabled="selectedAnswer === null"
+        :disabled="selectedAnswers.length === 0"
       >
         Отправить ответ
       </button>
@@ -100,7 +115,7 @@ const props = defineProps({
     default: () => ({ 
       question: '', 
       answers: ['', ''], 
-      correct_answer: null,
+      correct_answers: [],
       max_score: 1
     })
   },
@@ -111,6 +126,10 @@ const props = defineProps({
   showScore: {
     type: Boolean,
     default: true
+  },
+  resetKey: {
+    type: Number,
+    default: 0
   }
 });
 
@@ -123,13 +142,13 @@ const uniqueId = ref(`quiz-${Date.now()}-${Math.floor(Math.random() * 10000)}`);
 const localContent = ref({
   question: '',
   answers: ['', ''],
-  correct_answer: null,
+  correct_answers: [],
   max_score: 2,
   ...props.content
 });
 
 // User interaction state
-const selectedAnswer = ref(null);
+const selectedAnswers = ref([]);
 const quizSubmitted = ref(false);
 const userScore = ref(null);
 
@@ -141,19 +160,20 @@ onMounted(() => {
     if (savedData) {
       try {
         const data = JSON.parse(savedData);
-        selectedAnswer.value = data.selectedAnswer;
+        selectedAnswers.value = Array.isArray(data.selectedAnswers) ? data.selectedAnswers : [];
         quizSubmitted.value = data.quizSubmitted;
         userScore.value = data.userScore;
-        console.log(`Loaded saved state for quiz ${props.content.id}:`, { selectedAnswer: selectedAnswer.value, quizSubmitted: quizSubmitted.value, userScore: userScore.value });
-        
+        console.log(`Loaded saved state for quiz ${props.content.id}:`, { selectedAnswers: selectedAnswers.value, quizSubmitted: quizSubmitted.value, userScore: userScore.value });
         // If we have a saved answer, emit it to update the parent score
-        if (quizSubmitted.value && selectedAnswer.value !== null) {
-          const isCorrect = selectedAnswer.value === localContent.value.correct_answer;
-          const score = isCorrect ? localContent.value.max_score : 0;
+        if (quizSubmitted.value && selectedAnswers.value.length > 0) {
+          const correctSet = new Set(localContent.value.correct_answers);
+          const userSet = new Set(selectedAnswers.value);
+          const correctCount = localContent.value.correct_answers.filter(idx => userSet.has(idx)).length;
+          const totalCorrect = localContent.value.correct_answers.length;
+          const score = totalCorrect > 0 ? Math.round((correctCount / totalCorrect) * localContent.value.max_score) : 0;
           emit('answer-submitted', {
             contentId: props.content.id,
-            selectedAnswer: selectedAnswer.value,
-            isCorrect: isCorrect,
+            selectedAnswers: selectedAnswers.value,
             score: score,
             maxScore: localContent.value.max_score
           });
@@ -169,7 +189,7 @@ watch(() => props.content, (newVal) => {
   localContent.value = { 
     question: '',
     answers: ['', ''],
-    correct_answer: null,
+    correct_answers: [],
     max_score: 1,
     ...newVal 
   };
@@ -184,17 +204,21 @@ const addAnswer = () => {
 const removeAnswer = (index) => {
   if (props.readOnly || localContent.value.answers.length <= 2) return;
   localContent.value.answers.splice(index, 1);
-  if (localContent.value.correct_answer === index) {
-    localContent.value.correct_answer = null;
-  } else if (localContent.value.correct_answer > index) {
-    localContent.value.correct_answer--;
+  if (localContent.value.correct_answers.includes(index)) {
+    const answerIndex = localContent.value.correct_answers.indexOf(index);
+    localContent.value.correct_answers.splice(answerIndex, 1);
   }
   emitUpdate();
 };
 
 const setCorrectAnswer = (index) => {
   if (props.readOnly) return;
-  localContent.value.correct_answer = index;
+  const answerIndex = localContent.value.correct_answers.indexOf(index);
+  if (answerIndex === -1) {
+    localContent.value.correct_answers.push(index);
+  } else {
+    localContent.value.correct_answers.splice(answerIndex, 1);
+  }
   emitUpdate();
 };
 
@@ -206,48 +230,50 @@ const emitUpdate = () => {
 // Interaction functions for view mode
 const selectAnswer = (index) => {
   if (quizSubmitted.value) return;
-  selectedAnswer.value = index;
+  const idx = selectedAnswers.value.indexOf(index);
+  if (idx === -1) {
+    selectedAnswers.value.push(index);
+  } else {
+    selectedAnswers.value.splice(idx, 1);
+  }
 };
 
 const submitQuiz = () => {
-  if (selectedAnswer.value === null) return;
-  
+  if (selectedAnswers.value.length === 0) return;
   quizSubmitted.value = true;
-  userScore.value = selectedAnswer.value === localContent.value.correct_answer 
-    ? localContent.value.max_score 
-    : 0;
-  
+  // Calculate score: (number of correct selected / total correct) * max_score
+  const correctSet = new Set(localContent.value.correct_answers);
+  const userSet = new Set(selectedAnswers.value);
+  const correctCount = localContent.value.correct_answers.filter(idx => userSet.has(idx)).length;
+  const totalCorrect = localContent.value.correct_answers.length;
+  userScore.value = totalCorrect > 0 ? Math.round((correctCount / totalCorrect) * localContent.value.max_score) : 0;
   // Save progress to localStorage
   if (props.content.id) {
     localStorage.setItem(`quiz_${props.content.id}`, JSON.stringify({
-      selectedAnswer: selectedAnswer.value,
+      selectedAnswers: selectedAnswers.value,
       quizSubmitted: quizSubmitted.value,
       userScore: userScore.value
     }));
   }
-  
   // Emit event for parent components
   emit('answer-submitted', {
     contentId: props.content.id,
-    selectedAnswer: selectedAnswer.value,
-    isCorrect: selectedAnswer.value === localContent.value.correct_answer,
+    selectedAnswers: selectedAnswers.value,
     score: userScore.value,
     maxScore: localContent.value.max_score
   });
-
   // Log the submission for debugging
   console.log('Quiz submitted:', {
     contentId: props.content.id,
-    selectedAnswer: selectedAnswer.value,
-    correctAnswer: localContent.value.correct_answer,
-    isCorrect: selectedAnswer.value === localContent.value.correct_answer,
+    selectedAnswers: selectedAnswers.value,
+    correctAnswers: localContent.value.correct_answers,
     score: userScore.value,
     maxScore: localContent.value.max_score
   });
 };
 
 const resetQuiz = () => {
-  selectedAnswer.value = null;
+  selectedAnswers.value = [];
   quizSubmitted.value = false;
   userScore.value = null;
   
@@ -284,6 +310,16 @@ watch(() => localContent.value.answers, () => {
     });
   });
 }, { deep: true });
+
+// Watch for resetKey changes
+watch(() => props.resetKey, () => {
+  selectedAnswers.value = [];
+  quizSubmitted.value = false;
+  userScore.value = null;
+  if (props.content.id) {
+    localStorage.removeItem(`quiz_${props.content.id}`);
+  }
+});
 </script>
 
 <style scoped>
@@ -423,7 +459,7 @@ watch(() => localContent.value.answers, () => {
   background: rgba(244, 67, 54, 0.1);
 }
 
-.answer-item input[type="radio"] {
+.answer-item input[type="checkbox"] {
   position: absolute;
   opacity: 0;
   cursor: pointer;
@@ -431,27 +467,42 @@ watch(() => localContent.value.answers, () => {
   width: 0;
 }
 
-.answer-item .radio-custom {
+.answer-item .checkbox-custom {
   position: relative;
   width: 20px;
   height: 20px;
   border: 2px solid var(--border-color);
-  border-radius: 50%;
+  border-radius: 4px;
   transition: all 0.3s ease;
   flex-shrink: 0;
 }
 
-.answer-item:hover .radio-custom {
+.answer-item:hover .checkbox-custom {
   border-color: var(--accent-color);
   transform: scale(1.1);
 }
 
-.answer-item input[type="radio"]:checked + .radio-custom {
+.answer-item input[type="checkbox"]:checked + .checkbox-custom {
   border-color: var(--accent-color);
   background: var(--accent-color);
 }
 
-.answer-item input[type="radio"]:checked + .radio-custom::after {
+.answer-item input[type="checkbox"]:focus + .checkbox-custom {
+  box-shadow: 0 0 0 3px rgba(160, 148, 184, 0.3);
+}
+
+.answer-item.correct .checkbox-custom {
+  border-color: #4CAF50;
+  background: #4CAF50;
+}
+
+.answer-item.incorrect .checkbox-custom {
+  border-color: #f44336;
+  background: #f44336;
+}
+
+.answer-item.correct input[type="checkbox"]:checked + .checkbox-custom::after,
+.answer-item.incorrect input[type="checkbox"]:checked + .checkbox-custom::after {
   content: '';
   position: absolute;
   top: 50%;
@@ -460,27 +511,8 @@ watch(() => localContent.value.answers, () => {
   width: 8px;
   height: 8px;
   background: white;
-  border-radius: 50%;
+  border-radius: 4px;
   transition: all 0.3s ease;
-}
-
-.answer-item input[type="radio"]:focus + .radio-custom {
-  box-shadow: 0 0 0 3px rgba(160, 148, 184, 0.3);
-}
-
-.answer-item.correct .radio-custom {
-  border-color: #4CAF50;
-  background: #4CAF50;
-}
-
-.answer-item.incorrect .radio-custom {
-  border-color: #f44336;
-  background: #f44336;
-}
-
-.answer-item.correct input[type="radio"]:checked + .radio-custom::after,
-.answer-item.incorrect input[type="radio"]:checked + .radio-custom::after {
-  background: white;
 }
 
 .answer-text {
@@ -789,5 +821,55 @@ watch(() => localContent.value.answers, () => {
 
 :global(.dark-theme) .answer-input::placeholder {
   color: var(--secondary-text, #adadad);
+}
+
+.checkbox-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-right: 10px;
+}
+
+.correct-answer-checkbox {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.checkbox-custom {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--background-color);
+  transition: all 0.2s ease;
+}
+
+.correct-answer-checkbox:checked + .checkbox-label .checkbox-custom {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+}
+
+.correct-answer-checkbox:checked + .checkbox-label .checkbox-custom::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 14px;
+}
+
+.checkbox-label:hover .checkbox-custom {
+  border-color: var(--accent-color);
 }
 </style>

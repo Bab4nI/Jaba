@@ -37,6 +37,7 @@
         :show-score="true"
         :allow-preview-edit="props.allowPreviewEdit"
         :is-time-expired="props.isTimeExpired"
+        :reset-key="props.resetKey"
         @update:content="updateContent"
         @answer-submitted="handleAnswerSubmitted"
       />
@@ -79,6 +80,10 @@ const props = defineProps({
   isTimeExpired: {
     type: Boolean,
     default: false
+  },
+  resetKey: {
+    type: Number,
+    default: 0
   }
 });
 

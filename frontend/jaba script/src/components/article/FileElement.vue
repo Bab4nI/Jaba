@@ -4,12 +4,6 @@
     
     <div v-if="!localContent.file && !readOnly" class="file-upload-area" @click="triggerFileInput">
       <span>Нажмите для загрузки файла</span>
-      <input
-        type="file"
-        ref="fileInput"
-        @change="handleFileSelect"
-        style="display: none"
-      />
     </div>
     <div v-if="localContent.file" class="file-preview-container">
       <div class="file-info">
@@ -19,14 +13,25 @@
         <button class="download-btn" @click="downloadFile" title="Скачать файл">
           <img src="@/assets/images/download.png" alt="Скачать файл" class="download-icon">
         </button>
+        <div v-if="!readOnly" class="file-controls">
+          <button class="replace-btn" @click="triggerFileInput" title="Заменить файл">Заменить</button>
+          <button class="remove-btn" @click="removeFile" title="Удалить файл">Удалить</button>
+        </div>
       </div>
     </div>
+    <input
+      type="file"
+      ref="fileInput"
+      @change="handleFileSelect"
+      style="display: none"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { useThemeStore } from '@/stores/themeStore';
+import api from '@/api';
 
 const props = defineProps({
   content: {
@@ -76,10 +81,20 @@ const displayFileName = computed(() => {
   return localContent.value.file.name;
 });
 
+const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 const fileUrl = computed(() => {
-  if (!localContent.value.file || typeof localContent.value.file !== 'string') return '#';
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-  return localContent.value.file.startsWith('http') ? localContent.value.file : `${baseUrl}${localContent.value.file}`;
+  if (!localContent.value.file) return '#';
+  if (typeof localContent.value.file === 'string') {
+    if (localContent.value.file.startsWith('http') || localContent.value.file.startsWith('blob:')) {
+      return localContent.value.file;
+    }
+    if (localContent.value.file.startsWith('/media/')) {
+      return `${apiBaseUrl}${localContent.value.file}`;
+    }
+    return `${apiBaseUrl}/media/${localContent.value.file}`;
+  }
+  return '#';
 });
 
 const fileSize = computed(() => {
@@ -102,13 +117,29 @@ const triggerFileInput = () => {
   fileInput.value.click();
 };
 
-const handleFileSelect = (event) => {
+const handleFileSelect = async (event) => {
   if (props.readOnly) return;
   const file = event.target.files[0];
   if (!file) return;
-  localContent.value.file = file;
-  localContent.value.filename = file.name;
-  emitUpdate();
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post('/upload-media/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    if (response.data.success && response.data.file_path) {
+      localContent.value.file = response.data.file_path;
+      localContent.value.filename = file.name;
+      emitUpdate();
+    } else {
+      throw new Error('Failed to upload file');
+    }
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    // Можно добавить отображение ошибки пользователю
+  }
   fileInput.value.value = '';
 };
 
@@ -121,6 +152,13 @@ const downloadFile = () => {
     link.click();
     document.body.removeChild(link);
   }
+};
+
+const removeFile = () => {
+  if (props.readOnly) return;
+  localContent.value.file = null;
+  localContent.value.filename = null;
+  emitUpdate();
 };
 
 const emitUpdate = () => {
@@ -237,5 +275,37 @@ const emitUpdate = () => {
 
 :global(.dark-theme) .element-score-display {
   background: rgba(255, 255, 255, 0.08);
+}
+
+.file-controls {
+  display: flex;
+  gap: 8px;
+  margin-left: 12px;
+}
+.replace-btn {
+  background: var(--accent-color, #a094b8);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+.replace-btn:hover {
+  background: #8275a0;
+}
+.remove-btn {
+  background: var(--error-color, #ef4444);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+.remove-btn:hover {
+  background: var(--hover-delete, #dc2626);
 }
 </style>

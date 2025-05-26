@@ -81,6 +81,7 @@
               @move-down="moveFormContentDown(formIndex, elementIndex)"
               @remove="removeFormContent(formIndex, elementIndex)"
               @answer-submitted="onAnswerSubmitted"
+              :reset-key="resetKey"
             >
               <template #actions>
                 <button
@@ -364,6 +365,7 @@ export default {
     const timeRemaining = ref(0)
     const countdownInterval = ref(null)
     const isTimeExpired = ref(false)
+    const resetKey = ref(0); // Новый ключ для сброса
     
     // Calculate total maximum score based on all content elements
     const maxScore = computed(() => {
@@ -1014,38 +1016,34 @@ export default {
 
     const resetLessonProgress = async () => {
       if (!confirm('Вы уверены, что хотите сбросить весь прогресс по этому уроку?')) return
-      
       try {
         isSaving.value = true
         const lessonId = route.params.lessonId
-        
         // Reset progress on server
         await api.post(`/lessons/${lessonId}/reset-progress/`, {
           lesson_id: lessonId
         })
-        
-        // Reset local state
         isLessonCompleted.value = false
-        
-        // Reset all form content answers
+        // Reset all form content answers and localStorage
         customForms.value.forEach(form => {
           form.contents.forEach(content => {
-            if (content.type === 'quiz' && content.user_answer) {
-              delete content.user_answer
-            }
-            if (content.user_score !== undefined) {
-              delete content.user_score
-            }
+            if (content.type === 'quiz' && content.id) localStorage.removeItem(`quiz_${content.id}`);
+            if (content.type === 'fillin' && content.id) localStorage.removeItem(`fillin_${content.id}`);
+            if (content.type === 'code' && content.id) localStorage.removeItem(`code_${content.id}`);
+            if (content.type === 'video' && content.id) localStorage.removeItem(`video_${content.id}`);
+            if (content.user_answer) delete content.user_answer;
+            if (content.user_score !== undefined) delete content.user_score;
           })
         })
-        
-        // Reset user_score for main contents
         contents.value.forEach(content => {
-          if (content.user_score !== undefined) {
-            delete content.user_score
-          }
+          if (content.type === 'quiz' && content.id) localStorage.removeItem(`quiz_${content.id}`);
+          if (content.type === 'fillin' && content.id) localStorage.removeItem(`fillin_${content.id}`);
+          if (content.type === 'code' && content.id) localStorage.removeItem(`code_${content.id}`);
+          if (content.type === 'video' && content.id) localStorage.removeItem(`video_${content.id}`);
+          if (content.user_score !== undefined) delete content.user_score;
         })
-        
+        // Увеличиваем resetKey для сброса состояния дочерних компонентов
+        resetKey.value++;
         showToast('Прогресс урока успешно сброшен', 'success')
       } catch (error) {
         console.error('Error resetting lesson progress:', error)
