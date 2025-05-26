@@ -98,3 +98,5 @@ media/
 *.db
 .cache
 *.local
+
+letsencrypt/
