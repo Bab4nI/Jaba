@@ -100,3 +100,4 @@ media/
 *.local
 
 letsencrypt/
+data/
