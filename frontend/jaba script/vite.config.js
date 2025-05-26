@@ -7,6 +7,7 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 // https://vite.dev/config/
 export default defineConfig({
   server: {
+    allowedhosts: ['admlab.site'],
     host: "0.0.0.0",
     port: 5173 // Можно поменять на другой порт
   },

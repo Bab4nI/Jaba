@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Course, Module, Lesson, LessonContent, Comment, CommentReaction, UserProgress, CustomForm
+from .models import Course, Module, Lesson, LessonContent, Comment, CommentReaction, UserProgress, CustomForm, AIChatState
 from rest_framework.exceptions import ValidationError
 import logging
 from django.shortcuts import get_object_or_404
@@ -366,8 +366,8 @@ class CommentSerializer(serializers.ModelSerializer):
 class UserProgressSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProgress
-        fields = ['id', 'user', 'lesson', 'completed', 'current_score', 'max_score', 'completed_at']
-        read_only_fields = ['user']
+        fields = ['id', 'user', 'lesson', 'content', 'completed', 'max_score', 'current_score', 'completed_at']
+        read_only_fields = ['user', 'completed_at']
 
     def create(self, validated_data):
         validated_data['user'] = self.context['request'].user
@@ -425,4 +425,10 @@ class CustomFormSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'contents': 'Invalid JSON format'
                 })
-        return super().to_internal_value(data)   
+        return super().to_internal_value(data)
+
+class AIChatStateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AIChatState
+        fields = ['id', 'user', 'lesson', 'is_enabled', 'updated_at']
+        read_only_fields = ['user', 'updated_at']   

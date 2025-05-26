@@ -1,10 +1,10 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-from .models import Course, Module, Lesson, LessonContent, Comment, CommentReaction, UserProgress, CustomForm
+from .models import Course, Module, Lesson, LessonContent, Comment, CommentReaction, UserProgress, CustomForm, AIChatState
 from .serializers import (
     CourseSerializer, ModuleSerializer, LessonSerializer, 
     LessonContentSerializer, CommentSerializer, CommentReactionSerializer,
-    UserProgressSerializer, CustomFormSerializer
+    UserProgressSerializer, CustomFormSerializer, AIChatStateSerializer
 )
 from django.shortcuts import get_object_or_404
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser  # Add JSONParser
@@ -1374,3 +1374,53 @@ class CustomFormViewSet(viewsets.ModelViewSet):
             return Response({
                 'detail': f'Failed to delete form: {str(e)}'
             }, status=status.HTTP_400_BAD_REQUEST)
+
+class AIChatStateViewSet(viewsets.ModelViewSet):
+    serializer_class = AIChatStateSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return AIChatState.objects.filter(
+            user=self.request.user,
+            lesson_id=self.kwargs.get('lesson_id')
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=['GET'])
+    def get_state(self, request, lesson_id=None):
+        """Get the AI chat state for the current user and lesson"""
+        state, created = AIChatState.objects.get_or_create(
+            user=request.user,
+            lesson_id=lesson_id,
+            defaults={'is_enabled': False}
+        )
+        serializer = self.get_serializer(state)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['POST'])
+    def toggle_state(self, request, lesson_id=None):
+        """Toggle the AI chat state for the current user and lesson"""
+        state, created = AIChatState.objects.get_or_create(
+            user=request.user,
+            lesson_id=lesson_id,
+            defaults={'is_enabled': False}
+        )
+        state.is_enabled = not state.is_enabled
+        state.save()
+        serializer = self.get_serializer(state)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['POST'])
+    def set_state(self, request, lesson_id=None):
+        """Set the AI chat state to a specific value for the current user and lesson"""
+        state, created = AIChatState.objects.get_or_create(
+            user=request.user,
+            lesson_id=lesson_id,
+            defaults={'is_enabled': False}
+        )
+        state.is_enabled = request.data.get('is_enabled', False)
+        state.save()
+        serializer = self.get_serializer(state)
+        return Response(serializer.data)

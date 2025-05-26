@@ -42,7 +42,9 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, onMounted } from 'vue';
+import { useAIStore } from '@/stores/aiStore';
+import { useRoute } from 'vue-router';
 
 const props = defineProps({
   title: String,
@@ -54,18 +56,35 @@ const props = defineProps({
 });
 
 const emits = defineEmits(['update:title', 'toggle-mode', 'go-back', 'ai-toggle', 'title-click']);
+const aiStore = useAIStore();
+const route = useRoute();
 
 const titleProxy = ref(props.title);
 watch(() => props.title, val => titleProxy.value = val);
 watch(titleProxy, val => emits('update:title', val));
 
-const aiEnabledProxy = ref(props.aiEnabled);
-watch(() => props.aiEnabled, val => aiEnabledProxy.value = val);
-watch(aiEnabledProxy, val => emits('ai-toggle', val));
+const aiEnabledProxy = computed({
+  get: () => aiStore.isEnabled,
+  set: async (value) => {
+    try {
+      await aiStore.setAIEnabled(value);
+      emits('ai-toggle', aiStore.isEnabled);
+    } catch (error) {
+      console.error('Error updating AI state:', error);
+    }
+  }
+});
 
 const handleTitleClick = (e) => {
   emits('title-click', e);
 };
+
+onMounted(async () => {
+  const lessonId = route.params.lessonId;
+  if (lessonId) {
+    await aiStore.loadAIState(lessonId);
+  }
+});
 </script>
 
 <style scoped>

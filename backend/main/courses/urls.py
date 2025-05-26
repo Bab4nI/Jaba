@@ -5,7 +5,7 @@ from .views import (
     CourseViewSet, ModuleViewSet, LessonViewSet,
     LessonContentViewSet, CommentViewSet, CommentReactionViewSet,
     CodeExecutionView, AIChatView, MediaUploadView, UserProgressViewSet,
-    CustomFormViewSet
+    CustomFormViewSet, AIChatStateViewSet
 )
 
 # Use trailing_slash=True to match Django's default behavior
@@ -18,6 +18,7 @@ router.register(r'courses/(?P<course_slug>[^/.]+)/modules/(?P<module_id>\d+)/les
 router.register(r'courses/(?P<course_slug>[^/.]+)/modules/(?P<module_id>\d+)/lessons/(?P<lesson_id>\d+)/comments/(?P<comment_id>\d+)/reactions', CommentReactionViewSet, basename='comment-reaction')
 router.register(r'courses/(?P<course_slug>[^/.]+)/modules/(?P<module_id>\d+)/lessons/(?P<lesson_id>\d+)/forms', CustomFormViewSet, basename='form')
 router.register(r'progress', UserProgressViewSet, basename='progress')
+router.register(r'lessons/(?P<lesson_id>\d+)/ai-chat-state', AIChatStateViewSet, basename='ai-chat-state')
 
 urlpatterns = [
     # Include the router URLs

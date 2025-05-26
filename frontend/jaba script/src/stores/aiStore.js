@@ -9,16 +9,48 @@ export const useAIStore = defineStore('ai', {
     isLoading: false,
     aiResponse: null,
     error: null,
-    isEnabled: false
+    isEnabled: false,
+    currentLessonId: null
   }),
 
   actions: {
-    toggleAI() {
-      this.isEnabled = !this.isEnabled
+    async toggleAI() {
+      if (!this.currentLessonId) return;
+      
+      try {
+        const response = await api.post(`/lessons/${this.currentLessonId}/ai-chat-state/toggle_state/`);
+        this.isEnabled = response.data.is_enabled;
+      } catch (error) {
+        console.error('Error toggling AI state:', error);
+        throw error;
+      }
     },
 
-    setAIEnabled(enabled) {
-      this.isEnabled = enabled
+    async setAIEnabled(enabled) {
+      if (!this.currentLessonId) return;
+      
+      try {
+        const response = await api.post(`/lessons/${this.currentLessonId}/ai-chat-state/set_state/`, {
+          is_enabled: enabled
+        });
+        this.isEnabled = response.data.is_enabled;
+      } catch (error) {
+        console.error('Error setting AI state:', error);
+        throw error;
+      }
+    },
+
+    async loadAIState(lessonId) {
+      if (!lessonId) return;
+      
+      try {
+        this.currentLessonId = lessonId;
+        const response = await api.get(`/lessons/${lessonId}/ai-chat-state/get_state/`);
+        this.isEnabled = response.data.is_enabled;
+      } catch (error) {
+        console.error('Error loading AI state:', error);
+        this.isEnabled = false;
+      }
     },
 
     setSelectedText(text) {
@@ -49,6 +81,8 @@ export const useAIStore = defineStore('ai', {
       this.aiResponse = null
       this.error = null
       this.modalVisible = false
+      this.currentLessonId = null
+      this.isEnabled = false
     },
   },
 })
