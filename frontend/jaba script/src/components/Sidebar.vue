@@ -91,9 +91,10 @@ const setActiveTab = (tab) => {
     padding: 20px;
     background: var(--form-background);
     border-radius: 15px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: none;
+    border: none;
     transition: background-color 0.3s ease;
-    width: 210px; /* Fixed width for container */
+    width: 240px; /* Slightly wider for long text */
   }
   
   .sidebar-button {
@@ -101,10 +102,11 @@ const setActiveTab = (tab) => {
     align-items: center;
     justify-content: flex-start;
     width: 100%; /* Fill container width */
-    height: 47px;
+    height: auto;
+    min-height: 47px;
     padding: 0 15px;
     margin: 10px 0;
-    font: 400 20px Raleway, sans-serif;
+    font: 400 16px Raleway, sans-serif;
     color: var(--text-color);
     background: var(--form-background);
     border: 2px solid var(--accent-color);
@@ -112,9 +114,9 @@ const setActiveTab = (tab) => {
     cursor: pointer;
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
     text-align: left;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    word-break: break-word;
+    overflow: visible;
   }
   
   .sidebar-button:hover {
@@ -140,10 +142,11 @@ const setActiveTab = (tab) => {
     align-items: center;
     justify-content: flex-start;
     width: 100%; /* Fill container width */
-    height: 47px;
+    min-height: 47px;
+    height: auto;
     padding: 0 15px;
     margin: 10px 0;
-    font: 400 20px Raleway, sans-serif;
+    font: 400 16px Raleway, sans-serif;
     color: var(--footer-text);
     background: #ff4d4d;
     border: 2px solid var(--accent-color);
@@ -151,9 +154,9 @@ const setActiveTab = (tab) => {
     cursor: pointer;
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
     text-align: left;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    word-break: break-word;
+    overflow: visible;
   }
 
   .logout-button:hover{

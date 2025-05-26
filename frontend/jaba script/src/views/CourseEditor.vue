@@ -1,5 +1,12 @@
 <template>
   <div class="course-editor-container">
+    <!-- Кнопка редактирования -->
+    <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
+      <button class="edit-toggle-btn" @click="toggleEditMode">
+        {{ isEditMode ? 'Завершить редактирование' : 'Редактировать' }}
+      </button>
+    </div>
+
     <!-- Поиск и создание курса -->
     <div class="search-section">
       <div class="search-container">
@@ -52,10 +59,10 @@
             </div>
           </div>
           <div class="course-actions">
-            <button class="edit-btn" @click="openEditCourseModal(course)">
+            <button v-if="isEditMode" class="edit-btn" @click="openEditCourseModal(course)">
               Редактировать
             </button>
-            <button class="delete-btn" @click="confirmDeleteCourse(course)">
+            <button v-if="isEditMode" class="delete-btn" @click="confirmDeleteCourse(course)">
               Удалить
             </button>
             <button class="continue-btn" @click="goToCourseDetail(course.slug)">
@@ -70,7 +77,7 @@
     </div>
 
     <!-- Кнопка создания курса -->
-    <button class="create-course-btn" @click="openCreateCourseModal">
+    <button v-if="isEditMode" class="create-course-btn" @click="openCreateCourseModal">
       + Создать курс
     </button>
 
@@ -378,6 +385,7 @@ export default {
       },
       isLoading: false,
       userRole: null,
+      isEditMode: false,
     };
   },
 
@@ -507,7 +515,9 @@ export default {
         
         const formData = new FormData();
         formData.append('title', this.newCourseForm.title || 'Новый курс');
-        formData.append('description', this.newCourseForm.description || '');
+        if (this.newCourseForm.description && this.newCourseForm.description.trim() !== '') {
+          formData.append('description', this.newCourseForm.description);
+        }
         formData.append('is_published', this.newCourseForm.is_published);
 
         if (this.newCourseForm.thumbnail instanceof File) {
@@ -809,6 +819,16 @@ export default {
 
       console.log('✅ Пользователь аутентифицирован, загружаем курсы');
       await this.loadCourses();
+    },
+
+    toggleEditMode() {
+      this.isEditMode = !this.isEditMode;
+      if (!this.isEditMode) {
+        this.showCreateCourseModal = false;
+        this.showEditCourseModal = false;
+        this.resetNewCourseForm();
+        this.resetEditCourseForm();
+      }
     },
   },
 
@@ -1242,6 +1262,24 @@ export default {
   padding: 10px;
   font-size: 14px;
   width: 100%;
+}
+
+.edit-toggle-btn {
+  padding: 10px 24px;
+  background: var(--background-color);
+  color: var(--text-color);
+  border: 2px solid var(--accent-color);
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 10px;
+}
+
+.edit-toggle-btn:hover {
+  background: var(--accent-color);
+  color: var(--footer-text);
 }
 </style>
 ```

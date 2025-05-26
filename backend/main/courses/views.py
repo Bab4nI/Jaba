@@ -880,7 +880,7 @@ class UserProgressViewSet(viewsets.ModelViewSet):
                         'id': lesson.id,
                         'title': lesson.title,
                         'type': lesson.content_type.model if lesson.content_type else 'ARTICLE',
-                        'max_score': lesson.max_score or 5
+                        'max_score': lesson.max_score or 0
                     })
             
             # Собираем данные пользователей

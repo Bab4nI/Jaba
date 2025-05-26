@@ -15,7 +15,6 @@
         </button>
         <div v-if="!readOnly" class="file-controls">
           <button class="replace-btn" @click="triggerFileInput" title="Заменить файл">Заменить</button>
-          <button class="remove-btn" @click="removeFile" title="Удалить файл">Удалить</button>
         </div>
       </div>
     </div>

@@ -2,6 +2,14 @@
   <div>
     <div class="main-content-container">
       <div class="main-content-section">
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 20px;">
+          <button class="edit-toggle-btn" @click="toggleEditMode">
+            {{ isEditMode ? 'Завершить редактирование' : 'Редактировать' }}
+          </button>
+          <button class="back-to-courses-btn" @click="goToCourses">
+            К списку курсов
+          </button>
+        </div>
         <div class="module-card-container">
           <div class="module-title-container">
             <div class="svg-container">
@@ -29,8 +37,8 @@
             class="module-container4"
           >
             <div class="save-button-container">
-              <button class="save-button" @click="saveModule(moduleIndex)">Сохранить</button>
-              <button class="delete-button" @click="deleteModule(moduleIndex)">Удалить</button>
+              <button v-if="isEditMode" class="save-button" @click="saveModule(moduleIndex)">Сохранить</button>
+              <button v-if="isEditMode" class="delete-button" @click="deleteModule(moduleIndex)">Удалить</button>
             </div>
             <div class="module-container3">
               <div class="module-container2">
@@ -39,6 +47,7 @@
                   class="module-title-input"
                   placeholder="Название модуля"
                   @change="updateModuleTitle(moduleIndex, $event)"
+                  :readonly="!isEditMode"
                 />
               </div>
               
@@ -60,10 +69,12 @@
                       <span>{{ formatDate(lesson.created_at) }}</span>
                       <span class="lesson-type">{{ getTypeLabel(lesson.type) }}</span>
                       <div class="article-actions">
-                        <button @click.stop="editLesson(moduleIndex, lessonIndex)">
+                        <button @click.stop="editLesson(moduleIndex, lessonIndex)"
+                        v-if="isEditMode">
                           <img src="@/assets/images/pencil_4211918_1.png" />
                         </button>
-                        <button @click.stop="deleteLesson(moduleIndex, lessonIndex)">
+                        <button @click.stop="deleteLesson(moduleIndex, lessonIndex)"
+                        v-if="isEditMode">
                           <img src="@/assets/images/delete_16596354_1.png" />
                         </button>
                       </div>
@@ -72,6 +83,7 @@
                 </div>
                 
                 <div 
+                  v-if="isEditMode"
                   class="add-article-card" 
                   @click="addLesson(moduleIndex)"
                 >
@@ -86,6 +98,7 @@
           </div>
 
           <p 
+            v-if="isEditMode"
             class="add-module-btn" 
             @click="addModule"
           >
@@ -272,6 +285,7 @@ export default {
       editingModuleIndex: null,
       editingLessonIndex: null,
       isLoading: false,
+      isEditMode: false,
     };
   },
 
@@ -529,6 +543,11 @@ export default {
       const module = this.modules[moduleIndex];
       const lesson = module.lessons[lessonIndex];
       
+      if (this.isEditMode) {
+        this.editLesson(moduleIndex, lessonIndex);
+        return;
+      }
+
       // Check if lesson is available
       if (!lesson.is_available) {
         let message = 'Урок пока недоступен.';
@@ -797,6 +816,19 @@ export default {
         start_datetime: null,
         end_datetime: null
       };
+    },
+
+    toggleEditMode() {
+      this.isEditMode = !this.isEditMode;
+      if (!this.isEditMode) {
+        this.editingLesson = null;
+        this.editingModuleIndex = null;
+        this.editingLessonIndex = null;
+      }
+    },
+
+    goToCourses() {
+      this.router.push('/Courses');
     },
   },
 
@@ -1439,5 +1471,41 @@ export default {
 
 .dark-theme .datetime-input:focus {
   background-color: var(--background-color);
+}
+
+.edit-toggle-btn {
+  padding: 10px 24px;
+  background: var(--background-color);
+  color: var(--text-color);
+  border: 2px solid var(--accent-color);
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 10px;
+}
+
+.edit-toggle-btn:hover {
+  background: var(--accent-color);
+  color: var(--footer-text);
+}
+
+.back-to-courses-btn {
+  padding: 10px 24px;
+  background: var(--background-color);
+  color: var(--text-color);
+  border: 2px solid var(--accent-color);
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 10px;
+}
+
+.back-to-courses-btn:hover {
+  background: var(--accent-color);
+  color: var(--footer-text);
 }
 </style>

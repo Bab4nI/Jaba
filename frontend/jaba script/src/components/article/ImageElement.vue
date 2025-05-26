@@ -12,7 +12,6 @@
       <img :src="imageUrl" class="image-preview" />
       <div v-if="!readOnly" class="image-controls">
         <button class="replace-btn" @click="triggerFileInput" title="Заменить изображение">Заменить</button>
-        <button class="remove-btn" @click="removeImage" title="Удалить изображение">Удалить</button>
       </div>
     </div>
     <!-- Always-available hidden file input -->
