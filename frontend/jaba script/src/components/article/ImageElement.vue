@@ -4,11 +4,11 @@
     <!-- Score display at the top when in read-only mode -->
     
     <!-- Upload area when no image -->
-    <div v-if="!localContent.image && !readOnly" class="upload-area" @click="triggerFileInput">
+    <div v-if="!localContent.image_path && !readOnly" class="upload-area" @click="triggerFileInput">
       <span>Нажмите для загрузки изображения</span>
     </div>
     <!-- Preview with replace/remove controls -->
-    <div v-else-if="localContent.image" class="image-preview-container">
+    <div v-else-if="localContent.image_path" class="image-preview-container">
       <img :src="imageUrl" class="image-preview" />
       <div v-if="!readOnly" class="image-controls">
         <button class="replace-btn" @click="triggerFileInput" title="Заменить изображение">Заменить</button>
@@ -29,13 +29,14 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { useThemeStore } from '@/stores/themeStore';
+import api from '@/api';
 
 const props = defineProps({
   content: {
     type: Object,
     required: true,
     default: () => ({ 
-      image: null,
+      image_path: '',
       max_score: 1 
     })
   },
@@ -58,35 +59,35 @@ const themeStore = useThemeStore();
 const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const localContent = ref({ 
-  image: null,
+  image_path: '',
   max_score: 1,
   ...props.content 
 });
 const fileInput = ref(null);
 
 const imageUrl = computed(() => {
-  if (!localContent.value.image) return '';
+  if (!localContent.value.image_path) return '';
   
   // If it's a File object, create a local object URL
-  if (localContent.value.image instanceof File) {
-    return URL.createObjectURL(localContent.value.image);
+  if (localContent.value.image_path instanceof File) {
+    return URL.createObjectURL(localContent.value.image_path);
   }
   
   // If it's a string URL
-  if (typeof localContent.value.image === 'string') {
+  if (typeof localContent.value.image_path === 'string') {
     // If it's already a full URL (starts with http or https or data:), return as is
-    if (localContent.value.image.startsWith('http') || 
-        localContent.value.image.startsWith('data:') || 
-        localContent.value.image.startsWith('blob:')) {
-      return localContent.value.image;
+    if (localContent.value.image_path.startsWith('http') || 
+        localContent.value.image_path.startsWith('data:') || 
+        localContent.value.image_path.startsWith('blob:')) {
+      return localContent.value.image_path;
     }
     
     // If it's a Django media path (either starts with /media/ or is a relative path)
-    if (localContent.value.image.startsWith('/media/')) {
-      return `${apiBaseUrl}${localContent.value.image}`;
+    if (localContent.value.image_path.startsWith('/media/')) {
+      return `${apiBaseUrl}${localContent.value.image_path}`;
     } else {
       // Assume it's a relative media path
-      return `${apiBaseUrl}/media/${localContent.value.image}`;
+      return `${apiBaseUrl}/media/${localContent.value.image_path}`;
     }
   }
   
@@ -105,18 +106,38 @@ const triggerFileInput = () => {
   fileInput.value.click();
 };
 
-const handleFileSelect = (event) => {
+const handleFileSelect = async (event) => {
   if (props.readOnly) return;
   const file = event.target.files[0];
   if (!file) return;
-  localContent.value.image = file;
-  emitUpdate();
+
+  try {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const response = await api.post('/upload-media/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+
+    if (response.data.success && response.data.image_path) {
+      localContent.value.image_path = response.data.image_path;
+      emitUpdate();
+    } else {
+      throw new Error('Failed to upload image');
+    }
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    // You might want to show an error message to the user here
+  }
+
   fileInput.value.value = '';
 };
 
 const removeImage = () => {
   if (props.readOnly) return;
-  localContent.value.image = null;
+  localContent.value.image_path = '';
   emitUpdate();
 };
 

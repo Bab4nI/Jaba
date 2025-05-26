@@ -248,7 +248,7 @@ const FORM_TYPE = 'CUSTOM_FORM';
 
 const DEFAULT_CONTENT = {
   text: { text: '', readOnly: false, max_score: 1 },
-  image: { image: null, readOnly: false, max_score: 1 },
+  image: { image_path: '', readOnly: false, max_score: 1 },
   video: { video_url: '', readOnly: false, max_score: 5 },
   code: { code: '', language: 'javascript', readOnly: false, max_score: 10 },
   quiz: { question: '', answers: ['', ''], correct_answer: null, readOnly: false, max_score: 2 },
@@ -1356,6 +1356,35 @@ export default {
       showToast('Блок добавлен в форму', 'success')
     }
 
+    const handleImageUpload = async (file, contentIndex, formIndex = null) => {
+      try {
+        const formData = new FormData()
+        formData.append('image', file)
+
+        const response = await api.post('/upload-media/', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        })
+
+        if (response.data.success && response.data.image_path) {
+          if (formIndex !== null) {
+            // Update image in form content
+            customForms.value[formIndex].contents[contentIndex].image_path = response.data.image_path
+          } else {
+            // Update image in main content
+            contents.value[contentIndex].image_path = response.data.image_path
+          }
+          showToast('Изображение успешно загружено', 'success')
+        } else {
+          throw new Error('Failed to upload image')
+        }
+      } catch (error) {
+        console.error('Error uploading image:', error)
+        showToast('Ошибка при загрузке изображения', 'error')
+      }
+    }
+
     return {
       userStore,
       aiStore,
@@ -1429,6 +1458,7 @@ export default {
       formatTimeRemaining,
       isTimeExpired,
       addContentToForm,
+      handleImageUpload,
     }
   },
 }

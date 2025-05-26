@@ -1358,6 +1358,9 @@ class CustomFormViewSet(viewsets.ModelViewSet):
             except json.JSONDecodeError:
                 data['contents'] = {'fields': []}
         
+        # Remove lesson and order from data if they exist to avoid duplicates
+        data.pop('lesson', None)
+        data.pop('order', None)
         serializer.save(lesson=lesson, order=last_order + 1, **data)
 
     def perform_destroy(self, instance):
