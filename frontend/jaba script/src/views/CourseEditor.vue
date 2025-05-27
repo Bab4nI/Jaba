@@ -2,7 +2,7 @@
   <div class="course-editor-container">
     <!-- Кнопка редактирования -->
     <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
-      <button class="edit-toggle-btn" @click="toggleEditMode">
+      <button v-if="userRole === 'admin'" class="edit-toggle-btn" @click="toggleEditMode">
         {{ isEditMode ? 'Завершить редактирование' : 'Редактировать' }}
       </button>
     </div>
@@ -186,656 +186,377 @@
   </div>
 </template>
 
-<script>
-import { ref, onMounted, computed } from 'vue';
+<script setup>
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { useRefreshStore } from '@/stores/auth';
+import { useUserStore } from '@/stores/user';
 
-export default {
-  name: 'CourseEditor',
+const router = useRouter();
+const authStore = useRefreshStore();
+const userStore = useUserStore();
+const userRole = computed(() => {
+  const role = userStore.role;
+  console.log('Current user role in Sidebar:', role);
+  return role;
+});
 
-  setup() {
-    const router = useRouter();
-    const authStore = useRefreshStore();
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
-    const api = axios.create({
-      baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+api.interceptors.request.use(
+  (config) => {
+    const token = authStore.accessToken || localStorage.getItem('access_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    if (config.url && !config.url.endsWith('/') && !config.url.includes('?')) {
+      config.url = `${config.url}/`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
-    // Create cache helper functions
-    const cache = {
-      // Get data from cache
-      get: (key) => {
-        try {
-          const cachedData = localStorage.getItem(`cache_${key}`);
-          if (!cachedData) return null;
-          
-          const { data, expiry } = JSON.parse(cachedData);
-          
-          // Check if cache has expired
-          if (expiry < Date.now()) {
-            localStorage.removeItem(`cache_${key}`);
-            return null;
-          }
-          
-          return data;
-        } catch (error) {
-          console.error('Error reading from cache:', error);
-          return null;
-        }
-      },
-      
-      // Set data in cache with expiry time (default 5 minutes)
-      set: (key, data, expiryMinutes = 5) => {
-        try {
-          const expiry = Date.now() + (expiryMinutes * 60 * 1000);
-          localStorage.setItem(`cache_${key}`, JSON.stringify({ data, expiry }));
-        } catch (error) {
-          console.error('Error setting cache:', error);
-        }
-      },
-      
-      // Remove item from cache
-      remove: (key) => {
-        try {
-          localStorage.removeItem(`cache_${key}`);
-        } catch (error) {
-          console.error('Error removing from cache:', error);
-        }
-      },
-      
-      // Clear entire cache
-      clear: () => {
-        try {
-          Object.keys(localStorage)
-            .filter(key => key.startsWith('cache_'))
-            .forEach(key => localStorage.removeItem(key));
-        } catch (error) {
-          console.error('Error clearing cache:', error);
-        }
+api.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      try {
+        await authStore.refreshToken();
+        originalRequest.headers.Authorization = `Bearer ${authStore.accessToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        authStore.logout();
+        router.push({ name: 'SignIn' });
+        return Promise.reject(refreshError);
       }
-    };
-
-    api.interceptors.request.use(
-      (config) => {
-        const token = authStore.accessToken || localStorage.getItem('access_token');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        
-        // Check cache for GET requests
-        if (config.method?.toLowerCase() === 'get' && !config.skipCache) {
-          const cacheKey = `${config.url}_${JSON.stringify(config.params || {})}`;
-          const cachedData = cache.get(cacheKey);
-          
-          if (cachedData) {
-            console.log('📦 Using cached data for:', config.url);
-            // Return a dummy promise that resolves with cached data
-            config.adapter = () => {
-              return Promise.resolve({
-                data: cachedData,
-                status: 200,
-                statusText: 'OK',
-                headers: {},
-                config,
-                request: {}
-              });
-            };
-          }
-        }
-        
-        // Ensure trailing slash for Django compatibility
-        if (config.url && !config.url.endsWith('/') && !config.url.includes('?')) {
-          config.url = `${config.url}/`;
-          console.log('🔧 Added trailing slash to URL:', config.url);
-        }
-        
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
-
-    api.interceptors.response.use(
-      (response) => {
-        // Cache successful GET responses
-        if (response.config.method?.toLowerCase() === 'get' && !response.config.skipCache) {
-          const cacheKey = `${response.config.url}_${JSON.stringify(response.config.params || {})}`;
-          cache.set(cacheKey, response.data);
-        }
-        return response;
-      },
-      async (error) => {
-        console.error('🔴 API Error:', error.message);
-        
-        if (error.response) {
-          console.error('Response status:', error.response.status);
-          console.error('Response data:', error.response.data);
-        }
-        
-        const originalRequest = error.config;
-        
-        // Handle 401 Unauthorized errors
-        if (error.response?.status === 401 && !originalRequest._retry) {
-          originalRequest._retry = true;
-          try {
-            console.log('🔄 Attempting token refresh...');
-            await authStore.refreshToken();
-            originalRequest.headers.Authorization = `Bearer ${authStore.accessToken}`;
-            return api(originalRequest);
-          } catch (refreshError) {
-            console.error('❌ Token refresh failed:', refreshError);
-            authStore.logout();
-            router.push({ name: 'SignIn' });
-            return Promise.reject(refreshError);
-          }
-        }
-        
-        // Handle 404 Not Found for DELETE requests - might be a trailing slash issue
-        if (error.response?.status === 404 && originalRequest.method === 'delete') {
-          const url = originalRequest.url;
-          
-          // Try with alternate URL format (with/without trailing slash)
-          const newUrl = url.endsWith('/') ? url.slice(0, -1) : `${url}/`;
-          console.log(`🔄 Retrying DELETE with alternate URL format: ${newUrl}`);
-          
-          try {
-            const retryConfig = { ...originalRequest, url: newUrl };
-            return await api(retryConfig);
-          } catch (retryError) {
-            console.error('❌ Retry with alternate URL failed:', retryError);
-            return Promise.reject(error); // Return original error if retry fails
-          }
-        }
-        
+    }
+    if (error.response?.status === 404 && originalRequest.method === 'delete') {
+      const url = originalRequest.url;
+      const newUrl = url.endsWith('/') ? url.slice(0, -1) : `${url}/`;
+      try {
+        const retryConfig = { ...originalRequest, url: newUrl };
+        return await api(retryConfig);
+      } catch (retryError) {
         return Promise.reject(error);
       }
+    }
+    return Promise.reject(error);
+  }
+);
+
+const searchQuery = ref('');
+const courses = ref([]);
+const showCreateCourseModal = ref(false);
+const showEditCourseModal = ref(false);
+const isLoading = ref(false);
+const isEditMode = ref(false);
+
+const newCourseForm = ref({
+  title: '',
+  description: '',
+  is_published: false,
+  thumbnail: null,
+});
+
+const editCourseForm = ref({
+  slug: '',
+  title: '',
+  description: '',
+  is_published: false,
+  thumbnail: null,
+  thumbnailPreview: null,
+});
+
+const filteredCourses = computed(() => {
+  let filtered = courses.value;
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase().trim();
+    filtered = filtered.filter(
+      (course) =>
+        course.title?.toLowerCase().includes(query) ||
+        course.id?.toString().includes(query)
     );
+  }
+  if (userStore.role === 'student') {
+    filtered = filtered.filter(course => course.is_published);
+  }
+  return filtered;
+});
 
-    return {
-      router,
-      api,
-      authStore,
-      cache
-    };
-  },
-
-  data() {
-    return {
-      searchQuery: '',
-      courses: [],
-      showCreateCourseModal: false,
-      newCourseForm: {
-        title: '',
-        description: '',
-        is_published: false,
-        thumbnail: null,
-      },
-      showEditCourseModal: false,
-      editCourseForm: {
-        slug: '',
-        title: '',
-        description: '',
-        is_published: false,
-        thumbnail: null,
-        thumbnailPreview: null,
-      },
-      isLoading: false,
-      userRole: null,
-      isEditMode: false,
-    };
-  },
-
-  computed: {
-    filteredCourses() {
-      // First filter by search query
-      let filtered = this.courses;
-      
-      // Filter by search query if present
-      if (this.searchQuery.trim()) {
-        const query = this.searchQuery.toLowerCase().trim();
-        filtered = filtered.filter(
-          (course) =>
-            course.title?.toLowerCase().includes(query) ||
-            course.id?.toString().includes(query)
-        );
-      }
-      
-      // If user is a student, only show published courses
-      if (this.userRole === 'student') {
-        filtered = filtered.filter(course => course.is_published);
-      }
-      
-      return filtered;
-    },
-  },
-
-  methods: {
-    getImageUrl(imagePath) {
-      if (!imagePath) return '';
-      if (typeof imagePath === 'object') {
-        return URL.createObjectURL(imagePath);
-      }
-      if (imagePath.startsWith('http')) return imagePath;
-      return `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${imagePath}`;
-    },
-
-    async loadCourses() {
-      this.isLoading = true;
-      try {
-        console.log('🔍 Loading courses...');
-        
-        // Skip cache to ensure we get the latest data
-        const response = await this.api.get('/courses/', {
-          skipCache: true,
-          params: {
-            // Add a timestamp to prevent caching
-            _t: new Date().getTime()
-          }
-        });
-        
-        if (Array.isArray(response.data)) {
-          this.courses = response.data;
-          console.log('✅ Courses loaded successfully:', this.courses.length);
-        } else {
-          console.error('❌ Invalid response format:', response.data);
-          this.courses = [];
-        }
-      } catch (error) {
-        console.error('❌ Error loading courses:', error);
-        console.error('Error details:', {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message
-        });
-        
-        this.courses = [];
-        
-        if (error.response?.status === 401) {
-          console.warn('❌ Authentication error, redirecting to login');
-          this.authStore.logout();
-          this.router.push({ name: 'SignIn' });
-        }
-      } finally {
-        this.isLoading = false;
-      }
-    },
-
-    goToCourseDetail(slug) {
-      this.router.push({ name: 'CourseDetail', params: { slug } });
-    },
-
-    // Создание курса
-    openCreateCourseModal() {
-      this.resetNewCourseForm();
-      this.showCreateCourseModal = true;
-    },
-
-    cancelCreateCourse() {
-      this.showCreateCourseModal = false;
-      this.resetNewCourseForm();
-    },
-
-    resetNewCourseForm() {
-      this.newCourseForm = {
-        title: '',
-        description: '',
-        is_published: false,
-        thumbnail: null,
-      };
-    },
-
-    handleCreateCourseImageUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      if (!file.type.match('image.*')) {
-        alert('Пожалуйста, выберите файл изображения');
-        return;
-      }
-
-      if (file.size > 5 * 1024 * 1024) {
-        alert('Файл слишком большой. Максимальный размер - 5MB');
-        return;
-      }
-
-      this.newCourseForm.thumbnail = file;
-    },
-
-    removeCreateCourseImage() {
-      this.newCourseForm.thumbnail = null;
-    },
-
-    async createNewCourse() {
-      try {
-        console.log('Creating new course with data:', this.newCourseForm);
-        
-        const formData = new FormData();
-        formData.append('title', this.newCourseForm.title || 'Новый курс');
-        if (this.newCourseForm.description && this.newCourseForm.description.trim() !== '') {
-          formData.append('description', this.newCourseForm.description);
-        }
-        formData.append('is_published', this.newCourseForm.is_published);
-
-        if (this.newCourseForm.thumbnail instanceof File) {
-          formData.append('thumbnail', this.newCourseForm.thumbnail);
-        }
-
-        // Always use trailing slash for Django compatibility
-        const response = await this.api.post('/courses/', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-
-        console.log('✅ Course created successfully:', response.data);
-
-        // Invalidate courses cache after creating a new course
-        if (this.cache && typeof this.cache.remove === 'function') {
-          this.cache.remove('cache_/courses/_{}');
-        }
-        
-        this.courses.push(response.data);
-        this.showCreateCourseModal = false;
-        this.resetNewCourseForm();
-      } catch (error) {
-        console.error('❌ Error creating course:', error);
-        console.error('Error details:', {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message
-        });
-        
-        let errorMessage = 'Неизвестная ошибка';
-        if (error.response?.data?.detail) {
-          errorMessage = error.response.data.detail;
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-        
-        alert('Не удалось создать новый курс: ' + errorMessage);
-        
-        if (error.response?.status === 401) {
-          this.authStore.logout();
-          this.router.push({ name: 'SignIn' });
-        }
-      }
-    },
-
-    // Редактирование курса
-    openEditCourseModal(course) {
-      this.editCourseForm = {
-        slug: course.slug,
-        title: course.title,
-        description: course.description,
-        is_published: course.is_published,
-        thumbnail: course.thumbnail,
-        thumbnailPreview: null,
-      };
-      this.showEditCourseModal = true;
-    },
-
-    cancelEditCourse() {
-      this.showEditCourseModal = false;
-      this.resetEditCourseForm();
-    },
-
-    resetEditCourseForm() {
-      this.editCourseForm = {
-        slug: '',
-        title: '',
-        description: '',
-        is_published: false,
-        thumbnail: null,
-        thumbnailPreview: null,
-      };
-    },
-
-    handleEditCourseImageUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      if (!file.type.match('image.*')) {
-        alert('Пожалуйста, выберите файл изображения');
-        return;
-      }
-
-      if (file.size > 5 * 1024 * 1024) {
-        alert('Файл слишком большой. Максимальный размер - 5MB');
-        return;
-      }
-
-      this.editCourseForm.thumbnail = file;
-      this.editCourseForm.thumbnailPreview = URL.createObjectURL(file);
-    },
-
-    removeEditCourseImage() {
-      this.editCourseForm.thumbnail = '';
-      this.editCourseForm.thumbnailPreview = null;
-    },
-
-    async updateCourse() {
-      try {
-        console.log('Updating course with data:', this.editCourseForm);
-        
-        const formData = new FormData();
-        formData.append('title', this.editCourseForm.title || 'Без названия');
-        formData.append('description', this.editCourseForm.description || '');
-        formData.append('is_published', this.editCourseForm.is_published);
-
-        // Only include thumbnail if it's a File or explicitly cleared
-        if (this.editCourseForm.thumbnail instanceof File) {
-          formData.append('thumbnail', this.editCourseForm.thumbnail);
-        } else if (this.editCourseForm.thumbnail === '') {
-          formData.append('thumbnail', '');
-        }
-
-        // Always use trailing slash for Django compatibility
-        const response = await this.api.patch(`/courses/${this.editCourseForm.slug}/`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-
-        console.log('✅ Course updated successfully:', response.data);
-
-        // Invalidate course cache after updating
-        if (this.cache && typeof this.cache.remove === 'function') {
-          this.cache.remove(`cache_/courses/${this.editCourseForm.slug}/_{}`)
-          // Also invalidate courses list
-          this.cache.remove('cache_/courses/_{}');
-        }
-
-        const index = this.courses.findIndex(course => course.slug === this.editCourseForm.slug);
-        if (index !== -1) {
-          this.courses[index] = response.data;
-        }
-
-        this.showEditCourseModal = false;
-        this.resetEditCourseForm();
-      } catch (error) {
-        console.error('❌ Error updating course:', error);
-        console.error('Error details:', {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message
-        });
-        
-        let errorMessage = 'Неизвестная ошибка';
-        if (error.response?.data?.detail) {
-          errorMessage = error.response.data.detail;
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-        
-        alert('Не удалось обновить курс: ' + errorMessage);
-        
-        if (error.response?.status === 401) {
-          this.authStore.logout();
-          this.router.push({ name: 'SignIn' });
-        }
-      }
-    },
-
-    // Удаление курса
-    confirmDeleteCourse(course) {
-      if (confirm(`Вы уверены, что хотите удалить курс "${course.title}"?`)) {
-        this.deleteCourse(course);
-      }
-    },
-
-    async deleteCourse(course) {
-      try {
-        console.log('🔍 Attempting to delete course:', course);
-        console.log('Course details - Title:', course.title, 'Slug:', course.slug);
-        
-        if (!course.slug) {
-          throw new Error('Course slug is missing');
-        }
-        
-        // Always use trailing slash for Django compatibility
-        const url = `/courses/${course.slug}/`;
-        console.log('🔍 Deleting course with URL:', url);
-        
-        try {
-          await this.api.delete(url);
-          console.log('✅ Course deleted successfully');
-          
-          // Invalidate cache after deleting
-          if (this.cache && typeof this.cache.remove === 'function') {
-            this.cache.remove(`cache_/courses/${course.slug}/_{}`)
-            // Also invalidate courses list
-            this.cache.remove('cache_/courses/_{}');
-          }
-          
-          this.courses = this.courses.filter(c => c.slug !== course.slug);
-          this.showEditCourseModal = false;
-          this.resetEditCourseForm();
-          
-          // Reload courses list to ensure UI is in sync with backend
-          await this.loadCourses();
-        } catch (error) {
-          console.error('❌ Error deleting course:', error);
-          
-          // If the error is 404, try to get the course list to see if the course exists
-          if (error.response?.status === 404) {
-            console.log('Course not found. Checking course list...');
-            try {
-              const response = await this.api.get('/courses/');
-              const courses = response.data;
-              console.log('Available courses:', courses);
-              
-              // Check if there's a course with a similar title
-              const similarCourse = courses.find(c => 
-                c.title.toLowerCase() === course.title.toLowerCase() && c.slug !== course.slug
-              );
-              
-              if (similarCourse) {
-                console.log('Found similar course with different slug:', similarCourse);
-                // Try to delete using the correct slug
-                await this.api.delete(`/courses/${similarCourse.slug}/`);
-                console.log('✅ Course deleted using correct slug');
-                
-                this.courses = this.courses.filter(c => c.id !== similarCourse.id);
-                this.showEditCourseModal = false;
-                this.resetEditCourseForm();
-                
-                // Reload courses list to ensure UI is in sync with backend
-                await this.loadCourses();
-                return;
-              }
-            } catch (listError) {
-              console.error('Error fetching course list:', listError);
-            }
-          }
-          
-          throw error; // Re-throw to be caught by outer catch
-        }
-      } catch (error) {
-        console.error('❌ Error in course deletion process:', error);
-        console.error('Error details:', {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message
-        });
-        
-        let errorMessage = 'Неизвестная ошибка';
-        if (error.response?.data?.detail) {
-          errorMessage = error.response.data.detail;
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-        
-        alert('Не удалось удалить курс: ' + errorMessage);
-        
-        if (error.response?.status === 401) {
-          this.authStore.logout();
-          this.router.push({ name: 'SignIn' });
-        }
-      }
-    },
-
-    async initialize() {
-      console.log('🔍 Начало инициализации: Проверка состояния авторизации');
-      console.log('Текущий accessToken:', this.authStore.accessToken);
-      console.log('Текущий refreshToken:', this.authStore.refreshToken);
-      console.log('isAuthenticated:', this.authStore.isAuthenticated);
-
-      if (typeof this.authStore.ready === 'function') {
-        try {
-          await this.authStore.ready();
-          console.log('✅ Токен инициализирован, isAuthenticated:', this.authStore.isAuthenticated);
-          
-          // Get user profile to determine role
-          try {
-            const response = await this.api.get('/profile/');
-            this.userRole = response.data.role;
-            console.log('User role from profile:', this.userRole);
-          } catch (error) {
-            console.error('Error fetching user profile:', error);
-            this.userRole = 'student'; // Default role if profile fetch fails
-          }
-        } catch (error) {
-          console.error('❌ Ошибка при инициализации токена:', error);
-        }
-      } else {
-        console.warn('Метод ready отсутствует в authStore, пропускаем инициализацию токена');
-        if (!this.authStore.accessToken) {
-          console.warn('❌ Access token отсутствует, перенаправляем на SignIn');
-          this.authStore.logout();
-          this.router.push({ name: 'SignIn' });
-          return;
-        }
-      }
-
-      if (!this.authStore.isAuthenticated) {
-        console.warn('❌ Пользователь не аутентифицирован, перенаправляем на SignIn');
-        this.router.push({ name: 'SignIn' });
-        return;
-      }
-
-      console.log('✅ Пользователь аутентифицирован, загружаем курсы');
-      await this.loadCourses();
-    },
-
-    toggleEditMode() {
-      this.isEditMode = !this.isEditMode;
-      if (!this.isEditMode) {
-        this.showCreateCourseModal = false;
-        this.showEditCourseModal = false;
-        this.resetNewCourseForm();
-        this.resetEditCourseForm();
-      }
-    },
-  },
-
-  async mounted() {
-    await this.initialize();
-  },
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return '';
+  if (typeof imagePath === 'object') {
+    return URL.createObjectURL(imagePath);
+  }
+  if (imagePath.startsWith('http')) return imagePath;
+  return `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${imagePath}`;
 };
+
+const loadCourses = async () => {
+  isLoading.value = true;
+  try {
+    const response = await api.get('/courses/', {
+      skipCache: true,
+      params: { _t: new Date().getTime() }
+    });
+    if (Array.isArray(response.data)) {
+      courses.value = response.data;
+    } else {
+      courses.value = [];
+    }
+  } catch (error) {
+    courses.value = [];
+    if (error.response?.status === 401) {
+      authStore.logout();
+      router.push({ name: 'SignIn' });
+    }
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const goToCourseDetail = (slug) => {
+  router.push({ name: 'CourseDetail', params: { slug } });
+};
+
+const openCreateCourseModal = () => {
+  resetNewCourseForm();
+  showCreateCourseModal.value = true;
+};
+const cancelCreateCourse = () => {
+  showCreateCourseModal.value = false;
+  resetNewCourseForm();
+};
+const resetNewCourseForm = () => {
+  newCourseForm.value = {
+    title: '',
+    description: '',
+    is_published: false,
+    thumbnail: null,
+  };
+};
+const handleCreateCourseImageUpload = (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!file.type.match('image.*')) {
+    alert('Пожалуйста, выберите файл изображения');
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    alert('Файл слишком большой. Максимальный размер - 5MB');
+    return;
+  }
+  newCourseForm.value.thumbnail = file;
+};
+const removeCreateCourseImage = () => {
+  newCourseForm.value.thumbnail = null;
+};
+const createNewCourse = async () => {
+  try {
+    const formData = new FormData();
+    formData.append('title', newCourseForm.value.title || 'Новый курс');
+    if (newCourseForm.value.description && newCourseForm.value.description.trim() !== '') {
+      formData.append('description', newCourseForm.value.description);
+    }
+    formData.append('is_published', newCourseForm.value.is_published);
+    if (newCourseForm.value.thumbnail instanceof File) {
+      formData.append('thumbnail', newCourseForm.value.thumbnail);
+    }
+    const response = await api.post('/courses/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    courses.value.push(response.data);
+    showCreateCourseModal.value = false;
+    resetNewCourseForm();
+  } catch (error) {
+    let errorMessage = 'Неизвестная ошибка';
+    if (error.response?.data?.detail) {
+      errorMessage = error.response.data.detail;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    alert('Не удалось создать новый курс: ' + errorMessage);
+    if (error.response?.status === 401) {
+      authStore.logout();
+      router.push({ name: 'SignIn' });
+    }
+  }
+};
+const openEditCourseModal = (course) => {
+  editCourseForm.value = {
+    slug: course.slug,
+    title: course.title,
+    description: course.description,
+    is_published: course.is_published,
+    thumbnail: course.thumbnail,
+    thumbnailPreview: null,
+  };
+  showEditCourseModal.value = true;
+};
+const cancelEditCourse = () => {
+  showEditCourseModal.value = false;
+  resetEditCourseForm();
+};
+const resetEditCourseForm = () => {
+  editCourseForm.value = {
+    slug: '',
+    title: '',
+    description: '',
+    is_published: false,
+    thumbnail: null,
+    thumbnailPreview: null,
+  };
+};
+const handleEditCourseImageUpload = (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!file.type.match('image.*')) {
+    alert('Пожалуйста, выберите файл изображения');
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    alert('Файл слишком большой. Максимальный размер - 5MB');
+    return;
+  }
+  editCourseForm.value.thumbnail = file;
+  editCourseForm.value.thumbnailPreview = URL.createObjectURL(file);
+};
+const removeEditCourseImage = () => {
+  editCourseForm.value.thumbnail = '';
+  editCourseForm.value.thumbnailPreview = null;
+};
+const updateCourse = async () => {
+  try {
+    const formData = new FormData();
+    formData.append('title', editCourseForm.value.title || 'Без названия');
+    formData.append('description', editCourseForm.value.description || '');
+    formData.append('is_published', editCourseForm.value.is_published);
+    if (editCourseForm.value.thumbnail instanceof File) {
+      formData.append('thumbnail', editCourseForm.value.thumbnail);
+    } else if (editCourseForm.value.thumbnail === '') {
+      formData.append('thumbnail', '');
+    }
+    const response = await api.patch(`/courses/${editCourseForm.value.slug}/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    const index = courses.value.findIndex(course => course.slug === editCourseForm.value.slug);
+    if (index !== -1) {
+      courses.value[index] = response.data;
+    }
+    showEditCourseModal.value = false;
+    resetEditCourseForm();
+  } catch (error) {
+    let errorMessage = 'Неизвестная ошибка';
+    if (error.response?.data?.detail) {
+      errorMessage = error.response.data.detail;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    alert('Не удалось обновить курс: ' + errorMessage);
+    if (error.response?.status === 401) {
+      authStore.logout();
+      router.push({ name: 'SignIn' });
+    }
+  }
+};
+const confirmDeleteCourse = (course) => {
+  if (confirm(`Вы уверены, что хотите удалить курс "${course.title}"?`)) {
+    deleteCourse(course);
+  }
+};
+const deleteCourse = async (course) => {
+  try {
+    if (!course.slug) {
+      throw new Error('Course slug is missing');
+    }
+    const url = `/courses/${course.slug}/`;
+    try {
+      await api.delete(url);
+      courses.value = courses.value.filter(c => c.slug !== course.slug);
+      showEditCourseModal.value = false;
+      resetEditCourseForm();
+      await loadCourses();
+    } catch (error) {
+      if (error.response?.status === 404) {
+        try {
+          const response = await api.get('/courses/');
+          const coursesList = response.data;
+          const similarCourse = coursesList.find(c => 
+            c.title.toLowerCase() === course.title.toLowerCase() && c.slug !== course.slug
+          );
+          if (similarCourse) {
+            await api.delete(`/courses/${similarCourse.slug}/`);
+            courses.value = courses.value.filter(c => c.id !== similarCourse.id);
+            showEditCourseModal.value = false;
+            resetEditCourseForm();
+            await loadCourses();
+            return;
+          }
+        } catch (listError) {}
+      }
+      throw error;
+    }
+  } catch (error) {
+    let errorMessage = 'Неизвестная ошибка';
+    if (error.response?.data?.detail) {
+      errorMessage = error.response.data.detail;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    alert('Не удалось удалить курс: ' + errorMessage);
+    if (error.response?.status === 401) {
+      authStore.logout();
+      router.push({ name: 'SignIn' });
+    }
+  }
+};
+const initialize = async () => {
+  if (typeof authStore.ready === 'function') {
+    try {
+      await authStore.ready();
+      try {
+        const response = await api.get('/profile/');
+        userStore.role = response.data.role;
+      } catch (error) {
+        userStore.role = 'student';
+      }
+    } catch (error) {}
+  } else {
+    if (!authStore.accessToken) {
+      authStore.logout();
+      router.push({ name: 'SignIn' });
+      return;
+    }
+  }
+  if (!authStore.isAuthenticated) {
+    router.push({ name: 'SignIn' });
+    return;
+  }
+  await loadCourses();
+};
+const toggleEditMode = () => {
+  isEditMode.value = !isEditMode.value;
+  if (!isEditMode.value) {
+    showCreateCourseModal.value = false;
+    showEditCourseModal.value = false;
+    resetNewCourseForm();
+    resetEditCourseForm();
+  }
+};
+onMounted(async () => {
+  await initialize();
+});
 </script>
 
 <style scoped>
@@ -1282,4 +1003,3 @@ export default {
   color: var(--footer-text);
 }
 </style>
-```

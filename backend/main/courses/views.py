@@ -42,6 +42,21 @@ class CourseViewSet(viewsets.ModelViewSet):
             return [permissions.IsAuthenticated()]
         return [permissions.AllowAny()]
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        user = self.request.user
+        
+        # If user is not authenticated, show only published courses
+        if not user.is_authenticated:
+            return queryset.filter(is_published=True)
+            
+        # If user is admin, show all courses
+        if hasattr(user, 'role') and user.role == 'admin':
+            return queryset
+            
+        # For students, show only published courses
+        return queryset.filter(is_published=True)
+
     def create(self, request, *args, **kwargs):
         """
         Override create method to add better error handling
@@ -129,11 +144,14 @@ class CourseViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-    @method_decorator(cache_page(60 * 15))  # Cache for 15 minutes
     def list(self, request, *args, **kwargs):
-        return super().list(request, *args, **kwargs)
+        logger.info(f"Fetching courses list. User: {request.user}, Role: {getattr(request.user, 'role', 'unknown')}")
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        logger.info(f"Found {len(serializer.data)} courses")
+        return Response(serializer.data)
 
-    @method_decorator(cache_page(60 * 60))  # Cache for 1 hour
+    @method_decorator(cache_page(60 * 15))  # Cache for 15 minutes
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance)

@@ -80,7 +80,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 30px 29px 40px 99px;
+  padding: 25px 29px 25px 99px;
   background: #f5f9f8;
   transition: background-color 0.5s cubic-bezier(0.22, 1, 0.36, 1), color 0.5s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.5s ease;
   position: relative;

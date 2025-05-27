@@ -8,22 +8,14 @@
         >
           Мой профиль
         </button>
-        <button
-          v-if="userRole === 'student'"
-          :class="['sidebar-button', { 'active': activeTab === 'Прогресс прохождения курса' }]" 
-          @click="setActiveTab('Прогресс прохождения курса')"
-        >
-          Прогресс прохождения курса
-        </button>
         <button 
-           v-if="userRole === 'admin'"
           :class="['sidebar-button', { 'active': activeTab === 'Статистика прохождения курса' }]" 
           @click="setActiveTab('Статистика прохождения курса')"
         >
           Статистика прохождения курса
         </button>
         <button 
-           v-if="userRole === 'admin'"
+          v-if="userRole === 'admin'"
           :class="['sidebar-button', { 'active': activeTab === 'Пригласить пользователя' }]" 
           @click="setActiveTab('Пригласить пользователя')"
         >
@@ -46,21 +38,21 @@
 
 <script setup>
 // components/Sidebar.vue
-import { computed, onMounted } from 'vue';
-import { useUserStore } from '@/stores/user'; // Импортируем userStore
+import { computed, onMounted } from 'vue'; // Импортируем userStore
 import { useRefreshStore } from '@/stores/auth'; // Импортируем refreshStore
 import { useRouter } from 'vue-router';
 
+import { useUserStore } from '@/stores/user';
 const userStore = useUserStore();
-const refreshStore = useRefreshStore(); // Используем refreshStore
-const router = useRouter();
-
-const activeTab = computed(() => userStore.activeTab);
 const userRole = computed(() => {
   const role = userStore.role;
   console.log('Current user role in Sidebar:', role);
   return role;
 });
+
+const activeTab = computed(() => userStore.activeTab);
+const refreshStore = useRefreshStore(); // Используем refreshStore
+const router = useRouter();
 
 // Use the debounced version to prevent multiple requests, but only if needed
 onMounted(() => {

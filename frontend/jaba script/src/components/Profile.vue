@@ -12,7 +12,6 @@
           <p class="main-title-text-style">{{ fullName }}</p>
           <div class="student-info-container">
             <p class="student-role-text-style">{{ userRole === 'admin' ? 'Администратор' : 'Студент' }}</p>
-            <p class="student-info-text-style">{{ department }}</p>
           </div>
         </div>
       </div>
@@ -99,7 +98,7 @@ const refreshStore = useRefreshStore();
 const userRole = computed(() => userStore.role);
 const fullName = computed(() => `${userStore.first_name} ${userStore.last_name} ${userStore.middle_name}`);
 const email = computed(() => userStore.email);
-const group = computed(() => userStore.group);
+const group = computed(() => userStore.group || (userStore.user && userStore.user.group) || 'Не указано');
 const avatarBase64 = computed(() => userStore.avatarBase64);
 const department = computed(() => userStore.department || 'Не указано');
 const level = computed(() => userStore.level || 'Не указано');

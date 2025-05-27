@@ -167,6 +167,7 @@ const currentComponent = computed(() => componentMap[activeTab.value] || Profile
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
+  
 }
 
 .main-content-container {
@@ -184,7 +185,7 @@ const currentComponent = computed(() => componentMap[activeTab.value] || Profile
   align-items: flex-start;
   justify-content: flex-start;
   width: 100%;
-  padding: 57px 32px 225px;
+  padding: 57px 32px 57px;
   background: var(--form-background);
   border-radius: 30px;
   transition: background-color 0.3s ease;

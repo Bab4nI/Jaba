@@ -3,7 +3,9 @@
     <div class="main-content-container">
       <div class="main-content-section">
         <div style="display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 20px;">
-          <button class="edit-toggle-btn" @click="toggleEditMode">
+          <button
+            v-if="userRole === 'admin'"
+            class="edit-toggle-btn" @click="toggleEditMode">
             {{ isEditMode ? 'Завершить редактирование' : 'Редактировать' }}
           </button>
           <button class="back-to-courses-btn" @click="goToCourses">
@@ -218,6 +220,7 @@ import { useCourseStore } from '@/stores/course';
 import articleImg from '@/assets/images/article.png';
 import labImg from '@/assets/images/lab.png';
 import pracImg from '@/assets/images/prac.png';
+import { useUserStore } from '@/stores/user';
 
 export default {
   name: 'CourseEditor',
@@ -227,7 +230,12 @@ export default {
     const route = useRoute();
     const authStore = useRefreshStore();
     const courseStore = useCourseStore();
-
+    const userStore = useUserStore();
+    const userRole = computed(() => {
+      const role = userStore.role;
+      console.log('Current user role in Sidebar:', role);
+      return role;
+    });
     const api = axios.create({
       baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
       headers: {
