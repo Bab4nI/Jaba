@@ -387,7 +387,8 @@
         justify-content: flex-start;
         padding-top: 86px;
         padding-bottom: 70px;
-        border-bottom: 2px solid #24222f;
+        border-bottom: 2px solid var(--text-color);
+        transition: border-color 0.3s ease;
       }
       .course-features-container {
         box-sizing: border-box;
