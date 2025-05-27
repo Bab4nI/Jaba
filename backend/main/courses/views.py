@@ -159,7 +159,7 @@ class CourseViewSet(viewsets.ModelViewSet):
 
 class ModuleViewSet(viewsets.ModelViewSet):
     serializer_class = ModuleSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [permissions.AllowAny]  # Allow anyone to view modules
     
     def get_queryset(self):
         return Module.objects.filter(
@@ -174,14 +174,14 @@ class ModuleViewSet(viewsets.ModelViewSet):
 
 class LessonViewSet(viewsets.ModelViewSet):
     serializer_class = LessonSerializer
-    parser_classes = [MultiPartParser, FormParser, JSONParser]  # Add JSONParser
-    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    permission_classes = [permissions.AllowAny]  # Allow anyone to view lessons
 
     def get_queryset(self):
         module_id = self.kwargs.get('module_id')
         if not module_id:
             return Lesson.objects.none()
-        return Lesson.objects.filter(module_id=module_id)
+        return Lesson.objects.filter(module_id=module_id).select_related('module').order_by('order')
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()

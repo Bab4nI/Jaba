@@ -233,7 +233,7 @@ export default {
     const userStore = useUserStore();
     const userRole = computed(() => {
       const role = userStore.role;
-      console.log('Current user role in Sidebar:', role);
+      console.log('Current user role in Course:', role);
       return role;
     });
     const api = axios.create({
@@ -281,6 +281,8 @@ export default {
       api,
       authStore,
       courseStore,
+      userStore,
+      userRole,
     };
   },
 
@@ -360,12 +362,39 @@ export default {
     async loadModules() {
       this.isLoading = true;
       try {
+        console.log('🔍 Загрузка модулей для курса:', this.courseSlug);
         const response = await this.api.get(`/courses/${this.courseSlug}/modules/`);
+        console.log('📦 Получен ответ от API:', response.data);
+        
         this.modules = Array.isArray(response.data) ? response.data : [];
+        
+        // Загружаем работы для каждого модуля
+        for (const module of this.modules) {
+          try {
+            console.log(`🔍 Загрузка работ для модуля ${module.id}`);
+            const lessonsResponse = await this.api.get(`/courses/${this.courseSlug}/modules/${module.id}/lessons/`);
+            console.log(`📦 Получены работы для модуля ${module.id}:`, lessonsResponse.data);
+            module.lessons = Array.isArray(lessonsResponse.data) ? lessonsResponse.data : [];
+          } catch (error) {
+            console.error(`❌ Ошибка загрузки работ для модуля ${module.id}:`, error);
+            console.error('Детали ошибки:', {
+              status: error.response?.status,
+              data: error.response?.data,
+              message: error.message
+            });
+            module.lessons = [];
+          }
+        }
+        
         this.filteredModules = [...this.modules];
-        console.log('✅ Модули загружены:', this.modules);
+        console.log('✅ Модули и работы загружены:', this.modules);
       } catch (error) {
         console.error('❌ Ошибка загрузки модулей:', error);
+        console.error('Детали ошибки:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        });
         this.modules = [];
         this.filteredModules = [];
         if (error.response?.status === 401) {
@@ -720,12 +749,54 @@ export default {
 
     async initialize() {
       console.log('🔍 Начало инициализации CourseEditor');
-      if (!this.authStore.isAuthenticated) {
-        console.warn('❌ Пользователь не аутентифицирован, перенаправляем на SignIn');
-        this.router.push({ name: 'SignIn' });
-        return;
+      try {
+        if (!this.authStore.isAuthenticated) {
+          console.warn('❌ Пользователь не аутентифицирован, перенаправляем на SignIn');
+          this.router.push({ name: 'SignIn' });
+          return;
+        }
+
+        // Initialize user store if needed
+        if (this.userStore && typeof this.userStore.fetchUserProfile === 'function') {
+          await this.userStore.fetchUserProfile();
+        } else {
+          console.warn('⚠️ User store not properly initialized');
+        }
+
+        await this.loadModules();
+      } catch (error) {
+        console.error('❌ Ошибка инициализации:', error);
+        if (error.response?.status === 401) {
+          this.authStore.logout();
+          this.router.push({ name: 'SignIn' });
+        }
       }
-      await this.loadModules();
+    },
+
+    resetEditCourseForm() {
+      this.editCourseForm = {
+        slug: '',
+        title: '',
+        description: '',
+        is_published: false,
+        thumbnail: null,
+        thumbnailPreview: null,
+        start_datetime: null,
+        end_datetime: null
+      };
+    },
+
+    toggleEditMode() {
+      this.isEditMode = !this.isEditMode;
+      if (!this.isEditMode) {
+        this.editingLesson = null;
+        this.editingModuleIndex = null;
+        this.editingLessonIndex = null;
+      }
+    },
+
+    goToCourses() {
+      this.router.push('/Courses');
     },
 
     openEditCourseModal(course) {
@@ -811,32 +882,6 @@ export default {
           this.router.push({ name: 'SignIn' });
         }
       }
-    },
-
-    resetEditCourseForm() {
-      this.editCourseForm = {
-        slug: '',
-        title: '',
-        description: '',
-        is_published: false,
-        thumbnail: null,
-        thumbnailPreview: null,
-        start_datetime: null,
-        end_datetime: null
-      };
-    },
-
-    toggleEditMode() {
-      this.isEditMode = !this.isEditMode;
-      if (!this.isEditMode) {
-        this.editingLesson = null;
-        this.editingModuleIndex = null;
-        this.editingLessonIndex = null;
-      }
-    },
-
-    goToCourses() {
-      this.router.push('/Courses');
     },
   },
 
