@@ -5,7 +5,7 @@
         <div class="horizontal-flex-container">
           <div class="svg-container small-icon" @click="prevMonth">
             <svg viewBox="0 0 6.5 13" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M6,0.5l-5.5,6l5.5,6" stroke="#24222F" />
+              <path d="M6,0.5l-5.5,6l5.5,6" />
             </svg>
           </div>
           <div class="vertical-center-text-box">
@@ -13,7 +13,7 @@
           </div>
           <div class="svg-container small-icon" @click="nextMonth">
             <svg viewBox="0 0 6.5 13" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M0.5,0.5l5.5,6l-5.5,6" stroke="#24222F" />
+              <path d="M0.5,0.5l5.5,6l-5.5,6" />
             </svg>
           </div>
         </div>
@@ -25,8 +25,8 @@
           <p class="schedule-item">Ср</p>
           <p class="schedule-item">Чт</p>
           <p class="schedule-item">Пт</p>
-          <p class="schedule-item weekend">Сб</p>
-          <p class="schedule-item weekend">Вс</p>
+          <p class="schedule-item">Сб</p>
+          <p class="schedule-item">Вс</p>
         </div>
         <div class="calendar-grid">
           <div class="flex-calendar-row" v-for="(week, weekIndex) in calendarWeeks" :key="weekIndex">
@@ -463,8 +463,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
+  padding: 4px;
 }
 
 .svg-container svg {
@@ -474,16 +475,16 @@ onMounted(() => {
 }
 
 .small-icon {
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .small-icon svg {
-  width: 10px;
-  height: 10px;
+  width: 24px;
+  height: 24px;
 }
 
 .majestic-heading {
@@ -517,6 +518,19 @@ onMounted(() => {
   text-align: center;
   width: 31px;
   transition: color 0.3s ease;
+  cursor: pointer;
+  border-radius: 50%;
+  position: relative;
+  height: 31px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.weekend:hover {
+  background-color: var(--hover-background);
+  border: 2px solid var(--accent-color);
+  box-sizing: border-box;
 }
 
 .text-block {

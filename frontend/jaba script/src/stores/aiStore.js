@@ -63,7 +63,7 @@ export const useAIStore = defineStore('ai', {
       this.error = null
 
       try {
-        const response = await api.post('/ai/chat/', {
+        const response = await api.post('/ai-chat/', {
           prompt: prompt,
           selected_text: this.selectedText,
         })
