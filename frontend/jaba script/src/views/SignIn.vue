@@ -29,11 +29,73 @@
                         class="transparent-input"
                         placeholder="Введите пароль"
                       />
-                      <img
-                        :src="eyeIcon"
-                        class="password-input-icon"
-                        @click="togglePasswordVisibility"
-                      />
+                      <span @click="togglePasswordVisibility" class="password-eye">
+                        <svg
+                          v-if="isPasswordVisible"
+                          :class="['eye-svg', isDarkTheme ? 'dark' : 'light']"
+                          width="24"
+                          height="24"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                        >
+                          <path
+                            d="M1.5 12C3.5 7 8 4 12 4C16 4 20.5 7 22.5 12C20.5 17 16 20 12 20C8 20 3.5 17 1.5 12Z"
+                            :stroke="isDarkTheme ? '#fff' : '#222'"
+                            stroke-width="2"
+                            fill="none"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                          <circle
+                            cx="12"
+                            cy="12"
+                            r="3"
+                            :stroke="isDarkTheme ? '#fff' : '#222'"
+                            stroke-width="2"
+                            fill="none"
+                          />
+                          <circle
+                            cx="12"
+                            cy="12"
+                            r="1.2"
+                            :fill="isDarkTheme ? '#fff' : '#222'"
+                          />
+                        </svg>
+                        <svg
+                          v-else
+                          :class="['eye-svg', isDarkTheme ? 'dark' : 'light']"
+                          width="24"
+                          height="24"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                        >
+                          <path
+                            d="M1.5 12C3.5 7 8 4 12 4C16 4 20.5 7 22.5 12C20.5 17 16 20 12 20C8 20 3.5 17 1.5 12Z"
+                            :stroke="isDarkTheme ? '#fff' : '#222'"
+                            stroke-width="2"
+                            fill="none"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                          <circle
+                            cx="12"
+                            cy="12"
+                            r="3"
+                            :stroke="isDarkTheme ? '#fff' : '#222'"
+                            stroke-width="2"
+                            fill="none"
+                          />
+                          <line
+                            x1="5"
+                            y1="19"
+                            x2="19"
+                            y2="5"
+                            :stroke="isDarkTheme ? '#fff' : '#222'"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                          />
+                        </svg>
+                      </span>
                     </div>
                     <p class="forgot-password-link"><router-link to="/Reset_password">Забыли пароль?</router-link></p>
                   </div>
@@ -55,10 +117,12 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 import { useRefreshStore } from '@/stores/auth';
+import { useThemeStore } from '@/stores/themeStore'
 
 // Иконки для пароля
-import eyeOpen from '@/assets/images/psswd_open.png';
-import eyeClosed from '@/assets/images/psswd_close.png';
+// Удаляю импорты PNG глазика
+// import eyeOpen from '@/assets/images/psswd_open.png';
+// import eyeClosed from '@/assets/images/psswd_close.png';
 import loginDayImage from '@/assets/images/login_day2.jpg';
 import loginNightImage from '@/assets/images/login_night2.jpg';
 
@@ -66,6 +130,7 @@ import loginNightImage from '@/assets/images/login_night2.jpg';
 const route = useRoute();
 const router = useRouter();
 const refreshStore = useRefreshStore();
+const themeStore = useThemeStore();
 const isPasswordVisible = ref(false);
 const form = ref({
   email: '',
@@ -73,9 +138,7 @@ const form = ref({
 });
 
 // Определение текущей темы
-const isDarkTheme = computed(() => {
-  return document.documentElement.classList.contains('dark-theme');
-});
+const isDarkTheme = computed(() => themeStore.isDarkMode);
 
 // Заполнение полей из query параметров
 onMounted(() => {
@@ -91,10 +154,6 @@ onMounted(() => {
 // Логика пароля
 const passwordFieldType = computed(() => 
   isPasswordVisible.value ? 'text' : 'password'
-);
-
-const eyeIcon = computed(() => 
-  isPasswordVisible.value ? eyeOpen : eyeClosed
 );
 
 const togglePasswordVisibility = () => {
@@ -485,5 +544,21 @@ const login = async () => {
   font-size: 14px;
   margin-top: 10px;
   text-align: center;
+}
+
+.eye-svg {
+  cursor: pointer;
+  transition: stroke 0.2s;
+}
+.eye-svg.light {
+  stroke: #222;
+}
+.eye-svg.dark {
+  stroke: #fff;
+}
+.password-eye {
+  display: flex;
+  align-items: center;
+  margin-left: 12px;
 }
 </style>

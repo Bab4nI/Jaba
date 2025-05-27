@@ -60,12 +60,73 @@
                       class="input-style"
                       v-model="form.password"
                     />
-                    <img 
-                      :src="eyeIcon" 
-                      class="password-input-icon" 
-                      @click="togglePasswordVisibility" 
-                      alt="Toggle Password Visibility"
-                    />
+                    <span @click="togglePasswordVisibility" class="password-eye">
+                      <svg
+                        v-if="isPasswordVisible"
+                        :class="['eye-svg', isDarkTheme ? 'dark' : 'light']"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                      >
+                        <path
+                          d="M1.5 12C3.5 7 8 4 12 4C16 4 20.5 7 22.5 12C20.5 17 16 20 12 20C8 20 3.5 17 1.5 12Z"
+                          :stroke="isDarkTheme ? '#fff' : '#222'"
+                          stroke-width="2"
+                          fill="none"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="3"
+                          :stroke="isDarkTheme ? '#fff' : '#222'"
+                          stroke-width="2"
+                          fill="none"
+                        />
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="1.2"
+                          :fill="isDarkTheme ? '#fff' : '#222'"
+                        />
+                      </svg>
+                      <svg
+                        v-else
+                        :class="['eye-svg', isDarkTheme ? 'dark' : 'light']"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                      >
+                        <path
+                          d="M1.5 12C3.5 7 8 4 12 4C16 4 20.5 7 22.5 12C20.5 17 16 20 12 20C8 20 3.5 17 1.5 12Z"
+                          :stroke="isDarkTheme ? '#fff' : '#222'"
+                          stroke-width="2"
+                          fill="none"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="3"
+                          :stroke="isDarkTheme ? '#fff' : '#222'"
+                          stroke-width="2"
+                          fill="none"
+                        />
+                        <line
+                          x1="5"
+                          y1="19"
+                          x2="19"
+                          y2="5"
+                          :stroke="isDarkTheme ? '#fff' : '#222'"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                        />
+                      </svg>
+                    </span>
                   </div>
                   <div class="password-input-container">
                     <input 
@@ -74,12 +135,73 @@
                       class="input-style"
                       v-model="form.confirmPassword"
                     />
-                    <img 
-                      :src="eyeIcon" 
-                      class="password-input-icon" 
-                      @click="togglePasswordVisibility" 
-                      alt="Toggle Password Visibility"
-                    />
+                    <span @click="togglePasswordVisibility" class="password-eye">
+                      <svg
+                        v-if="isPasswordVisible"
+                        :class="['eye-svg', isDarkTheme ? 'dark' : 'light']"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                      >
+                        <path
+                          d="M1.5 12C3.5 7 8 4 12 4C16 4 20.5 7 22.5 12C20.5 17 16 20 12 20C8 20 3.5 17 1.5 12Z"
+                          :stroke="isDarkTheme ? '#fff' : '#222'"
+                          stroke-width="2"
+                          fill="none"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="3"
+                          :stroke="isDarkTheme ? '#fff' : '#222'"
+                          stroke-width="2"
+                          fill="none"
+                        />
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="1.2"
+                          :fill="isDarkTheme ? '#fff' : '#222'"
+                        />
+                      </svg>
+                      <svg
+                        v-else
+                        :class="['eye-svg', isDarkTheme ? 'dark' : 'light']"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                      >
+                        <path
+                          d="M1.5 12C3.5 7 8 4 12 4C16 4 20.5 7 22.5 12C20.5 17 16 20 12 20C8 20 3.5 17 1.5 12Z"
+                          :stroke="isDarkTheme ? '#fff' : '#222'"
+                          stroke-width="2"
+                          fill="none"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="3"
+                          :stroke="isDarkTheme ? '#fff' : '#222'"
+                          stroke-width="2"
+                          fill="none"
+                        />
+                        <line
+                          x1="5"
+                          y1="19"
+                          x2="19"
+                          y2="5"
+                          :stroke="isDarkTheme ? '#fff' : '#222'"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                        />
+                      </svg>
+                    </span>
                   </div>
               </div>
               <div class="account-creation-button-container">
@@ -102,8 +224,6 @@ import { jwtDecode }  from 'jwt-decode';
 import axios from 'axios';
 import loginDayImage from '@/assets/images/login_day1.jpg';
 import loginNightImage from '@/assets/images/login_night1.jpg';
-import eyeOpen from '@/assets/images/psswd_open.png';
-import eyeClosed from '@/assets/images/psswd_close.png';
 
 const route = useRoute();
 const isPasswordVisible = ref(false);
@@ -143,10 +263,6 @@ onMounted(() => {
 // Логика пароля
 const passwordFieldType = computed(() => 
   isPasswordVisible.value ? 'text' : 'password'
-);
-
-const eyeIcon = computed(() => 
-  isPasswordVisible.value ? eyeOpen : eyeClosed
 );
 
 const togglePasswordVisibility = () => {
@@ -450,6 +566,21 @@ const handleSubmit = async () => {
   border: none;
   border-radius: 35px;
   object-fit: cover;
+}
+.eye-svg {
+  cursor: pointer;
+  transition: stroke 0.2s;
+}
+.eye-svg.light {
+  stroke: #222;
+}
+.eye-svg.dark {
+  stroke: #fff;
+}
+.password-eye {
+  display: flex;
+  align-items: center;
+  margin-left: 12px;
 }
 </style>
 
