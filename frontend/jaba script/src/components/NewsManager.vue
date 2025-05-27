@@ -272,13 +272,29 @@ const handleImageUpload = async (event) => {
 };
 
 // Select default image
-const selectDefaultImage = (id) => {
-  selectedTemplateId.value = id;
-  const selectedImage = defaultImages.find(image => image.id === id);
-  if (selectedImage) {
-    // Для шаблонных изображений используем полный URL
-    newsForm.value.imageUrl = selectedImage.url;
-    imageBase64.value = ''; // Clear base64 when using URL
+const selectDefaultImage = async (id) => {
+  try {
+    selectedTemplateId.value = id;
+    const selectedImage = defaultImages.find(image => image.id === id);
+    if (selectedImage) {
+      // Convert the imported image to a File object
+      const response = await fetch(selectedImage.url);
+      const blob = await response.blob();
+      const file = new File([blob], `article${id}.jpg`, { type: 'image/jpeg' });
+      
+      // Upload the template image to the server
+      const uploadResponse = await newsStore.uploadImage(file);
+      if (uploadResponse.success && uploadResponse.image_path) {
+        newsForm.value.imageUrl = uploadResponse.image_path;
+        imageBase64.value = ''; // Clear base64 when using URL
+      } else {
+        throw new Error('Failed to upload template image');
+      }
+    }
+  } catch (error) {
+    console.error('Error handling template image:', error);
+    selectedTemplateId.value = null;
+    // You might want to show an error message to the user here
   }
 };
 
@@ -296,6 +312,22 @@ const saveNews = async () => {
   try {
     isUploading.value = true;
     let finalImageUrl = newsForm.value.imageUrl;
+
+    // Если изображение не выбрано, используем случайное изображение по умолчанию
+    if (!finalImageUrl) {
+      const randomIndex = Math.floor(Math.random() * defaultImages.length);
+      const defaultImage = defaultImages[randomIndex];
+      
+      // Конвертируем и загружаем изображение по умолчанию
+      const response = await fetch(defaultImage.url);
+      const blob = await response.blob();
+      const file = new File([blob], `article${randomIndex + 1}.jpg`, { type: 'image/jpeg' });
+      
+      const uploadResponse = await newsStore.uploadImage(file);
+      if (uploadResponse.success && uploadResponse.image_path) {
+        finalImageUrl = uploadResponse.image_path;
+      }
+    }
 
     if (editingNewsId.value) {
       await newsStore.editNews(

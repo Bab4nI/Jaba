@@ -14,11 +14,24 @@ class NewsSerializer(serializers.ModelSerializer):
         if data['image_url']:
             request = self.context.get('request')
             if request:
+                # Если URL уже полный, возвращаем как есть
+                if data['image_url'].startswith('http'):
+                    return data
+                # Иначе добавляем базовый URL
                 data['image_url'] = request.build_absolute_uri(settings.MEDIA_URL + data['image_url'])
         return data
 
     def to_internal_value(self, data):
-        # Если image_url начинается с /media/, убираем этот префикс
-        if 'image_url' in data and data['image_url'] and data['image_url'].startswith('/media/'):
-            data['image_url'] = data['image_url'][7:]  # Убираем '/media/' из начала
+        if 'image_url' in data and data['image_url']:
+            # Убираем базовый URL, если он есть
+            if data['image_url'].startswith('http'):
+                # Извлекаем только относительный путь после /media/
+                parts = data['image_url'].split('/media/')
+                if len(parts) > 1:
+                    data['image_url'] = parts[1]
+                else:
+                    data['image_url'] = data['image_url'].split('/')[-1]
+            # Убираем /media/ префикс, если он есть
+            elif data['image_url'].startswith('/media/'):
+                data['image_url'] = data['image_url'][7:]
         return super().to_internal_value(data) 

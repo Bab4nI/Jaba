@@ -60,10 +60,18 @@ export const useNewsStore = defineStore('news', {
 
     async editNews(id, title, content, imageUrl = '', link = '') {
       try {
+        let finalImageUrl = imageUrl;
+        if (imageUrl && imageUrl.startsWith('http')) {
+          const parts = imageUrl.split('/media/');
+          if (parts.length > 1) {
+            finalImageUrl = parts[1];
+          }
+        }
+
         const response = await axios.put(`${API_URL}/news/${id}/`, {
           title,
           content,
-          image_url: imageUrl,
+          image_url: finalImageUrl,
           link
         });
         const index = this.news.findIndex(item => item.id === id);

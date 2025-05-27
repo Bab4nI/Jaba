@@ -60,21 +60,34 @@
                       <div v-if="news.length === 0" class="no-news-container">
                         <p class="no-news-text">Нет доступных новостей</p>
                       </div>
-                      <div 
-                        v-for="item in news" 
-                        :key="item.id" 
-                        class="article-container"
-                        :style="getNewsItemStyle(item)"
-                      >
-                        <div class="article-content-container">
-                          <p class="article-title-style">{{ item.title }}</p>
-                          <p class="article-date">{{ formatDate(item.date) }}</p>
-                          <p class="article-content">{{ item.content }}</p>
-                          <div v-if="item.link" class="article-link-container">
-                            <a :href="item.link" target="_blank" rel="noopener noreferrer" class="article-link-button">
-                              Подробнее
-                            </a>
+                      <div v-else class="news-container">
+                        <div class="news-wrapper" :style="{ transform: `translateX(-${currentIndex * 100}%)` }">
+                          <div 
+                            v-for="item in news" 
+                            :key="item.id" 
+                            class="article-container"
+                            :style="getNewsItemStyle(item)"
+                          >
+                            <div class="article-content-container">
+                              <p class="article-title-style">{{ item.title }}</p>
+                              <p class="article-date">{{ formatDate(item.date) }}</p>
+                              <p class="article-content">{{ item.content }}</p>
+                              <div v-if="item.link" class="article-link-container">
+                                <a :href="item.link" target="_blank" rel="noopener noreferrer" class="article-link-button">
+                                  Подробнее
+                                </a>
+                              </div>
+                            </div>
                           </div>
+                        </div>
+                        <div class="news-navigation">
+                          <button 
+                            v-for="index in totalPages" 
+                            :key="index"
+                            class="nav-dot"
+                            :class="{ 'active': currentIndex === index - 1 }"
+                            @click="currentIndex = index - 1"
+                          ></button>
                         </div>
                       </div>
                     </div>
@@ -104,12 +117,35 @@
     <script setup>
     import Footer from '@/components/Footer.vue';
     import { useNewsStore } from '@/stores/newsStore';
-    import { computed } from 'vue';
+    import { computed, ref, onMounted, onUnmounted } from 'vue';
 
     const newsStore = useNewsStore();
-    const news = computed(() => newsStore.getRecentNews(3));
+    const news = computed(() => newsStore.news);
+    const currentIndex = ref(0);
 
-    // Format date for display
+    const totalPages = computed(() => {
+      const total = Math.floor(news.value.length / 3) + (news.value.length % 3 > 0 ? 1 : 0);
+      return total;
+    });
+
+    let scrollInterval;
+
+    onMounted(async () => {
+      await newsStore.fetchNews();
+      
+      scrollInterval = setInterval(() => {
+        if (news.value.length > 0) {
+          currentIndex.value = (currentIndex.value + 1) % totalPages.value;
+        }
+      }, 5000);
+    });
+
+    onUnmounted(() => {
+      if (scrollInterval) {
+        clearInterval(scrollInterval);
+      }
+    });
+
     const formatDate = (dateString) => {
       const date = new Date(dateString);
       return date.toLocaleDateString('ru-RU', {
@@ -120,10 +156,28 @@
     };
 
     const getNewsItemStyle = (item) => {
-      if (item.imageUrl) {
-        return { backgroundImage: `url(${item.imageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' };
+      if (item.image_url) {
+        return { 
+          backgroundImage: `url(${getImageUrl(item.image_url)})`, 
+          backgroundSize: 'cover', 
+          backgroundPosition: 'center' 
+        };
       }
       return {};
+    };
+
+    const getImageUrl = (imagePath) => {
+      if (!imagePath) return '';
+      
+      if (imagePath.startsWith('http')) {
+        return imagePath;
+      }
+      
+      if (imagePath.startsWith('/media/')) {
+        return `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${imagePath}`;
+      } else {
+        return `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/media/${imagePath}`;
+      }
     };
     </script>
     
@@ -550,176 +604,57 @@
       }
       .article-card-container {
         display: flex;
-        flex: 0 0 auto;
-        flex-direction: row;
-        gap: 42px;
-        align-items: flex-start;
-        justify-content: space-between;
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: flex-start;
         margin-top: 44px;
-        flex-wrap: wrap;
+        width: 100%;
+      }
+      .news-container {
+        position: relative;
+        width: 100%;
+        overflow: hidden;
+      }
+      .news-wrapper {
+        display: flex;
+        transition: transform 0.5s ease;
+        width: 100%;
+        gap: 42px;
       }
       .article-container {
-        box-sizing: border-box;
-        flex: 1 1 0;
-        max-width: 398px;
+        flex: 0 0 calc(33.333% - 28px);
         height: 235px;
-        padding: 0;
         position: relative;
         border-radius: 10px;
         overflow: hidden;
         background-color: var(--accent-color);
-        transition: transform 0.3s ease;
         background-image: linear-gradient(to bottom right, var(--accent-color), var(--hover-accent));
+        transition: transform 0.3s ease;
       }
       .article-container:hover {
         transform: scale(1.02);
       }
-      .article-container.news-item-1 {
-        background: url("@/assets/images/article1.jpg") 50% / cover no-repeat;
+      .news-navigation {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 20px;
       }
-      .article-content-container {
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        padding: 20px;
-        background: rgba(0, 0, 0, 0.7);
-        color: #f5f9f8;
-      }
-      .article-title-style {
+      .nav-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background-color: rgba(0, 0, 0, 0.2);
+        border: none;
+        cursor: pointer;
         padding: 0;
-        margin: 0;
-        font: 700 20px Raleway, sans-serif;
-        color: #f5f9f8;
-      }
-      .article-date {
-        font: 400 14px Raleway, sans-serif;
-        color: #cccccc;
-        margin: 5px 0;
-      }
-      .article-content {
-        box-sizing: border-box;
-        width: 100%;
-        padding: 0;
-        margin: 8px 0;
-        font: 400 14px Raleway, sans-serif;
-        color: #f5f9f8;
-        text-align: left;
-        max-height: 60px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        -webkit-box-orient: vertical;
-      }
-      .article-link-container {
-        margin-top: 10px;
-        text-align: right;
-      }
-      .article-link-button {
-        display: inline-block;
-        padding: 5px 15px;
-        background: var(--accent-color);
-        color: var(--footer-text);
-        text-decoration: none;
-        border-radius: 5px;
-        font: 500 14px Raleway, sans-serif;
         transition: background-color 0.3s ease;
       }
-      .article-link-button:hover {
-        background: var(--hover-accent);
+      .nav-dot.active {
+        background-color: var(--accent-color);
       }
-      .recommendation-section {
-        display: flex;
-        flex: 0 0 auto;
-        flex-direction: column;
-        align-items: center;
-        justify-content: flex-start;
-        margin-top: 96px;
-      }
-      .feature-intro-container {
-        box-sizing: border-box;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: flex-start;
-        max-width: 672px;
-      }
-      .info-panel {
-        display: flex;
-        flex: 0 0 auto;
-        flex-direction: column;
-        gap: 19px;
-        align-items: stretch;
-        align-self: stretch;
-        justify-content: flex-start;
-      }
-      .standout-heading {
-        flex: 0 0 auto;
-        align-self: center;
-        padding: 0;
-        margin: 0;
-        font: 700 40px Raleway, sans-serif;
-        color: var(--text-color);
-        text-transform: uppercase;
-        transition: color 0.3s ease;
-      }
-      .border-divider {
-        flex: 0 0 auto;
-        border-top: 2px solid var(--text-color);
-        transition: border-color 0.3s ease;
-      }
-      .centered-text-block {
-        flex: 0 0 auto;
-        align-self: center;
-        padding: 0;
-        margin: 0;
-        font: 400 20px Raleway, sans-serif;
-        color: var(--text-color);
-        text-align: center;
-        transition: color 0.3s ease;
-      }
-      .call-to-action-container {
-        box-sizing: border-box;
-        display: flex;
-        flex: 0 0 auto;
-        flex-direction: column;
-        align-items: stretch;
-        justify-content: center;
-        width: 205px;
-        margin-top: 48px;
-        box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.25);
-      }
-      .start-button {
-        box-sizing: border-box;
-        display: block;
-        flex: 0 0 auto;
-        min-width: 205px;
-        height: 54px;
-        font: 700 20px Raleway, sans-serif;
-        color: #a094b8;
-        cursor: pointer;
-        background: transparent;
-        border: 3px solid #a094b8;
-        border-radius: 5px;
-      }
-      .team-contacts-section1,
-      .team-contacts-section2,
-      .team-contacts-section,
-      .team-contact-details-container,
-      .team-contacts-heading-style, 
-      .team-contact-info-style,
-      .contact-info-style,
-      .contact-info-link,
-      .line-height-reset,
-      .partner-section,
-      .partner-section1,
-      .image-container,
-      .copyright-notice-container,
-      .center-aligned-copyright-text,
-      .purple-heading {
-        /* These styles are now in the Footer component */
-        display: none;
+      .nav-dot:hover {
+        background-color: var(--hover-accent);
       }
       .no-news-container {
         width: 100%;
@@ -783,5 +718,152 @@
             margin-left: 0;
             margin-top: 30px;
         }
+      }
+
+      @media (max-width: 767px) {
+        .article-container {
+          flex: 0 0 100%;
+        }
+      }
+
+      .recommendation-section {
+        display: flex;
+        flex: 0 0 auto;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        margin-top: 96px;
+      }
+
+      .feature-intro-container {
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        max-width: 672px;
+      }
+
+      .info-panel {
+        display: flex;
+        flex: 0 0 auto;
+        flex-direction: column;
+        gap: 19px;
+        align-items: stretch;
+        align-self: stretch;
+        justify-content: flex-start;
+      }
+
+      .standout-heading {
+        flex: 0 0 auto;
+        align-self: center;
+        padding: 0;
+        margin: 0;
+        font: 700 40px Raleway, sans-serif;
+        color: var(--text-color);
+        text-transform: uppercase;
+        transition: color 0.3s ease;
+      }
+
+      .border-divider {
+        flex: 0 0 auto;
+        border-top: 2px solid var(--text-color);
+        transition: border-color 0.3s ease;
+      }
+
+      .centered-text-block {
+        flex: 0 0 auto;
+        align-self: center;
+        padding: 0;
+        margin: 0;
+        font: 400 20px Raleway, sans-serif;
+        color: var(--text-color);
+        text-align: center;
+        transition: color 0.3s ease;
+      }
+
+      .call-to-action-container {
+        box-sizing: border-box;
+        display: flex;
+        flex: 0 0 auto;
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: center;
+        width: 205px;
+        margin-top: 48px;
+        box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.25);
+      }
+
+      .start-button {
+        box-sizing: border-box;
+        display: block;
+        flex: 0 0 auto;
+        min-width: 205px;
+        height: 54px;
+        font: 700 20px Raleway, sans-serif;
+        color: #a094b8;
+        cursor: pointer;
+        background: transparent;
+        border: 3px solid #a094b8;
+        border-radius: 5px;
+      }
+
+      .article-content-container {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 20px;
+        background: rgba(0, 0, 0, 0.7);
+        color: #f5f9f8;
+      }
+
+      .article-title-style {
+        padding: 0;
+        margin: 0;
+        font: 700 20px Raleway, sans-serif;
+        color: #f5f9f8;
+      }
+
+      .article-date {
+        font: 400 14px Raleway, sans-serif;
+        color: #cccccc;
+        margin: 5px 0;
+      }
+
+      .article-content {
+        box-sizing: border-box;
+        width: 100%;
+        padding: 0;
+        margin: 8px 0;
+        font: 400 14px Raleway, sans-serif;
+        color: #f5f9f8;
+        text-align: left;
+        max-height: 60px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+      }
+
+      .article-link-container {
+        margin-top: 10px;
+        text-align: right;
+      }
+
+      .article-link-button {
+        display: inline-block;
+        padding: 5px 15px;
+        background: var(--accent-color);
+        color: var(--footer-text);
+        text-decoration: none;
+        border-radius: 5px;
+        font: 500 14px Raleway, sans-serif;
+        transition: background-color 0.3s ease;
+      }
+
+      .article-link-button:hover {
+        background: var(--hover-accent);
       }
     </style>
