@@ -224,6 +224,7 @@ SIMPLE_JWT = {
     "SLIDING_TOKEN_REFRESH_SERIALIZER": "rest_framework_simplejwt.serializers.TokenRefreshSlidingSerializer",
 }
 
+# Media files (Uploaded files)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
@@ -282,3 +283,28 @@ JUDGE0_LANGUAGE_IDS = {
 JUDGE0_API_URL = os.getenv('JUDGE0_API_URL')
 JUDGE0_API_KEY = os.getenv('JUDGE0_API_KEY')
 DEEPSEEK_API_KEY = "sk-844822d9c2214b1ab1288181a903118c"
+
+# Logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'news': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+}

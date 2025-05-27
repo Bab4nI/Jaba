@@ -82,9 +82,9 @@
           </div>
         </div>
         
-        <div v-if="newsForm.imageUrl || imageBase64" class="image-preview-container">
+        <div v-if="newsForm.imageUrl" class="image-preview-container">
           <div class="image-preview">
-            <img :src="imageBase64 || newsForm.imageUrl" alt="Предпросмотр" class="preview-image" />
+            <img :src="getImageUrl(newsForm.imageUrl)" alt="Предпросмотр" class="preview-image" />
           </div>
           <button class="remove-image-button" @click="removeImage">Удалить изображение</button>
         </div>
@@ -132,8 +132,8 @@
         <p class="news-item-date">{{ formatDate(item.date) }}</p>
         
         <div class="news-item-content-wrapper">
-          <div v-if="item.imageUrl" class="news-item-image-container">
-            <img :src="item.imageUrl" alt="Изображение новости" class="news-item-image" />
+          <div v-if="item.image_url" class="news-item-image-container">
+            <img :src="getImageUrl(item.image_url)" alt="Изображение новости" class="news-item-image" />
           </div>
           <div class="news-item-content">{{ item.content }}</div>
         </div>
@@ -176,6 +176,8 @@ const sortedNews = computed(() =>
   [...news.value].sort((a, b) => new Date(b.date) - new Date(a.date))
 );
 
+const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 // Form data
 const newsForm = ref({
   title: '',
@@ -189,6 +191,7 @@ const showDeleteModal = ref(false);
 const newsToDelete = ref(null);
 const imageBase64 = ref('');
 const selectedTemplateId = ref(null);
+const isUploading = ref(false);
 
 // Default news images
 const defaultImages = [
@@ -214,6 +217,11 @@ const isFormValid = computed(() =>
   newsForm.value.content.trim() !== ''
 );
 
+// Load news on component mount
+onMounted(async () => {
+  await newsStore.fetchNews();
+});
+
 // Format date for display
 const formatDate = (dateString) => {
   const date = new Date(dateString);
@@ -226,17 +234,41 @@ const formatDate = (dateString) => {
   });
 };
 
+// Get full image URL
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return '';
+  
+  // If it's already a full URL (starts with http or https), return as is
+  if (imagePath.startsWith('http')) {
+    return imagePath;
+  }
+  
+  // If it's a Django media path (either starts with /media/ or is a relative path)
+  if (imagePath.startsWith('/media/')) {
+    return `${apiBaseUrl}${imagePath}`;
+  } else {
+    // Assume it's a relative media path
+    return `${apiBaseUrl}/media/${imagePath}`;
+  }
+};
+
 // Handle file upload for images
-const handleImageUpload = (event) => {
+const handleImageUpload = async (event) => {
   const file = event.target.files[0];
   if (!file) return;
 
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    imageBase64.value = e.target.result;
-    newsForm.value.imageUrl = ''; // Clear URL when using file upload
-  };
-  reader.readAsDataURL(file);
+  try {
+    const response = await newsStore.uploadImage(file);
+    if (response.success && response.image_path) {
+      newsForm.value.imageUrl = response.image_path;
+      imageBase64.value = ''; // Clear base64 when using file upload
+    } else {
+      throw new Error('Failed to upload image');
+    }
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    // You might want to show an error message to the user here
+  }
 };
 
 // Select default image
@@ -244,6 +276,7 @@ const selectDefaultImage = (id) => {
   selectedTemplateId.value = id;
   const selectedImage = defaultImages.find(image => image.id === id);
   if (selectedImage) {
+    // Для шаблонных изображений используем полный URL
     newsForm.value.imageUrl = selectedImage.url;
     imageBase64.value = ''; // Clear base64 when using URL
   }
@@ -257,31 +290,38 @@ const removeImage = () => {
 };
 
 // Save new news or update existing
-const saveNews = () => {
+const saveNews = async () => {
   if (!isFormValid.value) return;
 
-  // Use base64 image if available, otherwise use the image URL
-  const finalImageUrl = imageBase64.value || newsForm.value.imageUrl;
+  try {
+    isUploading.value = true;
+    let finalImageUrl = newsForm.value.imageUrl;
 
-  if (editingNewsId.value) {
-    newsStore.editNews(
-      editingNewsId.value,
-      newsForm.value.title,
-      newsForm.value.content,
-      finalImageUrl,
-      newsForm.value.link
-    );
-  } else {
-    newsStore.addNews(
-      newsForm.value.title,
-      newsForm.value.content,
-      finalImageUrl,
-      newsForm.value.link
-    );
+    if (editingNewsId.value) {
+      await newsStore.editNews(
+        editingNewsId.value,
+        newsForm.value.title,
+        newsForm.value.content,
+        finalImageUrl,
+        newsForm.value.link
+      );
+    } else {
+      await newsStore.addNews(
+        newsForm.value.title,
+        newsForm.value.content,
+        finalImageUrl,
+        newsForm.value.link
+      );
+    }
+    
+    // Reset form
+    resetForm();
+  } catch (error) {
+    console.error('Error saving news:', error);
+    // You might want to show an error message to the user here
+  } finally {
+    isUploading.value = false;
   }
-  
-  // Reset form
-  resetForm();
 };
 
 // Edit news
@@ -292,29 +332,17 @@ const editNews = (newsItem) => {
   selectedTemplateId.value = null;
   
   // Try to find if the current image URL matches one of our templates
-  const matchingTemplate = defaultImages.find(image => image.url === newsItem.imageUrl);
+  const matchingTemplate = defaultImages.find(image => image.url === newsItem.image_url);
   if (matchingTemplate) {
     selectedTemplateId.value = matchingTemplate.id;
   }
   
-  // If the image URL starts with data:image, it's a base64 image
-  if (newsItem.imageUrl && newsItem.imageUrl.startsWith('data:image')) {
-    imageBase64.value = newsItem.imageUrl;
-    newsForm.value = {
-      title: newsItem.title,
-      content: newsItem.content,
-      imageUrl: '',
-      link: newsItem.link || ''
-    };
-  } else {
-    imageBase64.value = '';
-    newsForm.value = {
-      title: newsItem.title,
-      content: newsItem.content,
-      imageUrl: newsItem.imageUrl || '',
-      link: newsItem.link || ''
-    };
-  }
+  newsForm.value = {
+    title: newsItem.title,
+    content: newsItem.content,
+    imageUrl: newsItem.image_url || '',
+    link: newsItem.link || ''
+  };
 };
 
 // Cancel editing
@@ -342,11 +370,16 @@ const confirmDelete = (id) => {
 };
 
 // Delete news
-const deleteNews = () => {
+const deleteNews = async () => {
   if (newsToDelete.value) {
-    newsStore.deleteNews(newsToDelete.value);
-    showDeleteModal.value = false;
-    newsToDelete.value = null;
+    try {
+      await newsStore.deleteNews(newsToDelete.value);
+      showDeleteModal.value = false;
+      newsToDelete.value = null;
+    } catch (error) {
+      console.error('Error deleting news:', error);
+      // You might want to show an error message to the user here
+    }
   }
 };
 
