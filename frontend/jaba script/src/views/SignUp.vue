@@ -286,7 +286,7 @@ const handleSubmit = async () => {
       password: form.value.password,
     });
 
-    window.location.href = 'http://localhost:5173/SignIn';
+    window.location.href = 'http://localhost:5173/';
   } catch (error) {
     console.error('Ошибка при регистрации:', error);
     alert('Ошибка при регистрации');
