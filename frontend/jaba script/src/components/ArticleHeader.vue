@@ -15,7 +15,7 @@
           <input 
             type="checkbox" 
             v-model="aiEnabledProxy"
-            @change="$emit('ai-toggle', aiEnabledProxy)"
+            @change="handleAIToggle"
           >
           <span class="ai-toggle-label">AI Чат</span>
         </label>
@@ -65,15 +65,22 @@ watch(titleProxy, val => emits('update:title', val));
 
 const aiEnabledProxy = computed({
   get: () => aiStore.isEnabled,
-  set: async (value) => {
-    try {
-      await aiStore.setAIEnabled(value);
-      emits('ai-toggle', aiStore.isEnabled);
-    } catch (error) {
-      console.error('Error updating AI state:', error);
-    }
+  set: (value) => {
+    aiStore.setAIEnabled(value);
   }
 });
+
+const handleAIToggle = async (event) => {
+  try {
+    const lessonId = route.params.lessonId;
+    if (lessonId) {
+      await aiStore.updateAIState(lessonId, event.target.checked);
+      emits('ai-toggle', event.target.checked);
+    }
+  } catch (error) {
+    console.error('Error updating AI state:', error);
+  }
+};
 
 const handleTitleClick = (e) => {
   emits('title-click', e);

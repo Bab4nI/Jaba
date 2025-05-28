@@ -1399,18 +1399,16 @@ class AIChatStateViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return AIChatState.objects.filter(
-            user=self.request.user,
             lesson_id=self.kwargs.get('lesson_id')
         )
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        serializer.save()
 
     @action(detail=False, methods=['GET'])
     def get_state(self, request, lesson_id=None):
-        """Get the AI chat state for the current user and lesson"""
+        """Get the AI chat state for the lesson"""
         state, created = AIChatState.objects.get_or_create(
-            user=request.user,
             lesson_id=lesson_id,
             defaults={'is_enabled': False}
         )
@@ -1419,9 +1417,8 @@ class AIChatStateViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['POST'])
     def toggle_state(self, request, lesson_id=None):
-        """Toggle the AI chat state for the current user and lesson"""
+        """Toggle the AI chat state for the lesson"""
         state, created = AIChatState.objects.get_or_create(
-            user=request.user,
             lesson_id=lesson_id,
             defaults={'is_enabled': False}
         )
@@ -1432,9 +1429,8 @@ class AIChatStateViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['POST'])
     def set_state(self, request, lesson_id=None):
-        """Set the AI chat state to a specific value for the current user and lesson"""
+        """Set the AI chat state to a specific value for the lesson"""
         state, created = AIChatState.objects.get_or_create(
-            user=request.user,
             lesson_id=lesson_id,
             defaults={'is_enabled': False}
         )

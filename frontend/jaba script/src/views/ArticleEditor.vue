@@ -37,7 +37,7 @@
           @update:title="val => article.title = val"
           @toggle-mode="toggleMode"
           @go-back="goBack"
-          @ai-toggle="aiStore.setAIEnabled"
+          @ai-toggle="handleAIToggle"
           @title-click="handleTitleClick"
         />
         
@@ -365,7 +365,7 @@ export default {
     const timeRemaining = ref(0)
     const countdownInterval = ref(null)
     const isTimeExpired = ref(false)
-    const resetKey = ref(0); // Новый ключ для сброса
+    const resetKey = ref(0) // Add resetKey to component data
     
     // Calculate total maximum score based on all content elements
     const maxScore = computed(() => {
@@ -1384,6 +1384,18 @@ export default {
       }
     }
 
+    const handleAIToggle = async (enabled) => {
+      try {
+        if (userStore.role === 'admin') {
+          await aiStore.setAIEnabled(enabled);
+          showToast(`AI чат ${enabled ? 'включен' : 'выключен'} для всех пользователей`, 'success');
+        }
+      } catch (error) {
+        console.error('Error toggling AI:', error);
+        showToast('Ошибка при изменении состояния AI чата', 'error');
+      }
+    };
+
     return {
       userStore,
       aiStore,
@@ -1458,6 +1470,7 @@ export default {
       isTimeExpired,
       addContentToForm,
       handleImageUpload,
+      handleAIToggle,
     }
   },
 }

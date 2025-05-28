@@ -358,18 +358,16 @@ class UserProgress(models.Model):
         return f"{self.user.username} - {self.lesson.title}"
 
 class AIChatState(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='ai_chat_states')
     lesson = models.ForeignKey('Lesson', on_delete=models.CASCADE, related_name='ai_chat_states')
     is_enabled = models.BooleanField(default=False)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ('user', 'lesson')
         verbose_name = "Состояние AI чата"
         verbose_name_plural = "Состояния AI чата"
 
     def __str__(self):
-        return f"{self.user.username} - {self.lesson.title} - AI Chat: {'Enabled' if self.is_enabled else 'Disabled'}"
+        return f"{self.lesson.title} - AI Chat: {'Enabled' if self.is_enabled else 'Disabled'}"
 
 class CustomForm(models.Model):
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='forms')

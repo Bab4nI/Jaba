@@ -430,5 +430,5 @@ class CustomFormSerializer(serializers.ModelSerializer):
 class AIChatStateSerializer(serializers.ModelSerializer):
     class Meta:
         model = AIChatState
-        fields = ['id', 'user', 'lesson', 'is_enabled', 'updated_at']
-        read_only_fields = ['user', 'updated_at']   
+        fields = ['id', 'lesson', 'is_enabled', 'updated_at']
+        read_only_fields = ['updated_at']   

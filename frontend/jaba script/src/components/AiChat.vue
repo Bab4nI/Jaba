@@ -37,13 +37,13 @@
           <div class="content-container1">
             <div class="border-divider-horizontal"></div>
             <div class="content-wrapper2">
-              <input 
-                type="text" 
+              <textarea 
                 v-model="aiUserPrompt" 
                 class="question-prompt" 
                 placeholder="Спросить что-нибудь..." 
-                @keyup.enter="aiAskCustom"
-              >
+                @keyup.enter.exact="aiAskCustom"
+                rows="3"
+              ></textarea>
               <div class="ai-quick-actions">
                 <button @click="aiExplainText" class="ai-action-btn">Объяснить</button>
                 <button @click="aiSimplifyText" class="ai-action-btn">Упростить</button>
@@ -467,6 +467,9 @@ export default {
   border-radius: 20px;
   border: 1px solid var(--border-color);
   outline: none;
+  resize: none;
+  min-height: 60px;
+  max-height: 150px;
   transition: border-color 0.3s, box-shadow 0.3s, 
               color var(--transition-speed) var(--transition-timing), 
               background-color var(--transition-speed) var(--transition-timing);
