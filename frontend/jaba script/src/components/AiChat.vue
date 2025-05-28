@@ -388,10 +388,16 @@ export default {
   padding: 20px 15px;
   overflow-y: auto;
   flex-grow: 1;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE 10+ */
+}
+
+.student-question-card::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
 .neural-response-container1 {
-  margin-top: 20px;
+  margin-top: 0px;
 }
 
 .neural-response-container2 {
@@ -445,11 +451,6 @@ export default {
   padding: 15px 0 0;
 }
 
-.border-divider-horizontal {
-  border-top: 1px solid var(--accent-color);
-  margin: 15px 0;
-  transition: border-color var(--transition-speed) var(--transition-timing);
-}
 
 .content-wrapper2 {
   display: flex;
@@ -468,11 +469,18 @@ export default {
   border: 1px solid var(--border-color);
   outline: none;
   resize: none;
-  min-height: 60px;
-  max-height: 150px;
+  min-height: 150px;
+  max-height: 300px;
   transition: border-color 0.3s, box-shadow 0.3s, 
               color var(--transition-speed) var(--transition-timing), 
               background-color var(--transition-speed) var(--transition-timing);
+  overflow-y: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE 10+ */
+}
+
+.question-prompt::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
 .question-prompt:focus {
