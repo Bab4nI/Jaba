@@ -53,7 +53,7 @@
             <input 
               v-model="form.title" 
               class="form-title" 
-              :placeholder="isEditMode ? 'Название формы' : ''"
+              :placeholder="isEditMode ? 'Название формы (необязательно)' : ''"
               :readonly="!isEditMode"
               :disabled="!isEditMode"
               @click.stop
@@ -824,7 +824,7 @@ export default {
     const createNewForm = () => {
       const newForm = {
         id: generateUniqueId(),
-        title: 'Новая форма',
+        title: '', // Start with empty title
         contents: [],
         total: 0,
         created_at: new Date().toISOString(),
@@ -947,12 +947,13 @@ export default {
     }
 
     const onFormTitleChange = (index) => {
-      customForms.value[index].updated_at = new Date().toISOString()
+      customForms.value[index].updated_at = new Date().toISOString();
     }
 
     const onFormTitleBlur = (index) => {
-      if (!customForms.value[index].title || customForms.value[index].title.trim() === '') {
-        customForms.value[index].title = 'Новая форма'
+      // Remove the automatic title setting, allowing empty titles
+      if (customForms.value[index].title === undefined) {
+        customForms.value[index].title = '';
       }
     }
 
@@ -1786,10 +1787,9 @@ export default {
   padding-bottom: 12px;
   padding-left: 10px;
   padding-right: 10px;
-  /* Remove the border-bottom */
-  /* border-bottom: 2px solid var(--border-color); */
   transition: border-color 0.3s ease;
   position: relative;
+  min-height: 40px; /* Ensure header has minimum height even with empty title */
 }
 
 
@@ -1817,6 +1817,7 @@ export default {
   word-wrap: break-word;
   overflow-wrap: break-word;
   white-space: normal;
+  min-height: 40px; /* Add minimum height for empty titles */
 }
 
 .form-title:not([readonly]):not([disabled]):focus {
@@ -1832,6 +1833,17 @@ export default {
 .form-title[readonly], .form-title[disabled] {
   cursor: default;
   opacity: 0.95;
+}
+
+.form-title::placeholder {
+  color: var(--secondary-text);
+  opacity: 0.7;
+}
+
+/* Add styles for empty title state */
+.form-title:empty {
+  min-height: 40px;
+  background-color: transparent;
 }
 
 .form-controls {

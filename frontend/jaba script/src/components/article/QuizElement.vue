@@ -37,12 +37,12 @@
         <div class="checkbox-wrapper">
           <input
             type="checkbox"
-            :id="'correct-answer-' + index"
+            :id="`correct-answer-${uniqueId}-${index}`"
             :checked="localContent.correct_answers.includes(index)"
             @change="setCorrectAnswer(index)"
             class="correct-answer-checkbox"
           />
-          <label :for="'correct-answer-' + index" class="checkbox-label">
+          <label :for="`correct-answer-${uniqueId}-${index}`" class="checkbox-label">
             <span class="checkbox-custom"></span>
           </label>
         </div>
@@ -69,12 +69,12 @@
         <input
           v-if="!quizSubmitted"
           type="checkbox"
-          :id="'quiz-view-checkbox-' + index"
+          :id="`quiz-view-checkbox-${uniqueId}-${index}`"
           :checked="selectedAnswers.includes(index)"
           @change="selectAnswer(index)"
           class="correct-answer-checkbox"
         />
-        <label v-if="!quizSubmitted" :for="'quiz-view-checkbox-' + index" class="checkbox-label">
+        <label v-if="!quizSubmitted" :for="`quiz-view-checkbox-${uniqueId}-${index}`" class="checkbox-label">
           <span class="checkbox-custom"></span>
         </label>
         <div class="answer-text">
@@ -137,7 +137,10 @@ const emit = defineEmits(['update:content', 'answer-submitted']);
 const themeStore = useThemeStore();
 
 // Generate a unique ID for this component instance
-const uniqueId = ref(`quiz-${Date.now()}-${Math.floor(Math.random() * 10000)}`);
+const uniqueId = ref(`quiz-${props.content.id || 'new'}-${Date.now()}-${Math.floor(Math.random() * 10000)}`);
+
+// Add a computed property to generate storage key based only on content ID
+const storageKey = computed(() => `quiz_${props.content.id}`);
 
 const localContent = ref({
   question: '',
@@ -156,14 +159,19 @@ const userScore = ref(null);
 onMounted(() => {
   // Load saved state from localStorage if available
   if (props.readOnly && props.content.id) {
-    const savedData = localStorage.getItem(`quiz_${props.content.id}`);
+    const savedData = localStorage.getItem(storageKey.value);
     if (savedData) {
       try {
         const data = JSON.parse(savedData);
         selectedAnswers.value = Array.isArray(data.selectedAnswers) ? data.selectedAnswers : [];
         quizSubmitted.value = data.quizSubmitted;
         userScore.value = data.userScore;
-        console.log(`Loaded saved state for quiz ${props.content.id}:`, { selectedAnswers: selectedAnswers.value, quizSubmitted: quizSubmitted.value, userScore: userScore.value });
+        console.log(`Loaded saved state for quiz ${props.content.id}:`, { 
+          selectedAnswers: selectedAnswers.value, 
+          quizSubmitted: quizSubmitted.value, 
+          userScore: userScore.value 
+        });
+        
         // If we have a saved answer, emit it to update the parent score
         if (quizSubmitted.value && selectedAnswers.value.length > 0) {
           const correctSet = new Set(localContent.value.correct_answers);
@@ -247,14 +255,16 @@ const submitQuiz = () => {
   const correctCount = localContent.value.correct_answers.filter(idx => userSet.has(idx)).length;
   const totalCorrect = localContent.value.correct_answers.length;
   userScore.value = totalCorrect > 0 ? Math.round((correctCount / totalCorrect) * localContent.value.max_score) : 0;
-  // Save progress to localStorage
+  
+  // Save progress to localStorage using content ID
   if (props.content.id) {
-    localStorage.setItem(`quiz_${props.content.id}`, JSON.stringify({
+    localStorage.setItem(storageKey.value, JSON.stringify({
       selectedAnswers: selectedAnswers.value,
       quizSubmitted: quizSubmitted.value,
       userScore: userScore.value
     }));
   }
+  
   // Emit event for parent components
   emit('answer-submitted', {
     contentId: props.content.id,
@@ -262,6 +272,7 @@ const submitQuiz = () => {
     score: userScore.value,
     maxScore: localContent.value.max_score
   });
+  
   // Log the submission for debugging
   console.log('Quiz submitted:', {
     contentId: props.content.id,
@@ -277,9 +288,9 @@ const resetQuiz = () => {
   quizSubmitted.value = false;
   userScore.value = null;
   
-  // Clear saved progress
+  // Clear saved progress using content ID
   if (props.content.id) {
-    localStorage.removeItem(`quiz_${props.content.id}`);
+    localStorage.removeItem(storageKey.value);
   }
 };
 
@@ -317,7 +328,7 @@ watch(() => props.resetKey, () => {
   quizSubmitted.value = false;
   userScore.value = null;
   if (props.content.id) {
-    localStorage.removeItem(`quiz_${props.content.id}`);
+    localStorage.removeItem(storageKey.value);
   }
 });
 </script>

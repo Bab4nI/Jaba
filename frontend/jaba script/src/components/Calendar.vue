@@ -229,15 +229,15 @@ const fetchAssignments = async () => {
     console.log('Raw lessons data:', allLessons);
     
     assignments.value = allLessons
-      .filter(lesson => lesson.start_datetime && lesson.end_datetime)
+      .filter(lesson => lesson.start_datetime)
       .map(lesson => {
         const startDate = new Date(lesson.start_datetime);
-        const endDate = new Date(lesson.end_datetime);
+        const endDate = lesson.end_datetime ? new Date(lesson.end_datetime) : null;
         return {
           id: lesson.id,
           title: lesson.title,
           date: startDate.toISOString().split('T')[0],
-          time: `${startDate.toHoursMinutes()} - ${endDate.toHoursMinutes()}`,
+          time: endDate ? `${startDate.toHoursMinutes()} - ${endDate.toHoursMinutes()}` : startDate.toHoursMinutes(),
           description: lesson.description || 'Нет описания',
           rooms: lesson.rooms || 'Не указано',
           type: lesson.type || 'ARTICLE',
