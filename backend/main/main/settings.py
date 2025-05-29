@@ -53,8 +53,23 @@ ROOT_URLCONF = 'main.urls'
 FRONTEND_URL = 'http://localhost:5173'
 PASSWORD_RESET_TIMEOUT = 24 * 60 *60
 CORS_ALLOWED_ORIGINS = [
+    "https://admlab.site",
+    "http://admlab.site",
+    "https://localhost",
+    "https://localhost:80",
+    "https://localhost:443",
+    "https://localhost:5173",
+    "https://127.0.0.1",
+    "https://127.0.0.1:8000",
+    "https://0.0.0.0",
+
+    "http://localhost",
+    "http://localhost:80",
+    "http://localhost:443",
     "http://localhost:5173",
+    "http://127.0.0.1",
     "http://127.0.0.1:8000",
+    "http://0.0.0.0",
 ]
 
 # Add CORS settings to allow all methods including DELETE
@@ -76,6 +91,7 @@ CORS_ALLOW_HEADERS = [
     "user-agent",
     "x-csrftoken",
     "x-requested-with",
+    "*",
 ]
 CORS_ALLOW_CREDENTIALS = True
 

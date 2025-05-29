@@ -250,7 +250,10 @@ export default {
 
     const aiExplainText = () => {
       try {
-        aiStore.askAI('Объясни простыми словами')
+        if (aiUserPrompt.value.trim()) {
+          aiStore.askAI(`Объясни простыми словами: ${aiUserPrompt.value}`)
+          aiUserPrompt.value = ''
+        }
       } catch (error) {
         console.error('Error in aiExplainText:', error)
       }
@@ -258,7 +261,10 @@ export default {
 
     const aiSimplifyText = () => {
       try {
-        aiStore.askAI('Упрости текст для лучшего понимания')
+        if (aiUserPrompt.value.trim()) {
+          aiStore.askAI(`Упрости текст для лучшего понимания: ${aiUserPrompt.value}`)
+          aiUserPrompt.value = ''
+        }
       } catch (error) {
         console.error('Error in aiSimplifyText:', error)
       }

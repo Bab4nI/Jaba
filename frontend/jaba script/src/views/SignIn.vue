@@ -178,7 +178,7 @@ const validateForm = () => {
 const checkAuth = () => {
   const accessToken = localStorage.getItem('access_token');
   if (accessToken) {
-    window.location.href = 'http://localhost:5173/profile';
+    window.location.href = '/profile';
   }
 };
 
@@ -232,7 +232,7 @@ const login = async () => {
 
     // Перенаправление на страницу профиля
     console.log('Авторизация успешна, перенаправляем на профиль');
-    window.location.href = 'http://localhost:5173/profile';
+    window.location.href = '/profile';
   } catch (error) {
     console.error('Ошибка при входе:', error);
     if (error.response) {
