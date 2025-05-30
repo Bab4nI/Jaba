@@ -122,13 +122,12 @@ const displayFileName = computed(() => {
   return extractFileInfo(localContent.value);
 });
 
-const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const apiBaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '');
 
 const fileUrl = computed(() => {
   // Helper function to extract file path from nested content_data
   const extractFilePath = (content) => {
     if (!content) return '#';
-    
     // First check direct file
     if (content.file) {
       if (typeof content.file === 'string') {
@@ -136,36 +135,30 @@ const fileUrl = computed(() => {
       }
       return '#';
     }
-    
     // Then check nested content_data
     if (content.content_data) {
-      // If content_data is an object with file
       if (content.content_data.file) {
         if (typeof content.content_data.file === 'string') {
           return content.content_data.file;
         }
         return '#';
       }
-      
-      // If content_data has nested content_data
       if (content.content_data.content_data) {
         return extractFilePath(content.content_data.content_data);
       }
     }
-    
     return '#';
   };
 
   const path = extractFilePath(localContent.value);
   if (path === '#') return path;
-  
-  if (path.startsWith('http') || path.startsWith('blob:')) {
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('blob:')) {
     return path;
   }
   if (path.startsWith('/media/')) {
     return `${apiBaseUrl}${path}`;
   }
-  return `${apiBaseUrl}/media/${path}`;
+  return `${apiBaseUrl}/media/${path.replace(/^\/+/, '')}`;
 });
 
 const fileSize = computed(() => {
@@ -239,8 +232,14 @@ const removeFile = () => {
 };
 
 const emitUpdate = () => {
-  if (props.readOnly) return;
-  emit('update:content', { ...localContent.value });
+  emit('update:content', {
+    ...props.content,
+    content_data: {
+      ...getContentData(props.content),
+      file: localContent.value.file,
+      filename: localContent.value.filename
+    }
+  });
 };
 </script>
 

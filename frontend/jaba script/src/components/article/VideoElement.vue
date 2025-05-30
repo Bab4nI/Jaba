@@ -215,8 +215,13 @@ const resetVideo = () => {
 };
 
 const emitUpdate = () => {
-  if (props.readOnly) return;
-  emit('update:content', { ...localContent.value });
+  emit('update:content', {
+    ...props.content,
+    content_data: {
+      ...getContentData(props.content),
+      video_url: localContent.value.video_url
+    }
+  });
 };
 
 const onVideoLoad = () => {

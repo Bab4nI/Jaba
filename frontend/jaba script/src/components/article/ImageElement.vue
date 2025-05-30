@@ -55,7 +55,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:content']);
 const themeStore = useThemeStore();
-const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const apiBaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '');
 
 const getContentData = (content) => {
   if (typeof content.content_data === 'string') {
@@ -75,50 +75,16 @@ const localContent = ref({
 const fileInput = ref(null);
 
 const imageUrl = computed(() => {
-  const extractImagePath = (data) => {
-    // First check for direct image_path
-    if (data.image_path) {
-      return data.image_path;
-    }
-    
-    // Then check content_data
-    if (data.content_data) {
-      // Check if image_path is directly in content_data
-      if (data.content_data.image_path) {
-        return data.content_data.image_path;
-      }
-      
-      // Check if there's nested content_data
-      if (data.content_data.content_data) {
-        if (data.content_data.content_data.image_path) {
-          return data.content_data.content_data.image_path;
-        }
-      }
-    }
-    
-    return null;
-  };
-
-  const path = extractImagePath(props.content);
+  const path = localContent.value.image_path;
   if (!path) return null;
-
-  // If it's a File object (local file)
-  if (path instanceof File) {
-    return URL.createObjectURL(path);
-  }
-
-  // If it's a full URL
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path;
   }
-
-  // If it's a Django media path
   if (path.startsWith('/media/')) {
-    return `${import.meta.env.VITE_API_URL}${path}`;
+    return `${apiBaseUrl}${path}`;
   }
-
-  // If it's just a filename
-  return `${import.meta.env.VITE_API_URL}/media/${path}`;
+  // Если путь относительный, добавляем /media/
+  return `${apiBaseUrl}/media/${path.replace(/^\/+/, '')}`;
 });
 
 watch(() => props.content, (newContent) => {
@@ -173,8 +139,13 @@ const removeImage = () => {
 };
 
 const emitUpdate = () => {
-  if (props.readOnly) return;
-  emit('update:content', { ...localContent.value });
+  emit('update:content', {
+    ...props.content,
+    content_data: {
+      ...getContentData(props.content),
+      image_path: localContent.value.image_path
+    }
+  });
 };
 </script>
 

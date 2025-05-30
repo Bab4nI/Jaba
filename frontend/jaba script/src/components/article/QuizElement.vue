@@ -246,8 +246,16 @@ const setCorrectAnswer = (index) => {
 };
 
 const emitUpdate = () => {
-  if (props.readOnly) return;
-  emit('update:content', { ...localContent.value });
+  emit('update:content', {
+    ...props.content,
+    content_data: {
+      ...getContentData(props.content),
+      question: localContent.value.question,
+      answers: localContent.value.answers,
+      correct_answers: localContent.value.correct_answers,
+      max_score: localContent.value.max_score
+    }
+  });
 };
 
 // Interaction functions for view mode

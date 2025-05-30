@@ -318,6 +318,18 @@ const generateUniqueId = () => {
 // Add mock backend support for forms since endpoints may not exist yet
 const useLocalStorage = ref(true) // Set to false when backend endpoints are ready
 
+// Словарь обязательных полей для каждого типа
+const REQUIRED_FIELDS = {
+  text: { text: '' },
+  image: { image_path: '' },
+  video: { video_url: '' },
+  code: { code: '', language: '', interpreter: '', taskDescription: '', expectedResult: '' },
+  quiz: { question: '', answers: [], correct_answers: [] },
+  table: { headers: [], data: [] },
+  file: { file: '', filename: '' },
+  fillin: { text: '', answers: [] }
+};
+
 export default {
   components: {
     ContentBlock,
@@ -715,32 +727,29 @@ export default {
 
         // Helper function to clean content data
         const cleanContentData = (content) => {
-          const cleaned = {
+          const type = content.type;
+          const required = REQUIRED_FIELDS[type] || {};
+          const data = typeof content.content_data === 'object' && content.content_data !== null
+            ? { ...required, ...content.content_data }
+            : { ...required };
+
+          // Удаляем служебные поля
+          delete data.id;
+          delete data.order;
+          delete data.type;
+          delete data.max_score;
+          delete data.created_at;
+          delete data.updated_at;
+          delete data.user_score;
+          delete data.user_answer;
+          delete data.content_data;
+
+          return {
             type: content.type,
             order: content.order,
             max_score: content.max_score || 1,
-            content_data: {
-              ...content,
-              id: undefined,
-              order: undefined,
-              type: undefined,
-              max_score: undefined,
-              created_at: undefined,
-              updated_at: undefined,
-              user_score: undefined,
-              user_answer: undefined,
-              content_data: undefined // Remove nested content_data
-            }
+            content_data: data
           };
-
-          // Remove undefined values
-          Object.keys(cleaned.content_data).forEach(key => {
-            if (cleaned.content_data[key] === undefined) {
-              delete cleaned.content_data[key];
-            }
-          });
-
-          return cleaned;
         };
 
         // Save main contents

@@ -18,7 +18,7 @@
           id="block-max-score"
           v-model.number="localContent.max_score" 
           type="number" 
-          min="1" 
+          min="0" 
           max="10"
           class="score-input"
           @input="updateScore" 
@@ -94,14 +94,14 @@ const emit = defineEmits(['update:content', 'move-up', 'move-down', 'remove', 'a
 const localContent = ref({
   ...props.content,
   content_data: props.content.content_data || {},
-  max_score: props.content.max_score || 1 // Set default score to 1 if not provided
+  max_score: props.content.max_score || 0 // Set default score to 1 if not provided
 });
 
 watch(() => props.content, (newContent) => {
   localContent.value = {
     ...newContent,
     content_data: newContent.content_data || {},
-    max_score: newContent.max_score || 1 // Ensure max_score is always set
+    max_score: newContent.max_score || 0 // Ensure max_score is always set
   };
 }, { deep: true });
 
@@ -195,8 +195,8 @@ const removeBlock = () => {
 
 const updateScore = () => {
   // Ensure score is at least 1 for non-disabled types
-  if (!isScoreDisabled.value && localContent.value.max_score < 1) {
-    localContent.value.max_score = 1;
+  if (!isScoreDisabled.value && localContent.value.max_score < 0) {
+    localContent.value.max_score = 0;
   }
   // Set score to 0 for disabled types
   if (isScoreDisabled.value) {
