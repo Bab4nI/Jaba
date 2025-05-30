@@ -190,6 +190,7 @@ const moveDown = () => {
 };
 
 const removeBlock = () => {
+  if (props.isTimeExpired) return;
   emit('remove');
 };
 
@@ -379,12 +380,24 @@ onMounted(() => {
   justify-content: center;
   font-size: 20px;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  transition: all 0.2s ease;
+  padding: 0;
+  margin-left: 8px;
 }
 
-.remove-btn:hover {
+.remove-btn:hover:not(:disabled) {
   background: var(--hover-delete-bg, #fee2e2);
-  color: var(--error-color, #dc2626);
+  transform: scale(1.1);
+}
+
+.remove-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.icon-remove {
+  line-height: 1;
+  font-weight: bold;
 }
 
 .block-content {

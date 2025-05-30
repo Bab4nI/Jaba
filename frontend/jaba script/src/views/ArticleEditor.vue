@@ -216,6 +216,22 @@
         </div>
       </div>
     </div>
+
+    <div v-if="contents.length > 0" class="main-content-blocks">
+      <ContentBlock
+        v-for="(element, index) in contents"
+        :key="element.id || index"
+        :content="element"
+        :read-only="isContentReadOnly"
+        :is-time-expired="isTimeExpired"
+        :is-first="index === 0"
+        :is-last="index === contents.length - 1"
+        @update:content="onContentUpdate(index, $event)"
+        @remove="removeContent(index)"
+        @answer-submitted="onAnswerSubmitted"
+        :reset-key="resetKey"
+      />
+    </div>
   </div>
 </template>
 
@@ -626,28 +642,27 @@ export default {
     }
 
     const removeContent = async (index) => {
-      if (!confirm('Вы уверены, что хотите удалить этот элемент?')) return
-
-      const content = contents.value[index]
-      if (content.id) {
+      if (!confirm('Вы уверены, что хотите удалить этот элемент?')) return;
+      const content = contents.value[index];
+      if (content.id && !content.id.toString().startsWith('temp_')) {
         try {
-          await api.delete(`/courses/${route.params.courseSlug}/modules/${route.params.moduleId}/lessons/${article.value.id}/contents/${content.id}/`)
-          showToast('Элемент удален.', 'success')
+          await api.delete(`/contents/${content.id}/`);
         } catch (error) {
-          console.error('Ошибка удаления контента:', error)
-          showToast('Не удалось удалить элемент.', 'error')
-          return
+          console.error('Error deleting content:', error);
+          showToast('Ошибка при удалении элемента', 'error');
+          return;
         }
       }
-      contents.value.splice(index, 1)
-      changedIndices.value.delete(index)
-      const newIndices = new Set()
+      contents.value.splice(index, 1);
+      changedIndices.value.delete(index);
+      const newIndices = new Set();
       changedIndices.value.forEach(i => {
-        if (i > index) newIndices.add(i - 1)
-        else if (i < index) newIndices.add(i)
-      })
-      changedIndices.value = newIndices
-      updateContentOrder()
+        if (i > index) newIndices.add(i - 1);
+        else if (i < index) newIndices.add(i);
+      });
+      changedIndices.value = newIndices;
+      updateContentOrder();
+      showToast('Элемент удален', 'success');
     }
 
     const moveContentUp = (index) => {
@@ -759,8 +774,9 @@ export default {
             ...content,
             order: newOrder
           });
-          
-          if (content.id && !content.id.toString().startsWith('temp_')) {
+
+          // PATCH только если id — валидный числовой id
+          if (content.id && typeof content.id === 'number' && Number.isInteger(content.id)) {
             return api.patch(`/contents/${content.id}/`, contentData);
           } else {
             const response = await api.post(`/contents/`, {
@@ -806,7 +822,7 @@ export default {
             });
 
             let contentId;
-            if (content.id && !content.id.toString().startsWith('temp_')) {
+            if (content.id && typeof content.id === 'number' && Number.isInteger(content.id)) {
               await api.patch(`/contents/${content.id}/`, contentData);
               contentId = content.id;
             } else {
@@ -1312,14 +1328,25 @@ export default {
       }
     };
 
-    const removeFormContent = (formIndex, contentIndex) => {
+    const removeFormContent = async (formIndex, contentIndex) => {
       if (!confirm('Вы уверены, что хотите удалить этот элемент?')) return;
       if (!customForms.value[formIndex]) return;
+      
+      const content = customForms.value[formIndex].contents[contentIndex];
+      if (content.id && !content.id.toString().startsWith('temp_')) {
+        try {
+          await api.delete(`/contents/${content.id}/`);
+        } catch (error) {
+          console.error('Error deleting content:', error);
+          showToast('Ошибка при удалении элемента', 'error');
+          return;
+        }
+      }
       
       customForms.value[formIndex].contents.splice(contentIndex, 1);
       customForms.value[formIndex].total = customForms.value[formIndex].contents.length;
       updateFormContentOrder(formIndex);
-      showToast('Элемент удален.', 'success');
+      showToast('Элемент удален', 'success');
     };
 
     const updateFormContentOrder = (formIndex) => {
@@ -3244,5 +3271,45 @@ export default {
 }
 .add-to-form-btn:hover {
   background: #8275a0;
+}
+
+.main-content-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px;
+  background: var(--form-background);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.main-content-blocks .content-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: #f9f9f9;
+  border-radius: 5px;
+}
+
+.main-content-blocks .content-item .content-info {
+  flex: 1;
+}
+
+.main-content-blocks .content-item .content-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.main-content-blocks .content-item .content-actions button {
+  padding: 5px 10px;
+  background: #e0e0e0;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.main-content-blocks .content-item .content-actions button:hover {
+  background: #d0d0d0;
 }
 </style>

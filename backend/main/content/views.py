@@ -92,7 +92,12 @@ class CustomFormViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def contents(self, request, pk=None):
         form = self.get_object()
-        contents = form.contents.all().order_by('order')
+        related_contents = form.contents.all().order_by('order')
+        if related_contents.exists():
+            contents = related_contents
+        else:
+            # Если нет связанных элементов, вернуть все элементы урока
+            contents = Content.objects.filter(lesson=form.lesson).order_by('order')
         serializer = ContentSerializer(contents, many=True)
         return Response(serializer.data)
 

@@ -11,6 +11,7 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5173 // Можно поменять на другой порт
   },
+  
   plugins: [
     vue(),
     vueDevTools(),
