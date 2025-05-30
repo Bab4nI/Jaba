@@ -256,14 +256,12 @@ const loadGroupData = async () => {
         const progress = user.progress[work.id];
         if (progress) {
           newProgressData[user.id][work.id] = {
-            score: progress.current_score || 0,
-            completed: progress.completed || false,
+            score: progress.score || 0,
             max_score: progress.max_score || work.max_score
           };
         } else {
           newProgressData[user.id][work.id] = {
             score: 0,
-            completed: false,
             max_score: work.max_score
           };
         }
@@ -301,24 +299,21 @@ const getStudentWorkProgress = (student, work) => {
 
 // Функция для получения общего прогресса студента
 const getStudentTotal = (student) => {
-  if (!progressData.value[student.id]) {
-    return { value: '0/0', isFail: true };
+  let totalScore = 0;
+  let totalMax = 0;
+  
+  for (const lesson of works.value) {
+    const progress = progressData.value[student.id]?.[lesson.id];
+    if (progress) {
+      totalScore += progress.score;
+      totalMax += progress.max_score;
+    }
   }
   
-  let totalScore = 0;
-  let maxPossibleScore = 0;
-  
-  works.value.forEach(work => {
-    if (progressData.value[student.id]?.[work.id]) {
-      totalScore += progressData.value[student.id][work.id].score;
-      maxPossibleScore += progressData.value[student.id][work.id].max_score;
-    }
-  });
-  
-  const value = `${totalScore}/${maxPossibleScore}`;
-  const isFail = maxPossibleScore > 0 && totalScore < maxPossibleScore / 2;
-  
-  return { value, isFail };
+  return {
+    value: `${totalScore}/${totalMax}`,
+    isFail: totalMax > 0 && totalScore / totalMax < 0.6
+  };
 };
 
 // Сколько пустых строк добавить, чтобы таблица была как на макете
@@ -394,9 +389,9 @@ watch([students, works], async () => {
 
 // Для отображения в таблице:
 const getStudentLessonScore = (student, lesson) => {
-  const data = lessonProgress.value[student.id]?.[lesson.id];
-  if (lesson.max_score === 0) return '-';
-  return data ? `${data.score}/${lesson.max_score}` : `0/${lesson.max_score}`;
+  const progress = progressData.value[student.id]?.[lesson.id];
+  if (!progress) return '-';
+  return `${progress.score}/${progress.max_score}`;
 };
 </script>
 

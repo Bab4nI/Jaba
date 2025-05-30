@@ -85,9 +85,21 @@ def group_statistics(request):
     except Course.DoesNotExist:
         return Response({'error': 'Course not found'}, status=404)
 
-    # Найти все уроки курса
+    # Найти все уроки курса и их contents
     lessons = Lesson.objects.filter(module__course=course)
-    lessons_data = [{'id': l.id, 'title': l.title, 'max_score': l.max_score} for l in lessons]
+    lessons_data = []
+    lesson_content_map = {}
+    for l in lessons:
+        contents = Content.objects.filter(lesson=l)
+        content_ids = list(contents.values_list('id', flat=True))
+        lesson_max_score = sum(getattr(c, 'max_score', 0) or 0 for c in contents)
+        lessons_data.append({
+            'id': l.id,
+            'title': l.title,
+            'max_score': lesson_max_score,
+            'content_ids': content_ids,
+        })
+        lesson_content_map[l.id] = content_ids
 
     # Найти пользователей группы
     if group == 'admins':
@@ -95,21 +107,28 @@ def group_statistics(request):
     else:
         users = User.objects.filter(groups__name=group)
 
+    # Для каждого пользователя
     users_data = []
     for user in users:
         fio = f'{getattr(user, "last_name", "").strip()} {getattr(user, "first_name", "").strip()} {getattr(user, "middle_name", "").strip()}'.strip()
         if not fio or fio == '':
             fio = getattr(user, 'email', f'User {user.id}')
         progress = ContentProgress.objects.filter(user=user, content__lesson__in=lessons)
-        progress_map = {p.content.lesson.id: {
-            'score': p.score,
-            'completed': p.completed,
-            'max_score': p.content.lesson.max_score
-        } for p in progress}
+        # Собираем прогресс по каждому уроку
+        lesson_progress = {}
+        for lesson in lessons:
+            lesson_content_ids = lesson_content_map[lesson.id]
+            # Суммируем баллы по всем content этого урока
+            lesson_score = sum(p.score for p in progress if p.content_id in lesson_content_ids)
+            lesson_max_score = sum(getattr(c, 'max_score', 0) or 0 for c in Content.objects.filter(id__in=lesson_content_ids))
+            lesson_progress[lesson.id] = {
+                'score': lesson_score,
+                'max_score': lesson_max_score
+            }
         users_data.append({
             'id': user.id,
             'full_name': fio,
-            'progress': progress_map
+            'progress': lesson_progress
         })
 
     return Response({
