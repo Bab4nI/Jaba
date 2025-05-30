@@ -68,32 +68,94 @@ const localContent = ref({
 const fileInput = ref(null);
 
 const displayFileName = computed(() => {
-  if (!localContent.value.file) return '';
-  if (typeof localContent.value.file === 'string') {
-    const fileName = localContent.value.filename || localContent.value.file.split('/').pop();
-    try {
-      return decodeURIComponent(fileName);
-    } catch (e) {
-      return fileName;
+  // Helper function to extract file info from nested content_data
+  const extractFileInfo = (content) => {
+    if (!content) return '';
+    
+    // First check direct file and filename
+    if (content.file) {
+      if (typeof content.file === 'string') {
+        const fileName = content.filename || content.file.split('/').pop();
+        try {
+          return decodeURIComponent(fileName);
+        } catch (e) {
+          return fileName;
+        }
+      }
+      return content.file.name;
     }
-  }
-  return localContent.value.file.name;
+    
+    // Then check nested content_data
+    if (content.content_data) {
+      // If content_data is an object with file
+      if (content.content_data.file) {
+        if (typeof content.content_data.file === 'string') {
+          const fileName = content.content_data.filename || content.content_data.file.split('/').pop();
+          try {
+            return decodeURIComponent(fileName);
+          } catch (e) {
+            return fileName;
+          }
+        }
+        return content.content_data.file.name;
+      }
+      
+      // If content_data has nested content_data
+      if (content.content_data.content_data) {
+        return extractFileInfo(content.content_data.content_data);
+      }
+    }
+    
+    return '';
+  };
+
+  return extractFileInfo(localContent.value);
 });
 
 const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const fileUrl = computed(() => {
-  if (!localContent.value.file) return '#';
-  if (typeof localContent.value.file === 'string') {
-    if (localContent.value.file.startsWith('http') || localContent.value.file.startsWith('blob:')) {
-      return localContent.value.file;
+  // Helper function to extract file path from nested content_data
+  const extractFilePath = (content) => {
+    if (!content) return '#';
+    
+    // First check direct file
+    if (content.file) {
+      if (typeof content.file === 'string') {
+        return content.file;
+      }
+      return '#';
     }
-    if (localContent.value.file.startsWith('/media/')) {
-      return `${apiBaseUrl}${localContent.value.file}`;
+    
+    // Then check nested content_data
+    if (content.content_data) {
+      // If content_data is an object with file
+      if (content.content_data.file) {
+        if (typeof content.content_data.file === 'string') {
+          return content.content_data.file;
+        }
+        return '#';
+      }
+      
+      // If content_data has nested content_data
+      if (content.content_data.content_data) {
+        return extractFilePath(content.content_data.content_data);
+      }
     }
-    return `${apiBaseUrl}/media/${localContent.value.file}`;
+    
+    return '#';
+  };
+
+  const path = extractFilePath(localContent.value);
+  if (path === '#') return path;
+  
+  if (path.startsWith('http') || path.startsWith('blob:')) {
+    return path;
   }
-  return '#';
+  if (path.startsWith('/media/')) {
+    return `${apiBaseUrl}${path}`;
+  }
+  return `${apiBaseUrl}/media/${path}`;
 });
 
 const fileSize = computed(() => {

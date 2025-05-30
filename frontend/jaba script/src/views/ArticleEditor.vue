@@ -685,319 +685,179 @@ export default {
     }
 
     const saveAllChanges = async () => {
-      isSaving.value = true
-      const errors = []
+      isSaving.value = true;
+      const errors = [];
       try {
-        const courseSlug = route.params.courseSlug
-        const moduleId = route.params.moduleId
-        const lessonId = route.params.lessonId
+        const courseSlug = route.params.courseSlug;
+        const moduleId = route.params.moduleId;
+        const lessonId = route.params.lessonId;
 
         // Save article title
         await api.patch(`/courses/${courseSlug}/modules/${moduleId}/lessons/${lessonId}/`, {
           title: article.value.title
-        })
+        });
+
+        // Get all existing content for this lesson to handle order conflicts
+        const existingContentResponse = await api.get(`/contents/?lesson_id=${lessonId}`);
+        const existingContent = existingContentResponse.data;
+        
+        // Calculate max order for main content
+        const mainContentMaxOrder = Math.max(
+          ...existingContent
+            .filter(c => !c.form_id)
+            .map(c => c.order),
+          0
+        );
+
+        // Helper function to clean content data
+        const cleanContentData = (content) => {
+          const cleaned = {
+            type: content.type,
+            order: content.order,
+            max_score: content.max_score || 1,
+            content_data: {
+              ...content,
+              id: undefined,
+              order: undefined,
+              type: undefined,
+              max_score: undefined,
+              created_at: undefined,
+              updated_at: undefined,
+              user_score: undefined,
+              user_answer: undefined,
+              content_data: undefined // Remove nested content_data
+            }
+          };
+
+          // Remove undefined values
+          Object.keys(cleaned.content_data).forEach(key => {
+            if (cleaned.content_data[key] === undefined) {
+              delete cleaned.content_data[key];
+            }
+          });
+
+          return cleaned;
+        };
 
         // Save main contents
         const contentPromises = contents.value.map(async (content, index) => {
-          content.order = index + 1
-          if (content.id) {
-            return api.patch(`/courses/${courseSlug}/modules/${moduleId}/lessons/${lessonId}/contents/${content.id}/`, content)
+          const newOrder = mainContentMaxOrder + index + 1;
+          const contentData = cleanContentData({
+            ...content,
+            order: newOrder
+          });
+          
+          if (content.id && !content.id.toString().startsWith('temp_')) {
+            return api.patch(`/contents/${content.id}/`, contentData);
           } else {
-            return api.post(`/courses/${courseSlug}/modules/${moduleId}/lessons/${lessonId}/contents/`, content)
+            const response = await api.post(`/contents/`, {
+              ...contentData,
+              lesson_id: parseInt(lessonId)
+            });
+            content.id = response.data.id;
+            return response;
           }
-        })
+        });
 
-        await Promise.all(contentPromises)
+        await Promise.all(contentPromises);
 
-        // Save forms (no localStorage, only server)
+        // Save forms
         for (const form of customForms.value) {
+          // First save the form
           const formData = {
             title: form.title || 'Новая форма',
-            contents: Array.isArray(form.contents) ? form.contents : [],
-          }
-          console.log('Сохраняем форму:', formData)
+            lesson_id: parseInt(lessonId)
+          };
+          
+          let formId;
           if (typeof form.id === 'number') {
-            await api.patch(`/courses/${courseSlug}/modules/${moduleId}/lessons/${lessonId}/forms/${form.id}/`, formData)
+            await api.patch(`/forms/${form.id}/`, formData);
+            formId = form.id;
           } else {
-            const response = await api.post(`/courses/${courseSlug}/modules/${moduleId}/lessons/${lessonId}/forms/`, formData)
-            form.id = response.data.id
+            const response = await api.post(`/forms/`, formData);
+            formId = response.data.id;
+            form.id = formId;
           }
-        }
 
-        changedIndices.value.clear()
-        lastSavedAt.value = new Date()
-        await saveScoreToServer()
-        if (mode.value === 'edit') {
-          toggleMode()
-        }
-        showToast('Все изменения успешно сохранены', 'success')
-      } catch (error) {
-        console.error('Ошибка сохранения работы:', error)
-        showToast(`Ошибка при сохранении: ${error.message}`, 'error')
-      } finally {
-        isSaving.value = false
-      }
-    }
+          // Get form-specific content to handle order conflicts
+          const formContentResponse = await api.get(`/forms/${formId}/contents/`);
+          const formContent = formContentResponse.data;
+          const formMaxOrder = Math.max(...formContent.map(c => c.order), 0);
 
-    // Function to save the current score to server or local storage
-    const saveScoreToServer = async () => {
-      // Remove server-side score saving since backend functionality is removed
-      console.log('Score saving to server is disabled')
-    }
+          // Save each content in the form
+          const formContentPromises = form.contents.map(async (content, index) => {
+            const newOrder = formMaxOrder + index + 1;
+            const contentData = cleanContentData({
+              ...content,
+              order: newOrder
+            });
 
-    const goBack = async () => {
-      if (hasChanges.value) {
-        if (!confirm('У вас есть несохраненные изменения. Хотите выйти без сохранения?')) {
-          return
-        }
-      }
-      try {
-        await router.push(`/courses/${route.params.courseSlug}`)
-      } catch (error) {
-        console.error('Navigation to course failed:', error)
-        showToast('Не удалось вернуться к курсу.', 'error')
-        router.push('/')
-      }
-    }
-    
-    const toggleMode = () => {
-      if (userStore.role === 'admin') {
-        mode.value = mode.value === 'edit' ? 'preview' : 'edit'
-        
-        // Clear active form selection when switching to preview mode
-        if (mode.value === 'preview') {
-          activeFormIndex.value = -1;
-        }
-        
-        // Remove the mode change toast
-        // showToast(`Режим изменен на ${mode.value === 'edit' ? 'редактирование' : 'предпросмотр'}.`, 'info')
-      }
-    }
-    
-    const handleGlobalTextSelection = (event) => {
-      const selection = window.getSelection()
-      const text = selection.toString().trim()
-      handleTextSelection(text, event)
-    }
-    
-    const beforeUnloadHandler = (e) => {
-      if (hasChanges.value) {
-        e.preventDefault()
-        e.returnValue = 'У вас есть несохраненные изменения. Вы уверены, что хотите уйти?'
-        return e.returnValue
-      }
-    }
-
-    const openBlockModal = () => {
-      // Check if a form is currently selected
-      if (activeFormIndex.value >= 0) {
-        currentFormIndex.value = activeFormIndex.value;
-        showBlockModal.value = true;
-        selectedBlockType.value = '';
-        showToast(`Добавление элемента в форму "${customForms.value[activeFormIndex.value].title}"`, 'info');
-      } else {
-        // If no form is selected, show a message to select a form first
-        showToast('Пожалуйста, выберите форму перед добавлением элемента', 'warning');
-      }
-    }
-
-    const closeBlockModal = () => {
-      showBlockModal.value = false
-      selectedBlockType.value = ''
-    }
-
-    const createNewForm = () => {
-      const newForm = {
-        id: generateUniqueId(),
-        title: '', // Start with empty title
-        contents: [],
-        total: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
-      customForms.value.push(newForm)
-      activeFormIndex.value = customForms.value.length - 1
-      showToast('Новая форма создана.', 'success')
-    }
-
-    const removeForm = async (index) => {
-      if (!confirm('Вы уверены, что хотите удалить эту форму?')) return
-      const form = customForms.value[index]
-      try {
-        if (form && typeof form.id === 'number') {
-          const courseSlug = route.params.courseSlug
-          const moduleId = route.params.moduleId
-          const lessonId = route.params.lessonId
-          await api.delete(`/courses/${courseSlug}/modules/${moduleId}/lessons/${lessonId}/forms/${form.id}/`)
-        }
-        showToast('Форма удалена.', 'success')
-      } catch (error) {
-        // Если 404 — форма уже удалена, всё равно обновим список
-        if (error.response && error.response.status === 404) {
-          showToast('Форма уже была удалена или не найдена.', 'info')
-        } else {
-          showToast('Ошибка при удалении формы', 'error')
-          return
-        }
-      }
-      // После удаления или 404 — всегда обновляем список форм с сервера
-      try {
-        const courseSlug = route.params.courseSlug
-        const moduleId = route.params.moduleId
-        const lessonId = route.params.lessonId
-        const formsResponse = await api.get(`/courses/${courseSlug}/modules/${moduleId}/lessons/${lessonId}/forms/`)
-        if (formsResponse.data && Array.isArray(formsResponse.data)) {
-          customForms.value = formsResponse.data.map(form => ({
-            ...form,
-            contents: Array.isArray(form.contents) ? form.contents : [],
-            total: Array.isArray(form.contents) ? form.contents.length : 0
-          }))
-        } else {
-          customForms.value = []
-        }
-      } catch (e) {
-        showToast('Ошибка при обновлении списка форм', 'error')
-      }
-      if (activeFormIndex.value === index) {
-        activeFormIndex.value = -1
-      } else if (activeFormIndex.value > index) {
-        activeFormIndex.value--
-      }
-    }
-
-    const onFormContentUpdate = (formIndex, contentIndex, updatedContent) => {
-      if (!customForms.value[formIndex]) return
-      
-      const currentContent = customForms.value[formIndex].contents[contentIndex]
-      if (!currentContent) return
-      
-      // Update the content
-      customForms.value[formIndex].contents[contentIndex] = {
-        ...currentContent,
-        ...updatedContent,
-        updated_at: new Date().toISOString()
-      }
-      
-      // Update total
-      customForms.value[formIndex].total = customForms.value[formIndex].contents.length
-      
-      // Save the updated score to localStorage
-      saveScoreToLocalStorage()
-    }
-
-    const moveFormContentUp = (formIndex, contentIndex) => {
-      if (contentIndex > 0) {
-        const temp = customForms.value[formIndex].contents[contentIndex]
-        customForms.value[formIndex].contents[contentIndex] = customForms.value[formIndex].contents[contentIndex - 1]
-        customForms.value[formIndex].contents[contentIndex - 1] = temp
-        updateFormContentOrder(formIndex)
-      }
-    }
-
-    const moveFormContentDown = (formIndex, contentIndex) => {
-      if (contentIndex < customForms.value[formIndex].contents.length - 1) {
-        const temp = customForms.value[formIndex].contents[contentIndex]
-        customForms.value[formIndex].contents[contentIndex] = customForms.value[formIndex].contents[contentIndex + 1]
-        customForms.value[formIndex].contents[contentIndex + 1] = temp
-        updateFormContentOrder(formIndex)
-      }
-    }
-
-    const removeFormContent = (formIndex, contentIndex) => {
-      if (!confirm('Вы уверены, что хотите удалить этот элемент?')) return
-      if (!customForms.value[formIndex]) return
-      
-      customForms.value[formIndex].contents.splice(contentIndex, 1)
-      customForms.value[formIndex].total = customForms.value[formIndex].contents.length
-      updateFormContentOrder(formIndex)
-      showToast('Элемент удален.', 'success')
-    }
-
-    const updateFormContentOrder = (formIndex) => {
-      customForms.value[formIndex].contents.forEach((content, index) => {
-        content.order = index + 1
-      })
-    }
-
-    const openFormBlockModal = (formIndex) => {
-      currentFormIndex.value = formIndex
-      showBlockModal.value = true
-    }
-
-    const selectForm = (index, event) => {
-      if (event) {
-        event.stopPropagation()
-      }
-      activeFormIndex.value = index
-    }
-
-    const onFormTitleChange = (index) => {
-      customForms.value[index].updated_at = new Date().toISOString();
-    }
-
-    const onFormTitleBlur = (index) => {
-      // Remove the automatic title setting, allowing empty titles
-      if (customForms.value[index].title === undefined) {
-        customForms.value[index].title = '';
-      }
-    }
-
-    const onFormTitleFocus = (index) => {
-      activeFormIndex.value = index
-    }
-
-    const onAnswerSubmitted = (contentId, score) => {
-      // Handle both formats: direct score value or object with score property
-      let numericScore = 0
-      let actualContentId = contentId
-      
-      if (typeof contentId === 'object' && contentId !== null) {
-        // New format: object with contentId and score properties
-        numericScore = parseInt(contentId.score) || 0
-        actualContentId = contentId.contentId
-        console.log(`Answer submitted in object format for content ${actualContentId} with score ${numericScore}`)
-      } else {
-        // Old format: direct contentId and score
-        numericScore = parseInt(score) || 0
-        console.log(`Answer submitted in direct format for content ${contentId} with score ${numericScore}`)
-      }
-      
-      // Find the content in either main contents or forms
-      let contentFound = false
-      
-      // Check in main contents
-      for (let i = 0; i < contents.value.length; i++) {
-        if (contents.value[i].id === actualContentId) {
-          // Update the user_score property
-          console.log(`Found content in main contents, updating score from ${contents.value[i].user_score} to ${numericScore}`)
-          contents.value[i].user_score = numericScore
-          contentFound = true
-          break
-        }
-      }
-      
-      // If not found in main contents, check in forms
-      if (!contentFound) {
-        for (const form of customForms.value) {
-          for (let i = 0; i < form.contents.length; i++) {
-            if (form.contents[i].id === actualContentId) {
-              // Update the user_score property
-              console.log(`Found content in form, updating score from ${form.contents[i].user_score} to ${numericScore}`)
-              form.contents[i].user_score = numericScore
-              contentFound = true
-              break
+            let contentId;
+            if (content.id && !content.id.toString().startsWith('temp_')) {
+              await api.patch(`/contents/${content.id}/`, contentData);
+              contentId = content.id;
+            } else {
+              const response = await api.post(`/contents/`, {
+                ...contentData,
+                lesson_id: parseInt(lessonId)
+              });
+              contentId = response.data.id;
+              content.id = contentId;
             }
-          }
-          if (contentFound) break
+
+            // Link content to form
+            await api.post(`/forms/${formId}/add_content/`, {
+              content_id: contentId,
+              order: newOrder
+            });
+          });
+
+          await Promise.all(formContentPromises);
         }
+
+        changedIndices.value.clear();
+        lastSavedAt.value = new Date();
+        showToast('Все изменения успешно сохранены', 'success');
+      } catch (error) {
+        console.error('Ошибка сохранения работы:', error);
+        showToast(`Ошибка при сохранении: ${error.message}`, 'error');
+      } finally {
+        isSaving.value = false;
       }
-      
-      if (!contentFound) {
-        console.warn(`Content with ID ${actualContentId} not found in any form or main content`)
+    };
+
+    const onAnswerSubmitted = async (contentId, score) => {
+      try {
+        // Handle both formats: direct score value or object with score property
+        let numericScore = 0
+        let actualContentId = contentId
+        
+        if (typeof contentId === 'object' && contentId !== null) {
+          numericScore = parseInt(contentId.score) || 0
+          actualContentId = contentId.contentId
+        } else {
+          numericScore = parseInt(score) || 0
+        }
+
+        // Submit answer using content progress endpoint
+        const response = await api.post(`/api/content-progress/update_progress/`, {
+          content_id: actualContentId,
+          score: numericScore
+        })
+
+        // Update local state
+        for (let i = 0; i < contents.value.length; i++) {
+          if (contents.value[i].id === actualContentId) {
+            contents.value[i].user_score = numericScore
+            break
+          }
+        }
+
+        showToast('Ответ сохранен', 'success')
+      } catch (error) {
+        console.error('Error submitting answer:', error)
+        showToast('Ошибка при сохранении ответа', 'error')
       }
-      
-      // Save the updated score to server
-      saveScoreToServer()
     }
 
     const resetLessonProgress = async () => {
@@ -1007,24 +867,16 @@ export default {
         const lessonId = route.params.lessonId
         isLessonCompleted.value = false
         
-        // Reset all form content answers and localStorage
-        customForms.value.forEach(form => {
-          form.contents.forEach(content => {
-            if (content.type === 'quiz' && content.id) localStorage.removeItem(`quiz_${content.id}`);
-            if (content.type === 'fillin' && content.id) localStorage.removeItem(`fillin_${content.id}`);
-            if (content.type === 'code' && content.id) localStorage.removeItem(`code_${content.id}`);
-            if (content.type === 'video' && content.id) localStorage.removeItem(`video_${content.id}`);
-            if (content.user_answer) delete content.user_answer;
-            if (content.user_score !== undefined) delete content.user_score;
-          })
+        // Reset progress using content progress endpoint
+        await api.post(`/api/content-progress/reset_progress/`, {
+          lesson_id: lessonId
         })
+        
+        // Reset local state
         contents.value.forEach(content => {
-          if (content.type === 'quiz' && content.id) localStorage.removeItem(`quiz_${content.id}`);
-          if (content.type === 'fillin' && content.id) localStorage.removeItem(`fillin_${content.id}`);
-          if (content.type === 'code' && content.id) localStorage.removeItem(`code_${content.id}`);
-          if (content.type === 'video' && content.id) localStorage.removeItem(`video_${content.id}`);
           if (content.user_score !== undefined) delete content.user_score;
         })
+        
         // Увеличиваем resetKey для сброса состояния дочерних компонентов
         resetKey.value++;
         showToast('Прогресс урока успешно сброшен', 'success')
@@ -1101,7 +953,7 @@ export default {
     }
 
     // Add method to refresh time
-    const refreshTime = async () => {
+    const updateTime = async () => {
       try {
         const courseSlug = route.params.courseSlug
         const moduleId = route.params.moduleId
@@ -1129,145 +981,81 @@ export default {
     // Load article content when component is mounted
     onMounted(async () => {
       try {
-        isLoading.value = true
-        loadError.value = null
-        
-        // First, ensure we have valid tokens
-        const authStore = useRefreshStore()
-        const isReady = await authStore.ready()
-        
-        if (!isReady) {
-          throw new Error('Authentication required. Please log in again')
+        isLoading.value = true;
+        loadError.value = null;
+
+        // Check authentication
+        const refreshStore = useRefreshStore();
+        if (!refreshStore.isAuthenticated) {
+          throw new Error('Authentication required');
         }
-        
-        const courseSlug = route.params.courseSlug
-        const moduleId = route.params.moduleId
-        const lessonId = route.params.lessonId
-        
+
+        // Get route parameters
+        const { courseSlug, moduleId, lessonId } = route.params;
         if (!courseSlug || !moduleId || !lessonId) {
-          throw new Error('Отсутствуют необходимые параметры (курс, модуль или урок)')
+          throw new Error('Missing required parameters');
         }
 
-        // Load all required data in parallel
-        try {
-          const [lessonResponse, contentResponse, formsResponse] = await Promise.all([
-            // Get lesson details including end time
-            api.get(`/courses/${courseSlug}/modules/${moduleId}/lessons/${lessonId}/`),
-            // Load lesson content
-            api.get(`/courses/${courseSlug}/modules/${moduleId}/lessons/${lessonId}/contents/`),
-            // Load custom forms - explicitly call the forms endpoint
-            api.get(`/courses/${courseSlug}/modules/${moduleId}/lessons/${lessonId}/forms/`).catch(error => {
-              console.warn('Error loading forms:', error);
-              // Return empty array as fallback
-              return { data: [] };
-            })
-          ])
+        // Load lesson and content in parallel
+        const [lessonResponse, contentResponse, formsResponse] = await Promise.all([
+          api.get(`/courses/${courseSlug}/modules/${moduleId}/lessons/${lessonId}/`),
+          api.get(`/contents/?lesson_id=${lessonId}`),
+          api.get(`/forms/?lesson_id=${lessonId}`)
+        ]);
 
-          // Process lesson response
-          if (lessonResponse.data.end_datetime) {
-            startCountdown(lessonResponse.data.end_datetime)
+        // Process lesson response
+        article.value = lessonResponse.data;
+        if (typeof article.value.content_data === 'string') {
+          try {
+            article.value.content_data = JSON.parse(article.value.content_data);
+          } catch (e) {
+            console.error('Error parsing content_data:', e);
+            article.value.content_data = {};
           }
-          article.value.title = lessonResponse.data.title || 'Новая работа'
-          
-          // Process content response
-          contents.value = contentResponse.data.sort((a, b) => a.order - b.order)
-          originalContents.value = JSON.parse(JSON.stringify(contents.value))
-          
-          // Process forms response with better error handling
-          if (formsResponse.data && Array.isArray(formsResponse.data)) {
-            customForms.value = formsResponse.data.map(form => ({
-              ...form,
-              contents: Array.isArray(form.contents) ? form.contents : [],
-              total: Array.isArray(form.contents) ? form.contents.length : 0
-            }))
-            console.log('Successfully loaded forms:', customForms.value)
-          } else {
-            console.warn('No forms data received from server, checking localStorage')
-            // Try to load from localStorage as fallback
-            const savedForms = localStorage.getItem(`lesson_forms_${lessonId}`)
-            if (savedForms) {
-              try {
-                const parsedForms = JSON.parse(savedForms)
-                customForms.value = parsedForms.map(form => ({
-                  ...form,
-                  contents: Array.isArray(form.contents) ? form.contents : [],
-                  total: Array.isArray(form.contents) ? form.contents.length : 0
-                }))
-                console.log('Loaded forms from localStorage:', customForms.value)
-              } catch (e) {
-                console.error('Error parsing forms from localStorage:', e)
-                customForms.value = []
-              }
-            } else {
-              customForms.value = []
-            }
-          }
-          
-          // Set up interval to refresh time every minute
-          timeRefreshInterval = setInterval(refreshTime, 60000)
-
-        } catch (error) {
-          console.error('Error loading article content:', error)
-          if (error.message === 'Authentication required. Please log in again.') {
-            loadError.value = 'Требуется авторизация. Пожалуйста, войдите снова.'
-            setTimeout(() => {
-              router.push('/signin')
-            }, 2000)
-          } else {
-            loadError.value = error.response?.data?.detail || error.message || 'Ошибка загрузки содержимого'
-            
-            // Try to load from localStorage as fallback
-            const savedForms = localStorage.getItem(`lesson_forms_${lessonId}`)
-            if (savedForms) {
-              try {
-                const parsedForms = JSON.parse(savedForms)
-                customForms.value = parsedForms.map(form => ({
-                  ...form,
-                  contents: Array.isArray(form.contents) ? form.contents : [],
-                  total: Array.isArray(form.contents) ? form.contents.length : 0
-                }))
-                console.log('Loaded forms from localStorage:', customForms.value)
-              } catch (e) {
-                console.error('Error parsing forms from localStorage:', e)
-                customForms.value = []
-              }
-            }
-          }
-        } finally {
-          isLoading.value = false
         }
+
+        // Process content response
+        const processContent = (content) => {
+          if (typeof content.content_data === 'string') {
+            try {
+              content.content_data = JSON.parse(content.content_data);
+            } catch (e) {
+              console.error('Error parsing content_data:', e);
+              content.content_data = {};
+            }
+          }
+          return content;
+        };
+
+        // Filter and sort main content (not in forms)
+        contents.value = contentResponse.data
+          .filter(content => !content.form_id)
+          .map(processContent)
+          .sort((a, b) => a.order - b.order);
+
+        // Process forms
+        customForms.value = formsResponse.data.map(form => ({
+          ...form,
+          contents: form.contents
+            .map(processContent)
+            .sort((a, b) => a.order - b.order)
+        }));
+
+        // Set up time interval
+        timeRefreshInterval = setInterval(updateTime, 60000);
+        updateTime();
 
       } catch (error) {
-        console.error('Error loading article content:', error)
-        if (error.message === 'Authentication required. Please log in again.') {
-          loadError.value = 'Требуется авторизация. Пожалуйста, войдите снова.'
-          setTimeout(() => {
-            router.push('/signin')
-          }, 2000)
+        console.error('Error loading content:', error);
+        if (error.message === 'Authentication required') {
+          router.push('/sign-in');
         } else {
-          loadError.value = error.response?.data?.detail || error.message || 'Ошибка загрузки содержимого'
-          
-          // Try to load from localStorage as fallback
-          const savedForms = localStorage.getItem(`lesson_forms_${lessonId}`)
-          if (savedForms) {
-            try {
-              const parsedForms = JSON.parse(savedForms)
-              customForms.value = parsedForms.map(form => ({
-                ...form,
-                contents: Array.isArray(form.contents) ? form.contents : [],
-                total: Array.isArray(form.contents) ? form.contents.length : 0
-              }))
-              console.log('Loaded forms from localStorage:', customForms.value)
-            } catch (e) {
-              console.error('Error parsing forms from localStorage:', e)
-              customForms.value = []
-            }
-          }
+          loadError.value = 'Ошибка загрузки содержимого. Пожалуйста, попробуйте позже.';
         }
       } finally {
-        isLoading.value = false
+        isLoading.value = false;
       }
-    })
+    });
 
     // Clean up intervals when component is unmounted
     onUnmounted(() => {
@@ -1288,49 +1076,70 @@ export default {
     }
 
     const addNewBlock = (type) => {
-      if (!type) return
+      if (!type) return;
       const newContent = {
-        id: generateUniqueId(),
         type,
         order: customForms.value[activeFormIndex.value]?.contents.length + 1 || 1,
-        ...JSON.parse(JSON.stringify(DEFAULT_CONTENT[type])),
+        max_score: DEFAULT_CONTENT[type].max_score || 1,
+        content_data: {
+          ...JSON.parse(JSON.stringify(DEFAULT_CONTENT[type])),
+          id: undefined,
+          order: undefined,
+          type: undefined,
+          max_score: undefined
+        },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
-      }
+      };
+
       if (activeFormIndex.value >= 0) {
-        const formIndex = activeFormIndex.value
-        if (!customForms.value[formIndex]) return
-        customForms.value[formIndex].contents.push(newContent)
-        customForms.value[formIndex].total = customForms.value[formIndex].contents.length
-        updateFormContentOrder(formIndex)
-        showToast(`Элемент "${getContentTypeName(type)}" добавлен в форму "${customForms.value[formIndex].title}"`, 'success')
-        console.log('Текущее содержимое формы:', customForms.value[formIndex].contents)
+        const formIndex = activeFormIndex.value;
+        if (!customForms.value[formIndex]) return;
+        customForms.value[formIndex].contents.push(newContent);
+        customForms.value[formIndex].total = customForms.value[formIndex].contents.length;
+        updateFormContentOrder(formIndex);
+        showToast(`Элемент "${getContentTypeName(type)}" добавлен в форму "${customForms.value[formIndex].title}"`, 'success');
       } else {
-        contents.value.push(newContent)
-        changedIndices.value.add(contents.value.length - 1)
-        showToast(`Элемент "${getContentTypeName(type)}" добавлен`, 'success')
+        contents.value.push(newContent);
+        changedIndices.value.add(contents.value.length - 1);
+        showToast(`Элемент "${getContentTypeName(type)}" добавлен`, 'success');
       }
-      closeBlockModal()
-    }
+      closeBlockModal();
+    };
 
     const addContentToForm = (contentIndex) => {
       if (activeFormIndex.value < 0) {
-        showToast('Сначала выберите форму', 'warning')
-        return
+        showToast('Сначала выберите форму', 'warning');
+        return;
       }
-      const content = contents.value[contentIndex]
-      if (!content) return
-      // Копируем блок (глубокая копия)
-      const newContent = JSON.parse(JSON.stringify(content))
-      newContent.id = generateUniqueId()
-      newContent.order = customForms.value[activeFormIndex.value].contents.length + 1
-      newContent.created_at = new Date().toISOString()
-      newContent.updated_at = new Date().toISOString()
-      customForms.value[activeFormIndex.value].contents.push(newContent)
-      customForms.value[activeFormIndex.value].total = customForms.value[activeFormIndex.value].contents.length
-      updateFormContentOrder(activeFormIndex.value)
-      showToast('Блок добавлен в форму', 'success')
-    }
+      const content = contents.value[contentIndex];
+      if (!content) return;
+      
+      // Create a new content object without ID
+      const newContent = {
+        type: content.type,
+        order: customForms.value[activeFormIndex.value].contents.length + 1,
+        max_score: content.max_score || 1,
+        content_data: {
+          ...content,
+          id: undefined,
+          order: undefined,
+          type: undefined,
+          max_score: undefined,
+          created_at: undefined,
+          updated_at: undefined,
+          user_score: undefined,
+          user_answer: undefined
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      customForms.value[activeFormIndex.value].contents.push(newContent);
+      customForms.value[activeFormIndex.value].total = customForms.value[activeFormIndex.value].contents.length;
+      updateFormContentOrder(activeFormIndex.value);
+      showToast('Блок добавлен в форму', 'success');
+    };
 
     const handleImageUpload = async (file, contentIndex, formIndex = null) => {
       try {
@@ -1372,6 +1181,188 @@ export default {
         showToast('Ошибка при изменении состояния AI чата', 'error');
       }
     };
+
+    const goBack = async () => {
+      if (hasChanges.value) {
+        if (!confirm('У вас есть несохраненные изменения. Хотите выйти без сохранения?')) {
+          return;
+        }
+      }
+      try {
+        await router.push(`/courses/${route.params.courseSlug}`);
+      } catch (error) {
+        console.error('Navigation to course failed:', error);
+        showToast('Не удалось вернуться к курсу.', 'error');
+        router.push('/');
+      }
+    };
+
+    const toggleMode = () => {
+      if (userStore.role === 'admin') {
+        mode.value = mode.value === 'edit' ? 'preview' : 'edit';
+        
+        // Clear active form selection when switching to preview mode
+        if (mode.value === 'preview') {
+          activeFormIndex.value = -1;
+        }
+      }
+    };
+
+    const openBlockModal = () => {
+      // Check if a form is currently selected
+      if (activeFormIndex.value >= 0) {
+        currentFormIndex.value = activeFormIndex.value;
+        showBlockModal.value = true;
+        selectedBlockType.value = '';
+        showToast(`Добавление элемента в форму "${customForms.value[activeFormIndex.value].title}"`, 'info');
+      } else {
+        // If no form is selected, show a message to select a form first
+        showToast('Пожалуйста, выберите форму перед добавлением элемента', 'warning');
+      }
+    };
+
+    const closeBlockModal = () => {
+      showBlockModal.value = false;
+      selectedBlockType.value = '';
+    };
+
+    const createNewForm = () => {
+      const newForm = {
+        id: generateUniqueId(),
+        title: '', // Start with empty title
+        contents: [],
+        total: 0,
+        lesson_id: parseInt(route.params.lessonId), // Add lesson_id
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      customForms.value.push(newForm);
+      activeFormIndex.value = customForms.value.length - 1;
+      showToast('Новая форма создана.', 'success');
+    };
+
+    const removeForm = async (index) => {
+      if (!confirm('Вы уверены, что хотите удалить эту форму?')) return;
+      const form = customForms.value[index];
+      try {
+        if (form && typeof form.id === 'number') {
+          await api.delete(`/forms/${form.id}/`);
+        }
+        customForms.value.splice(index, 1);
+        showToast('Форма удалена.', 'success');
+      } catch (error) {
+        console.error('Error deleting form:', error);
+        showToast('Ошибка при удалении формы', 'error');
+      }
+    };
+
+    const onFormContentUpdate = (formIndex, contentIndex, updatedContent) => {
+      if (!customForms.value[formIndex]) return;
+      
+      const currentContent = customForms.value[formIndex].contents[contentIndex];
+      if (!currentContent) return;
+      
+      // Update the content
+      customForms.value[formIndex].contents[contentIndex] = {
+        ...currentContent,
+        ...updatedContent,
+        content_data: {
+          ...currentContent.content_data,
+          ...updatedContent
+        },
+        updated_at: new Date().toISOString()
+      };
+      
+      // Update total
+      customForms.value[formIndex].total = customForms.value[formIndex].contents.length;
+    };
+
+    const moveFormContentUp = (formIndex, contentIndex) => {
+      if (contentIndex > 0) {
+        const temp = customForms.value[formIndex].contents[contentIndex];
+        customForms.value[formIndex].contents[contentIndex] = customForms.value[formIndex].contents[contentIndex - 1];
+        customForms.value[formIndex].contents[contentIndex - 1] = temp;
+        updateFormContentOrder(formIndex);
+      }
+    };
+
+    const moveFormContentDown = (formIndex, contentIndex) => {
+      if (contentIndex < customForms.value[formIndex].contents.length - 1) {
+        const temp = customForms.value[formIndex].contents[contentIndex];
+        customForms.value[formIndex].contents[contentIndex] = customForms.value[formIndex].contents[contentIndex + 1];
+        customForms.value[formIndex].contents[contentIndex + 1] = temp;
+        updateFormContentOrder(formIndex);
+      }
+    };
+
+    const removeFormContent = (formIndex, contentIndex) => {
+      if (!confirm('Вы уверены, что хотите удалить этот элемент?')) return;
+      if (!customForms.value[formIndex]) return;
+      
+      customForms.value[formIndex].contents.splice(contentIndex, 1);
+      customForms.value[formIndex].total = customForms.value[formIndex].contents.length;
+      updateFormContentOrder(formIndex);
+      showToast('Элемент удален.', 'success');
+    };
+
+    const updateFormContentOrder = (formIndex) => {
+      customForms.value[formIndex].contents.forEach((content, index) => {
+        content.order = index + 1;
+      });
+    };
+
+    const openFormBlockModal = (formIndex) => {
+      currentFormIndex.value = formIndex;
+      showBlockModal.value = true;
+    };
+
+    const selectForm = (index, event) => {
+      if (event) {
+        event.stopPropagation();
+      }
+      activeFormIndex.value = index;
+    };
+
+    const onFormTitleChange = (index) => {
+      customForms.value[index].updated_at = new Date().toISOString();
+    };
+
+    const onFormTitleBlur = (index) => {
+      // Remove the automatic title setting, allowing empty titles
+      if (customForms.value[index].title === undefined) {
+        customForms.value[index].title = '';
+      }
+    };
+
+    const onFormTitleFocus = (index) => {
+      activeFormIndex.value = index;
+    };
+
+    const handleGlobalTextSelection = (event) => {
+      const selection = window.getSelection();
+      const text = selection.toString().trim();
+      handleTextSelection(text, event);
+    };
+
+    const beforeUnloadHandler = (e) => {
+      if (hasChanges.value) {
+        e.preventDefault();
+        e.returnValue = 'У вас есть несохраненные изменения. Вы уверены, что хотите уйти?';
+        return e.returnValue;
+      }
+    };
+
+    // Add event listeners for text selection and beforeunload
+    onMounted(() => {
+      document.addEventListener('mouseup', handleGlobalTextSelection);
+      window.addEventListener('beforeunload', beforeUnloadHandler);
+    });
+
+    // Remove event listeners when component is unmounted
+    onUnmounted(() => {
+      document.removeEventListener('mouseup', handleGlobalTextSelection);
+      window.removeEventListener('beforeunload', beforeUnloadHandler);
+    });
 
     return {
       userStore,

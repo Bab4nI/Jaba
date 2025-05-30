@@ -65,32 +65,50 @@ const localContent = ref({
 const fileInput = ref(null);
 
 const imageUrl = computed(() => {
-  if (!localContent.value.image_path) return '';
-  
-  // If it's a File object, create a local object URL
-  if (localContent.value.image_path instanceof File) {
-    return URL.createObjectURL(localContent.value.image_path);
-  }
-  
-  // If it's a string URL
-  if (typeof localContent.value.image_path === 'string') {
-    // If it's already a full URL (starts with http or https or data:), return as is
-    if (localContent.value.image_path.startsWith('http') || 
-        localContent.value.image_path.startsWith('data:') || 
-        localContent.value.image_path.startsWith('blob:')) {
-      return localContent.value.image_path;
+  const extractImagePath = (data) => {
+    // First check for direct image_path
+    if (data.image_path) {
+      return data.image_path;
     }
     
-    // If it's a Django media path (either starts with /media/ or is a relative path)
-    if (localContent.value.image_path.startsWith('/media/')) {
-      return `${apiBaseUrl}${localContent.value.image_path}`;
-    } else {
-      // Assume it's a relative media path
-      return `${apiBaseUrl}/media/${localContent.value.image_path}`;
+    // Then check content_data
+    if (data.content_data) {
+      // Check if image_path is directly in content_data
+      if (data.content_data.image_path) {
+        return data.content_data.image_path;
+      }
+      
+      // Check if there's nested content_data
+      if (data.content_data.content_data) {
+        if (data.content_data.content_data.image_path) {
+          return data.content_data.content_data.image_path;
+        }
+      }
     }
+    
+    return null;
+  };
+
+  const path = extractImagePath(props.content);
+  if (!path) return null;
+
+  // If it's a File object (local file)
+  if (path instanceof File) {
+    return URL.createObjectURL(path);
   }
-  
-  return '';
+
+  // If it's a full URL
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+
+  // If it's a Django media path
+  if (path.startsWith('/media/')) {
+    return `${import.meta.env.VITE_API_URL}${path}`;
+  }
+
+  // If it's just a filename
+  return `${import.meta.env.VITE_API_URL}/media/${path}`;
 });
 
 watch(() => props.content, (newVal) => {
