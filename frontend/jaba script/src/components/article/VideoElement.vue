@@ -315,8 +315,10 @@ watch(() => props.content.user_answer, (newUserAnswer) => {
         : newUserAnswer;
       
       if (progressData.videoWatched) {
+        videoWatched.value = true; // Ensure button hides if already watched
         isWatched.value = true;
         watchProgress.value = progressData.watchProgress || 0;
+        userScore.value = props.content.user_score || progressData.maxScore || localContent.value.max_score || 1;
       }
     } catch (e) {
       console.error('Error loading video progress:', e);
