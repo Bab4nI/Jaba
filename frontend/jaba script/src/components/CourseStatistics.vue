@@ -26,16 +26,15 @@
         <thead>
           <tr>
             <th>{{ selectedGroup === 'admins' ? 'Имя преподавателя' : 'Имя студента' }}</th>
-            <th v-for="work in works" :key="work.id">{{ work.title }}</th>
+            <th v-for="lesson in works" :key="lesson.id">{{ lesson.title || ('Урок ' + lesson.id) }}</th>
             <th>ИТОГ</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="(student, idx) in students" :key="student.id || idx">
             <td>{{ student.full_name || 'Имя' }}</td>
-            <td v-for="(work, workIdx) in works" :key="work.id" 
-                :class="{ 'fail': getStudentWorkProgress(student, work).isFail }">
-              {{ getStudentWorkProgress(student, work).value }}
+            <td v-for="lesson in works" :key="lesson.id">
+              {{ getStudentLessonScore(student, lesson) }}
             </td>
             <td :class="{ 'fail': getStudentTotal(student).isFail }">
               {{ getStudentTotal(student).value }}
@@ -71,6 +70,7 @@ const works = ref([]);
 
 const students = ref([]);
 const progressData = ref({});
+const lessonProgress = ref({});
 
 // Загрузка списка курсов при монтировании компонента
 onMounted(async () => {
@@ -128,30 +128,37 @@ const onCourseChange = async () => {
       }
     });
     const course = courseResponse.data;
+    console.log('DEBUG: course', course);
     
     // Сохраняем название курса
     courseName.value = course.title;
     
     // Подготавливаем массив работ (lessons)
     const allLessons = [];
-    
-    // Для каждого модуля загружаем уроки
-    for (const module of course.modules) {
-      const lessonsResponse = await api.get(`/courses/${selectedCourse.value}/modules/${module.id}/lessons/`, {
-        params: {
-          _t: new Date().getTime()
-        }
-      });
-      allLessons.push(...lessonsResponse.data);
+    if (course.modules && course.modules.length) {
+      for (const module of course.modules) {
+        console.log('DEBUG: module', module);
+        const lessonsResponse = await api.get(`/courses/${selectedCourse.value}/modules/${module.id}/lessons/`, {
+          params: {
+            _t: new Date().getTime()
+          }
+        });
+        console.log('DEBUG: lessons for module', module.id, lessonsResponse.data);
+        allLessons.push(...lessonsResponse.data);
+      }
+    } else {
+      console.warn('DEBUG: course.modules is empty or undefined');
     }
+    console.log('DEBUG: allLessons', allLessons);
   
     // Преобразуем уроки в формат работ для таблицы
     works.value = allLessons.map(lesson => ({
       id: lesson.id,
       title: lesson.title,
-      max_score: lesson.max_score || 5,
+      max_score: lesson.max_score !== undefined ? lesson.max_score : 0,
       type: lesson.type || 'ARTICLE'
     }));
+    console.log('DEBUG: works.value', works.value);
     
     // Если группа не выбрана, выбираем первую или admins
     if (!selectedGroup.value && groups.value.length > 0) {
@@ -356,6 +363,41 @@ watch(() => courseStore.refreshTrigger, async () => {
 
 // Фильтр для групп, чтобы не было дублирующегося 'admins'
 const filteredGroups = computed(() => groups.value.filter(g => g !== 'admins'));
+
+// Загрузка прогресса по всем урокам для всех студентов
+const loadLessonProgress = async () => {
+  lessonProgress.value = {};
+  for (const student of students.value) {
+    try {
+      const response = await api.get('/content-progress/', {
+        params: { user_id: student.id }
+      });
+      lessonProgress.value[student.id] = {};
+      for (const progress of response.data) {
+        lessonProgress.value[student.id][progress.content_id] = {
+          score: progress.score,
+          completed: progress.completed
+        };
+      }
+    } catch (e) {
+      lessonProgress.value[student.id] = {};
+    }
+  }
+};
+
+// После загрузки студентов и works вызываем loadLessonProgress
+watch([students, works], async () => {
+  if (students.value.length && works.value.length) {
+    await loadLessonProgress();
+  }
+});
+
+// Для отображения в таблице:
+const getStudentLessonScore = (student, lesson) => {
+  const data = lessonProgress.value[student.id]?.[lesson.id];
+  if (lesson.max_score === 0) return '-';
+  return data ? `${data.score}/${lesson.max_score}` : `0/${lesson.max_score}`;
+};
 </script>
 
 <style scoped>
