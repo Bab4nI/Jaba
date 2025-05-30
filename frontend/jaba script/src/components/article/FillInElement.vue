@@ -222,12 +222,15 @@ const submitAnswers = () => {
     }));
   }
   
-  // Emit the result
+  // Emit the result with the correct format
   emit('answer-submitted', {
     contentId: props.content.id,
-    userAnswers: userAnswers.value,
     score: userScore.value,
-    maxScore: localContent.value.max_score
+    userAnswer: {
+      userAnswers: userAnswers.value,
+      correctAnswers: localContent.value.answers,
+      maxScore: localContent.value.max_score
+    }
   });
 };
 
@@ -241,12 +244,15 @@ const resetQuiz = () => {
     localStorage.removeItem(`fillin_${props.content.id}`);
   }
   
-  // Emit reset
+  // Emit reset with the correct format
   emit('answer-submitted', {
     contentId: props.content.id,
-    userAnswers: [],
     score: 0,
-    maxScore: localContent.value.max_score
+    userAnswer: {
+      userAnswers: [],
+      correctAnswers: localContent.value.answers,
+      maxScore: localContent.value.max_score
+    }
   });
 };
 
@@ -274,9 +280,12 @@ watch(() => props.readOnly, (newVal) => {
     // Emit reset
     emit('answer-submitted', {
       contentId: props.content.id,
-      userAnswers: [],
       score: 0,
-      maxScore: localContent.value.max_score
+      userAnswer: {
+        userAnswers: [],
+        correctAnswers: localContent.value.answers,
+        maxScore: localContent.value.max_score
+      }
     });
   }
 });

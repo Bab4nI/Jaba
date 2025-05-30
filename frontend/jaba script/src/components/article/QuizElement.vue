@@ -170,35 +170,65 @@ const userScore = ref(null);
 onMounted(() => {
   // Load saved state from localStorage if available
   if (props.readOnly && props.content.id) {
-    const savedData = localStorage.getItem(storageKey.value);
-    if (savedData) {
+    // First try to load from props if we have progress data
+    if (props.content.user_answer) {
       try {
-        const data = JSON.parse(savedData);
-        selectedAnswers.value = Array.isArray(data.selectedAnswers) ? data.selectedAnswers : [];
-        quizSubmitted.value = data.quizSubmitted;
-        userScore.value = data.userScore;
-        console.log(`Loaded saved state for quiz ${props.content.id}:`, { 
+        const progressData = typeof props.content.user_answer === 'string' 
+          ? JSON.parse(props.content.user_answer) 
+          : props.content.user_answer;
+        
+        selectedAnswers.value = progressData.selectedAnswers || [];
+        quizSubmitted.value = true;
+        userScore.value = props.content.user_score || 0;
+        
+        console.log(`Loaded progress data for quiz ${props.content.id}:`, { 
           selectedAnswers: selectedAnswers.value, 
           quizSubmitted: quizSubmitted.value, 
           userScore: userScore.value 
         });
         
-        // If we have a saved answer, emit it to update the parent score
-        if (quizSubmitted.value && selectedAnswers.value.length > 0) {
-          const correctSet = new Set(localContent.value.correct_answers);
-          const userSet = new Set(selectedAnswers.value);
-          const correctCount = localContent.value.correct_answers.filter(idx => userSet.has(idx)).length;
-          const totalCorrect = localContent.value.correct_answers.length;
-          const score = totalCorrect > 0 ? Math.round((correctCount / totalCorrect) * localContent.value.max_score) : 0;
-          emit('answer-submitted', {
-            contentId: props.content.id,
-            selectedAnswers: selectedAnswers.value,
-            score: score,
-            maxScore: localContent.value.max_score
-          });
-        }
+        // Emit the loaded state to update parent score
+        emit('answer-submitted', {
+          contentId: props.content.id,
+          selectedAnswers: selectedAnswers.value,
+          score: userScore.value,
+          maxScore: localContent.value.max_score
+        });
       } catch (e) {
-        console.error('Error loading quiz state:', e);
+        console.error('Error loading quiz progress:', e);
+      }
+    } else {
+      // Fallback to localStorage if no progress data
+      const savedData = localStorage.getItem(storageKey.value);
+      if (savedData) {
+        try {
+          const data = JSON.parse(savedData);
+          selectedAnswers.value = Array.isArray(data.selectedAnswers) ? data.selectedAnswers : [];
+          quizSubmitted.value = data.quizSubmitted;
+          userScore.value = data.userScore;
+          console.log(`Loaded saved state for quiz ${props.content.id}:`, { 
+            selectedAnswers: selectedAnswers.value, 
+            quizSubmitted: quizSubmitted.value, 
+            userScore: userScore.value 
+          });
+          
+          // If we have a saved answer, emit it to update the parent score
+          if (quizSubmitted.value && selectedAnswers.value.length > 0) {
+            const correctSet = new Set(localContent.value.correct_answers);
+            const userSet = new Set(selectedAnswers.value);
+            const correctCount = localContent.value.correct_answers.filter(idx => userSet.has(idx)).length;
+            const totalCorrect = localContent.value.correct_answers.length;
+            const score = totalCorrect > 0 ? Math.round((correctCount / totalCorrect) * localContent.value.max_score) : 0;
+            emit('answer-submitted', {
+              contentId: props.content.id,
+              selectedAnswers: selectedAnswers.value,
+              score: score,
+              maxScore: localContent.value.max_score
+            });
+          }
+        } catch (e) {
+          console.error('Error loading quiz state:', e);
+        }
       }
     }
   }
@@ -279,12 +309,15 @@ const submitQuiz = () => {
   const totalCorrect = localContent.value.correct_answers.length;
   userScore.value = totalCorrect > 0 ? Math.round((correctCount / totalCorrect) * localContent.value.max_score) : 0;
   
-  // Emit event for parent components
+  // Emit event for parent components with the correct format
   emit('answer-submitted', {
     contentId: props.content.id,
-    selectedAnswers: selectedAnswers.value,
     score: userScore.value,
-    maxScore: localContent.value.max_score
+    userAnswer: {
+      selectedAnswers: selectedAnswers.value,
+      correctAnswers: localContent.value.correct_answers,
+      maxScore: localContent.value.max_score
+    }
   });
   
   // Log the submission for debugging

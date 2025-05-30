@@ -174,11 +174,15 @@ const markVideoWatched = () => {
   videoWatched.value = true;
   userScore.value = localContent.value.max_score;
   
-  // Emit event for parent components
+  // Emit event for parent components in the correct format
   emit('answer-submitted', {
     contentId: props.content.id,
     score: userScore.value,
-    maxScore: localContent.value.max_score
+    userAnswer: {
+      videoWatched: true,
+      watchProgress: watchProgress.value,
+      maxScore: localContent.value.max_score
+    }
   });
 };
 
@@ -189,11 +193,15 @@ const resetVideo = () => {
   watchProgress.value = 0;
   isWatched.value = false;
   
-  // Emit event to reset score in parent component
+  // Emit event to reset score in parent component in the correct format
   emit('answer-submitted', {
     contentId: props.content.id,
     score: 0,
-    maxScore: localContent.value.max_score
+    userAnswer: {
+      videoWatched: false,
+      watchProgress: 0,
+      maxScore: localContent.value.max_score
+    }
   });
   
   console.log('Reset video state for:', props.content.id);

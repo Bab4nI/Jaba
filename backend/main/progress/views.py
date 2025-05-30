@@ -6,12 +6,18 @@ from django.shortcuts import get_object_or_404
 from .models import ContentProgress
 from content.models import Content
 from courses.models import Lesson
+from .serializers import ContentProgressSerializer
 
 class ContentProgressViewSet(viewsets.ModelViewSet):
+    serializer_class = ContentProgressSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return ContentProgress.objects.filter(user=self.request.user)
+        queryset = ContentProgress.objects.filter(user=self.request.user)
+        lesson_id = self.request.query_params.get('lesson_id')
+        if lesson_id:
+            queryset = queryset.filter(content__lesson_id=lesson_id)
+        return queryset
 
     @action(detail=False, methods=['post'])
     def update_progress(self, request):

@@ -161,23 +161,20 @@ const handleAnswerSubmitted = (data) => {
     originalData: data
   });
   
-  // If data is an object with score, pass it along with the content ID
+  // If data is an object with score and userAnswer
   if (typeof data === 'object' && data !== null) {
-    if (data.score !== undefined) {
-      // If the object already has a contentId property, use it directly
-      if (data.contentId !== undefined) {
-        // Pass the object as is to the parent
-        emit('answer-submitted', data);
-      } else {
-        // Add the contentId and pass to the parent
-        emit('answer-submitted', contentId, data.score);
-      }
-    } else {
-      emit('answer-submitted', contentId, 0);
-    }
+    emit('answer-submitted', {
+      contentId: contentId,
+      score: data.score || 0,
+      userAnswer: data.userAnswer || data.answer || data
+    });
   } else {
-    // If data is just a score value or something else, pass it directly
-    emit('answer-submitted', contentId, data);
+    // If data is just a score value, pass it with empty userAnswer
+    emit('answer-submitted', {
+      contentId: contentId,
+      score: data || 0,
+      userAnswer: {}
+    });
   }
 };
 

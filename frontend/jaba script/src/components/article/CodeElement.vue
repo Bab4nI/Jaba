@@ -373,13 +373,16 @@ const calculateAndSubmitScore = () => {
     type: 'code'
   });
   
-  // Emit event for parent components in the same format as QuizElement
+  // Emit event for parent components in the correct format
   emit('answer-submitted', {
     contentId: props.content.id,
-    code: localContent.value.code,
     score: userScore.value,
-    maxScore: localContent.value.max_score,
-    resultMatches: resultMatches.value
+    userAnswer: {
+      code: localContent.value.code,
+      executionResult: executionResult.value,
+      resultMatches: resultMatches.value,
+      maxScore: localContent.value.max_score
+    }
   });
   
   // Log the submission for debugging
@@ -397,11 +400,16 @@ const resetSubmission = () => {
   codeSubmitted.value = false;
   userScore.value = null;
   
-  // Emit event to reset score in parent component in the same format as QuizElement
+  // Emit event to reset score in parent component in the correct format
   emit('answer-submitted', {
     contentId: props.content.id,
     score: 0,
-    maxScore: localContent.value.max_score
+    userAnswer: {
+      code: '',
+      executionResult: null,
+      resultMatches: false,
+      maxScore: localContent.value.max_score
+    }
   });
   
   console.log('Reset submission for:', props.content.id);

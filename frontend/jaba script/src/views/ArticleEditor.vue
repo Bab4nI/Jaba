@@ -848,24 +848,28 @@ export default {
         // Handle both formats: direct score value or object with score property
         let numericScore = 0
         let actualContentId = contentId
+        let userAnswer = {}
         
         if (typeof contentId === 'object' && contentId !== null) {
           numericScore = parseInt(contentId.score) || 0
           actualContentId = contentId.contentId
+          userAnswer = contentId.userAnswer || {}
         } else {
           numericScore = parseInt(score) || 0
         }
 
         // Submit answer using content progress endpoint
-        const response = await api.post(`/api/content-progress/update_progress/`, {
+        const response = await api.post(`/content-progress/update_progress/`, {
           content_id: actualContentId,
-          score: numericScore
-        })
+          score: numericScore,
+          user_answer: userAnswer
+        });
 
         // Update local state
         for (let i = 0; i < contents.value.length; i++) {
           if (contents.value[i].id === actualContentId) {
             contents.value[i].user_score = numericScore
+            contents.value[i].user_answer = userAnswer
             break
           }
         }
@@ -885,9 +889,9 @@ export default {
         isLessonCompleted.value = false
         
         // Reset progress using content progress endpoint
-        await api.post(`/api/content-progress/reset_progress/`, {
+        await api.post(`/content-progress/reset_progress/`, {
           lesson_id: lessonId
-        })
+        });
         
         // Reset local state
         contents.value.forEach(content => {
@@ -1000,11 +1004,12 @@ export default {
           throw new Error('Missing required parameters');
         }
 
-        // Load lesson and content in parallel
-        const [lessonResponse, contentResponse, formsResponse] = await Promise.all([
+        // Load lesson, content, forms and progress in parallel
+        const [lessonResponse, contentResponse, formsResponse, progressResponse] = await Promise.all([
           api.get(`/courses/${courseSlug}/modules/${moduleId}/lessons/${lessonId}/`),
           api.get(`/contents/?lesson_id=${lessonId}`),
-          api.get(`/forms/?lesson_id=${lessonId}`)
+          api.get(`/forms/?lesson_id=${lessonId}`),
+          api.get(`/content-progress/?lesson_id=${lessonId}`)
         ]);
 
         // Process lesson response
@@ -1032,6 +1037,14 @@ export default {
           if (!content.content_data || typeof content.content_data !== 'object') {
             content.content_data = {};
           }
+
+          // Find progress for this content
+          const progress = progressResponse.data.find(p => p.content_id === content.id);
+          if (progress) {
+            content.user_score = progress.score;
+            content.user_answer = progress.user_answer;
+          }
+
           return content;
         };
 
