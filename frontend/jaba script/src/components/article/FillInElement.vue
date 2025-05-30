@@ -126,33 +126,42 @@ const userScore = ref(null);
 // Generate a unique ID for this component instance
 const uniqueId = ref(`fillin-${Date.now()}-${Math.floor(Math.random() * 10000)}`);
 
-// Initialize from localStorage if there's saved progress
+// Initialize from props if there's saved progress
 onMounted(() => {
   if (props.readOnly && props.content.id) {
-    const savedData = localStorage.getItem(`fillin_${props.content.id}`);
-    if (savedData) {
+    // Load progress data from props
+    if (props.content.user_answer) {
       try {
-        const data = JSON.parse(savedData);
-        userAnswers.value = data.userAnswers;
-        isSubmitted.value = data.isSubmitted;
-        userScore.value = data.userScore;
+        const progressData = typeof props.content.user_answer === 'string' 
+          ? JSON.parse(props.content.user_answer) 
+          : props.content.user_answer;
         
-        // If we have saved answers, emit them to update the parent score
-        if (isSubmitted.value && userScore.value !== null) {
-          emit('answer-submitted', {
-            contentId: props.content.id,
+        userAnswers.value = progressData.userAnswers || [];
+        isSubmitted.value = true;
+        userScore.value = props.content.user_score || 0;
+        
+        console.log(`Loaded progress data for fillin ${props.content.id}:`, { 
+          userAnswers: userAnswers.value, 
+          isSubmitted: isSubmitted.value, 
+          userScore: userScore.value 
+        });
+        
+        // Emit the loaded state to update parent score
+        emit('answer-submitted', {
+          contentId: props.content.id,
+          score: userScore.value,
+          userAnswer: {
             userAnswers: userAnswers.value,
-            score: userScore.value,
+            correctAnswers: localContent.value.answers,
             maxScore: localContent.value.max_score
-          });
-        }
+          }
+        });
       } catch (e) {
-        console.error('Error loading fill-in state:', e);
-        // Reset state if there's an error loading saved data
+        console.error('Error loading fillin progress:', e);
         resetQuiz();
       }
     } else {
-      // Reset state if no saved data exists
+      // Reset state if no progress data exists
       resetQuiz();
     }
   }
@@ -213,15 +222,6 @@ const submitAnswers = () => {
   const totalBlanks = blankCount.value;
   userScore.value = Math.round((correctAnswers / totalBlanks) * localContent.value.max_score);
   
-  // Save state to localStorage
-  if (props.content.id) {
-    localStorage.setItem(`fillin_${props.content.id}`, JSON.stringify({
-      userAnswers: userAnswers.value,
-      isSubmitted: true,
-      userScore: userScore.value
-    }));
-  }
-  
   // Emit the result with the correct format
   emit('answer-submitted', {
     contentId: props.content.id,
@@ -239,11 +239,6 @@ const resetQuiz = () => {
   isSubmitted.value = false;
   userScore.value = null;
   
-  // Clear localStorage
-  if (props.content.id) {
-    localStorage.removeItem(`fillin_${props.content.id}`);
-  }
-  
   // Emit reset with the correct format
   emit('answer-submitted', {
     contentId: props.content.id,
@@ -256,6 +251,24 @@ const resetQuiz = () => {
   });
 };
 
+// Watch for content changes to handle user_answer updates
+watch(() => props.content.user_answer, (newUserAnswer) => {
+  if (props.readOnly && newUserAnswer) {
+    try {
+      const progressData = typeof newUserAnswer === 'string' 
+        ? JSON.parse(newUserAnswer) 
+        : newUserAnswer;
+      
+      userAnswers.value = progressData.userAnswers || [];
+      isSubmitted.value = true;
+      userScore.value = props.content.user_score || 0;
+    } catch (e) {
+      console.error('Error loading fillin progress:', e);
+      resetQuiz();
+    }
+  }
+}, { immediate: true });
+
 watch(() => props.content, (newContent) => {
   localContent.value = {
     ...newContent,
@@ -263,32 +276,6 @@ watch(() => props.content, (newContent) => {
     answers: getContentData(newContent).answers || newContent.answers || []
   };
 }, { deep: true });
-
-// Add watch for readOnly prop to handle reset
-watch(() => props.readOnly, (newVal) => {
-  if (newVal) {
-    // Reset the component state when readOnly changes to true
-    userAnswers.value = [];
-    isSubmitted.value = false;
-    userScore.value = null;
-    
-    // Clear localStorage
-    if (props.content.id) {
-      localStorage.removeItem(`fillin_${props.content.id}`);
-    }
-    
-    // Emit reset
-    emit('answer-submitted', {
-      contentId: props.content.id,
-      score: 0,
-      userAnswer: {
-        userAnswers: [],
-        correctAnswers: localContent.value.answers,
-        maxScore: localContent.value.max_score
-      }
-    });
-  }
-});
 </script>
 
 <style scoped>

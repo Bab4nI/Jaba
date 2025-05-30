@@ -736,6 +736,12 @@ export default {
             ? { ...required, ...content.content_data }
             : { ...required };
 
+          // Special handling for fillin type
+          if (type === 'fillin') {
+            data.text = content.text || content.content_data?.text || '';
+            data.answers = content.answers || content.content_data?.answers || [];
+          }
+
           // Удаляем служебные поля
           delete data.id;
           delete data.order;

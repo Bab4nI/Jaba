@@ -148,6 +148,13 @@ const onContentUpdate = (updatedContent) => {
       ...updatedContent.content_data
     }
   };
+
+  // Special handling for fillin type
+  if (props.content.type === 'fillin') {
+    localContent.value.text = updatedContent.text || localContent.value.text;
+    localContent.value.answers = updatedContent.answers || localContent.value.answers;
+  }
+
   emit('update:content', localContent.value);
 };
 
