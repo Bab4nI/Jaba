@@ -105,7 +105,7 @@ def group_statistics(request):
     if group == 'admins':
         users = User.objects.filter(is_staff=True)
     else:
-        users = User.objects.filter(groups__name=group)
+        users = User.objects.filter(role='student', group=group)
 
     # Для каждого пользователя
     users_data = []
