@@ -382,57 +382,50 @@ export default {
     // Calculate total maximum score based on all content elements
     const maxScore = computed(() => {
       let total = 0;
-      // Собираем все id элементов, которые входят в формы
-      const formContentIds = new Set();
-      customForms.value.forEach(form => {
-        form.contents.forEach(content => {
-          if (content.id) formContentIds.add(content.id);
-        });
-      });
+      const countedIds = new Set();
+      const disabledTypes = ['text', 'image', 'table', 'file'];
 
-      // Считаем баллы только для тех, кто не входит в формы
+      // Count all unique content ids from both main contents and forms
       contents.value.forEach(content => {
-        const disabledTypes = ['text', 'image', 'table', 'file'];
-        if (!disabledTypes.includes(content.type) && !formContentIds.has(content.id)) {
-          const contentMaxScore = parseInt(content.max_score) || 1;
-          total += contentMaxScore;
+        if (!disabledTypes.includes(content.type) && content.id && !countedIds.has(content.id)) {
+          total += parseInt(content.max_score) || 1;
+          countedIds.add(content.id);
         }
       });
-
-      // Добавляем баллы из форм
       customForms.value.forEach(form => {
         form.contents.forEach(content => {
-          const disabledTypes = ['text', 'image', 'table', 'file'];
-          if (!disabledTypes.includes(content.type)) {
-            const contentMaxScore = parseInt(content.max_score) || 1;
-            total += contentMaxScore;
+          if (!disabledTypes.includes(content.type) && content.id && !countedIds.has(content.id)) {
+            total += parseInt(content.max_score) || 1;
+            countedIds.add(content.id);
           }
         });
       });
-
       return total;
     });
     
     // Calculate current score based on user_score values
     const totalScore = computed(() => {
       let total = 0;
-      
+      const countedIds = new Set();
+
       // Add scores from main contents
       contents.value.forEach(content => {
-        if (content.user_score !== undefined) {
+        if (content.user_score !== undefined && !countedIds.has(content.id)) {
           total += parseInt(content.user_score) || 0;
+          countedIds.add(content.id);
         }
       });
-      
-      // Add scores from forms
+
+      // Add scores from forms (only unique ids)
       customForms.value.forEach(form => {
         form.contents.forEach(content => {
-          if (content.user_score !== undefined) {
+          if (content.user_score !== undefined && content.id && !countedIds.has(content.id)) {
             total += parseInt(content.user_score) || 0;
+            countedIds.add(content.id);
           }
         });
       });
-      
+
       return total;
     });
     
