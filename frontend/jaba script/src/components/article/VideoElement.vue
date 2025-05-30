@@ -174,16 +174,6 @@ const markVideoWatched = () => {
   videoWatched.value = true;
   userScore.value = localContent.value.max_score;
   
-  // Save to localStorage
-  if (props.content.id) {
-    localStorage.setItem(`video_${props.content.id}`, JSON.stringify({
-      videoWatched: videoWatched.value,
-      userScore: userScore.value,
-      progress: watchProgress.value,
-      isWatched: isWatched.value
-    }));
-  }
-  
   // Emit event for parent components
   emit('answer-submitted', {
     contentId: props.content.id,
@@ -198,11 +188,6 @@ const resetVideo = () => {
   userScore.value = null;
   watchProgress.value = 0;
   isWatched.value = false;
-  
-  // Clear saved state
-  if (props.content.id) {
-    localStorage.removeItem(`video_${props.content.id}`);
-  }
   
   // Emit event to reset score in parent component
   emit('answer-submitted', {
@@ -294,40 +279,11 @@ const handleVideoProgress = (event) => {
 };
 
 const saveProgress = () => {
-  if (props.content.id) {
-    localStorage.setItem(`video_${props.content.id}`, JSON.stringify({
-      progress: watchProgress.value,
-      isWatched: isWatched.value,
-      videoWatched: videoWatched.value,
-      userScore: userScore.value
-    }));
-  }
+  // No need to save to localStorage, as we're not using localStorage anymore
 };
 
 const loadSavedProgress = () => {
-  if (props.content.id) {
-    const savedData = localStorage.getItem(`video_${props.content.id}`);
-    if (savedData) {
-      try {
-        const data = JSON.parse(savedData);
-        watchProgress.value = data.progress;
-        isWatched.value = data.isWatched;
-        videoWatched.value = data.videoWatched;
-        userScore.value = data.userScore;
-        
-        if (isWatched.value || videoWatched.value) {
-          emit('answer-submitted', {
-            contentId: props.content.id,
-            score: localContent.value.max_score,
-            maxScore: localContent.value.max_score,
-            progress: watchProgress.value
-          });
-        }
-      } catch (error) {
-        console.error('Error loading video progress:', error);
-      }
-    }
-  }
+  // No need to load from localStorage, as we're not using localStorage anymore
 };
 
 // Add event listener for video progress

@@ -216,22 +216,6 @@
         </div>
       </div>
     </div>
-
-    <div v-if="contents.length > 0" class="main-content-blocks">
-      <ContentBlock
-        v-for="(element, index) in contents"
-        :key="element.id || index"
-        :content="element"
-        :read-only="isContentReadOnly"
-        :is-time-expired="isTimeExpired"
-        :is-first="index === 0"
-        :is-last="index === contents.length - 1"
-        @update:content="onContentUpdate(index, $event)"
-        @remove="removeContent(index)"
-        @answer-submitted="onAnswerSubmitted"
-        :reset-key="resetKey"
-      />
-    </div>
   </div>
 </template>
 
@@ -398,17 +382,24 @@ export default {
     // Calculate total maximum score based on all content elements
     const maxScore = computed(() => {
       let total = 0;
-      
-      // Add scores from main contents
+      // Собираем все id элементов, которые входят в формы
+      const formContentIds = new Set();
+      customForms.value.forEach(form => {
+        form.contents.forEach(content => {
+          if (content.id) formContentIds.add(content.id);
+        });
+      });
+
+      // Считаем баллы только для тех, кто не входит в формы
       contents.value.forEach(content => {
         const disabledTypes = ['text', 'image', 'table', 'file'];
-        if (!disabledTypes.includes(content.type)) {
+        if (!disabledTypes.includes(content.type) && !formContentIds.has(content.id)) {
           const contentMaxScore = parseInt(content.max_score) || 1;
           total += contentMaxScore;
         }
       });
-      
-      // Add scores from forms
+
+      // Добавляем баллы из форм
       customForms.value.forEach(form => {
         form.contents.forEach(content => {
           const disabledTypes = ['text', 'image', 'table', 'file'];
@@ -418,7 +409,7 @@ export default {
           }
         });
       });
-      
+
       return total;
     });
     
@@ -488,9 +479,6 @@ export default {
       };
       
       changedIndices.value.add(index);
-      
-      // Save the updated score to localStorage
-      saveScoreToLocalStorage();
     }, 500);
 
     const handleTextSelection = (text, event) => {
@@ -916,19 +904,6 @@ export default {
         isSaving.value = false
       }
     }
-
-    // Function to save the current score to localStorage
-    const saveScoreToLocalStorage = () => {
-      try {
-        localStorage.setItem(`lesson_score_${article.value.id}`, JSON.stringify({
-          total: totalScore.value,
-          max: maxScore.value
-        }));
-        console.log(`Saved score to localStorage: ${totalScore.value}/${maxScore.value}`);
-      } catch (error) {
-        console.error('Error saving score to localStorage:', error);
-      }
-    };
 
     const formatTimeRemaining = (ms) => {
       const seconds = Math.floor(ms / 1000)

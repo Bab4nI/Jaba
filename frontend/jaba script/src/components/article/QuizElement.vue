@@ -279,15 +279,6 @@ const submitQuiz = () => {
   const totalCorrect = localContent.value.correct_answers.length;
   userScore.value = totalCorrect > 0 ? Math.round((correctCount / totalCorrect) * localContent.value.max_score) : 0;
   
-  // Save progress to localStorage using content ID
-  if (props.content.id) {
-    localStorage.setItem(storageKey.value, JSON.stringify({
-      selectedAnswers: selectedAnswers.value,
-      quizSubmitted: quizSubmitted.value,
-      userScore: userScore.value
-    }));
-  }
-  
   // Emit event for parent components
   emit('answer-submitted', {
     contentId: props.content.id,
@@ -310,11 +301,6 @@ const resetQuiz = () => {
   selectedAnswers.value = [];
   quizSubmitted.value = false;
   userScore.value = null;
-  
-  // Clear saved progress using content ID
-  if (props.content.id) {
-    localStorage.removeItem(storageKey.value);
-  }
 };
 
 // Auto-resize textarea to fit content
@@ -350,9 +336,6 @@ watch(() => props.resetKey, () => {
   selectedAnswers.value = [];
   quizSubmitted.value = false;
   userScore.value = null;
-  if (props.content.id) {
-    localStorage.removeItem(storageKey.value);
-  }
 });
 </script>
 

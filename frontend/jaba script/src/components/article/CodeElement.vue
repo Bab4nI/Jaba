@@ -366,14 +366,6 @@ const calculateAndSubmitScore = () => {
   codeSubmitted.value = true;
   userScore.value = score;
   
-  // Save to localStorage
-  if (props.content.id) {
-    localStorage.setItem(`code_${props.content.id}`, JSON.stringify({
-      codeSubmitted: codeSubmitted.value,
-      userScore: userScore.value
-    }));
-  }
-  
   // Debug logs
   console.log('Submitting score with:', {
     contentId: props.content.id,
@@ -404,11 +396,6 @@ const calculateAndSubmitScore = () => {
 const resetSubmission = () => {
   codeSubmitted.value = false;
   userScore.value = null;
-  
-  // Clear saved state
-  if (props.content.id) {
-    localStorage.removeItem(`code_${props.content.id}`);
-  }
   
   // Emit event to reset score in parent component in the same format as QuizElement
   emit('answer-submitted', {
@@ -492,7 +479,6 @@ const emitUpdate = () => {
     taskDescription: localContent.value.taskDescription,
     expectedResult: localContent.value.expectedResult
   })
-  localStorage.setItem('code-editor-content', JSON.stringify(localContent.value))
 }
 
 const handleKeydown = (event) => {
