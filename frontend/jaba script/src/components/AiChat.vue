@@ -94,7 +94,8 @@ export default {
     const aiStore = useAIStore()
     const themeStore = useThemeStore()
     const aiUserPrompt = ref('')
-    let isSelecting = false
+    const isSelecting = ref(false)
+    const showAIButton = ref(false)
 
     // Configure marked options
     marked.setOptions({
@@ -124,7 +125,10 @@ export default {
       // First remove any existing button
       removeExistingButton()
       
-      if (!selectedText || selectedText.trim().length < 5 || !aiStore.isEnabled) return
+      if (!selectedText || selectedText.trim().length < 5 || !aiStore.isEnabled) {
+        isSelecting.value = false
+        return
+      }
       
       const button = document.createElement('button')
       button.className = 'ai-floating-btn'
@@ -175,6 +179,7 @@ export default {
         
         // Clean up
         removeExistingButton()
+        isSelecting.value = false
       })
       
       document.body.appendChild(button)
@@ -192,7 +197,7 @@ export default {
     const handleMouseDown = (e) => {
       // Only track selection if not clicking on our button
       if (!e.target.closest('.ai-floating-btn')) {
-        isSelecting = true
+        isSelecting.value = true
         removeExistingButton()
       }
     }
@@ -204,17 +209,23 @@ export default {
         return
       }
       
-      if (isSelecting) {
+      if (isSelecting.value) {
         setTimeout(() => {
           const selection = window.getSelection()
-          if (!selection) return
+          if (!selection) {
+            isSelecting.value = false
+            return
+          }
           
           const text = selection.toString().trim()
           
           if (text.length > 5) {
             try {
               const range = selection.getRangeAt(0)
-              if (!range) return
+              if (!range) {
+                isSelecting.value = false
+                return
+              }
               
               const rect = range.getBoundingClientRect()
               
@@ -229,17 +240,20 @@ export default {
               createFloatingButton(text, scrolledRect)
             } catch (e) {
               console.error('Error creating AI button:', e)
+              isSelecting.value = false
             }
+          } else {
+            isSelecting.value = false
           }
         }, 10)
       }
-      isSelecting = false
     }
 
     // Handle click anywhere to remove button if it's not on the button itself
     const handleDocumentClick = (e) => {
-      if (!e.target.closest('.ai-floating-btn') && !isSelecting) {
+      if (!e.target.closest('.ai-floating-btn')) {
         removeExistingButton()
+        isSelecting.value = false
       }
     }
 
@@ -287,10 +301,20 @@ export default {
       try {
         aiStore.reset()
         aiUserPrompt.value = ''
+        showAIButton.value = false
+        isSelecting.value = false
+        removeExistingButton()
         emit('close-modal')
       } catch (error) {
         console.error('Error in closeAiModal:', error)
       }
+    }
+
+    const closeAiModalButton = () => {
+      showAIButton.value = false
+      isSelecting.value = false
+      removeExistingButton()
+      emit('close-modal')
     }
 
     onMounted(() => {
@@ -315,6 +339,7 @@ export default {
       aiSimplifyText,
       aiAskCustom,
       closeAiModal,
+      closeAiModalButton,
       renderMarkdown
     }
   }

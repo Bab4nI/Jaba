@@ -4,24 +4,25 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('courses', '0002_lesson_max_score_lesson_start_datetime'),
+        ("courses", "0002_lesson_max_score_lesson_start_datetime"),
     ]
 
     operations = [
         migrations.AlterUniqueTogether(
-            name='lesson',
-            unique_together={('module', 'order')},
+            name="lesson",
+            unique_together={("module", "order")},
         ),
         migrations.AddField(
-            model_name='lesson',
-            name='content',
+            model_name="lesson",
+            name="content",
             field=models.TextField(blank=True),
         ),
         migrations.AddField(
-            model_name='lesson',
-            name='end_datetime',
-            field=models.DateTimeField(blank=True, help_text='Дата и время окончания урока', null=True),
+            model_name="lesson",
+            name="end_datetime",
+            field=models.DateTimeField(
+                blank=True, help_text="Дата и время окончания урока", null=True
+            ),
         ),
     ]

@@ -4,20 +4,21 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('courses', '0001_initial'),
+        ("courses", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='lesson',
-            name='max_score',
+            model_name="lesson",
+            name="max_score",
             field=models.IntegerField(default=5),
         ),
         migrations.AddField(
-            model_name='lesson',
-            name='start_datetime',
-            field=models.DateTimeField(blank=True, help_text='Дата и время начала урока', null=True),
+            model_name="lesson",
+            name="start_datetime",
+            field=models.DateTimeField(
+                blank=True, help_text="Дата и время начала урока", null=True
+            ),
         ),
     ]

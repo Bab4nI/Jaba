@@ -499,7 +499,8 @@ export default {
     }
 
     const closeAiModalButton = () => {
-      showAIButton.value = false
+      showAIButton.value = true
+      selectedText.value = ''
     }
 
     const copyAiResponse = () => {

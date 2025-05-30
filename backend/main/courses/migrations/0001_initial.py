@@ -6,7 +6,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -15,145 +14,346 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Lesson',
+            name="Lesson",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=255)),
-                ('description', models.TextField(blank=True)),
-                ('duration', models.PositiveIntegerField(default=0)),
-                ('order', models.PositiveIntegerField(default=0)),
-                ('thumbnail', models.ImageField(blank=True, null=True, upload_to='thumbnails/lessons/')),
-                ('type', models.CharField(choices=[('ARTICLE', 'Статья'), ('LAB', 'Лабораторная работа'), ('PRACTICE', 'Практика')], default='ARTICLE', max_length=20)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("title", models.CharField(max_length=255)),
+                ("description", models.TextField(blank=True)),
+                ("duration", models.PositiveIntegerField(default=0)),
+                ("order", models.PositiveIntegerField(default=0)),
+                (
+                    "thumbnail",
+                    models.ImageField(
+                        blank=True, null=True, upload_to="thumbnails/lessons/"
+                    ),
+                ),
+                (
+                    "type",
+                    models.CharField(
+                        choices=[
+                            ("ARTICLE", "Статья"),
+                            ("LAB", "Лабораторная работа"),
+                            ("PRACTICE", "Практика"),
+                        ],
+                        default="ARTICLE",
+                        max_length=20,
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
             ],
             options={
-                'verbose_name': 'Урок',
-                'verbose_name_plural': 'Уроки',
-                'ordering': ['order'],
+                "verbose_name": "Урок",
+                "verbose_name_plural": "Уроки",
+                "ordering": ["order"],
             },
         ),
         migrations.CreateModel(
-            name='Comment',
+            name="Comment",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('text', models.TextField()),
-                ('comment_type', models.CharField(choices=[('COMMENT', 'Комментарий'), ('SOLUTION', 'Решение')], default='COMMENT', max_length=20)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('is_edited', models.BooleanField(default=False)),
-                ('likes_count', models.IntegerField(default=0)),
-                ('author', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='comments', to=settings.AUTH_USER_MODEL)),
-                ('parent', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='replies', to='courses.comment')),
-                ('lesson', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='comments', to='courses.lesson')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("text", models.TextField()),
+                (
+                    "comment_type",
+                    models.CharField(
+                        choices=[("COMMENT", "Комментарий"), ("SOLUTION", "Решение")],
+                        default="COMMENT",
+                        max_length=20,
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                ("is_edited", models.BooleanField(default=False)),
+                ("likes_count", models.IntegerField(default=0)),
+                (
+                    "author",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="comments",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "parent",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="replies",
+                        to="courses.comment",
+                    ),
+                ),
+                (
+                    "lesson",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="comments",
+                        to="courses.lesson",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Комментарий',
-                'verbose_name_plural': 'Комментарии',
-                'ordering': ['-created_at'],
+                "verbose_name": "Комментарий",
+                "verbose_name_plural": "Комментарии",
+                "ordering": ["-created_at"],
             },
         ),
         migrations.CreateModel(
-            name='Course',
+            name="Course",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=255, verbose_name='Название курса')),
-                ('slug', models.SlugField(blank=True, max_length=300, unique=True)),
-                ('description', models.TextField(verbose_name='Описание')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('is_published', models.BooleanField(default=False)),
-                ('thumbnail', models.ImageField(blank=True, null=True, upload_to='thumbnails/courses/')),
-                ('author', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='authored_courses', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "title",
+                    models.CharField(max_length=255, verbose_name="Название курса"),
+                ),
+                ("slug", models.SlugField(blank=True, max_length=300, unique=True)),
+                ("description", models.TextField(verbose_name="Описание")),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                ("is_published", models.BooleanField(default=False)),
+                (
+                    "thumbnail",
+                    models.ImageField(
+                        blank=True, null=True, upload_to="thumbnails/courses/"
+                    ),
+                ),
+                (
+                    "author",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="authored_courses",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Курс',
-                'verbose_name_plural': 'Курсы',
-                'ordering': ['-created_at'],
+                "verbose_name": "Курс",
+                "verbose_name_plural": "Курсы",
+                "ordering": ["-created_at"],
             },
         ),
         migrations.CreateModel(
-            name='LessonContent',
+            name="LessonContent",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('order', models.PositiveIntegerField(default=0)),
-                ('title', models.CharField(blank=True, max_length=255)),
-                ('text', models.TextField(blank=True)),
-                ('video_url', models.URLField(blank=True, null=True)),
-                ('image', models.ImageField(blank=True, null=True, upload_to='contents/images/')),
-                ('file', models.FileField(blank=True, null=True, upload_to='contents/files/')),
-                ('code_language', models.CharField(blank=True, max_length=50)),
-                ('quiz_data', models.JSONField(blank=True, default=dict)),
-                ('table_data', models.JSONField(blank=True, default=dict)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('content_type', models.CharField(choices=[('TEXT', 'Text'), ('IMAGE', 'Image'), ('VIDEO', 'Video'), ('FILE', 'File'), ('CODE', 'Code Exercise'), ('QUIZ', 'Quiz')], max_length=10)),
-                ('max_score', models.IntegerField(default=1)),
-                ('lesson', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='contents', to='courses.lesson')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("order", models.PositiveIntegerField(default=0)),
+                ("title", models.CharField(blank=True, max_length=255)),
+                ("text", models.TextField(blank=True)),
+                ("video_url", models.URLField(blank=True, null=True)),
+                (
+                    "image",
+                    models.ImageField(
+                        blank=True, null=True, upload_to="contents/images/"
+                    ),
+                ),
+                (
+                    "file",
+                    models.FileField(
+                        blank=True, null=True, upload_to="contents/files/"
+                    ),
+                ),
+                ("code_language", models.CharField(blank=True, max_length=50)),
+                ("quiz_data", models.JSONField(blank=True, default=dict)),
+                ("table_data", models.JSONField(blank=True, default=dict)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "content_type",
+                    models.CharField(
+                        choices=[
+                            ("TEXT", "Text"),
+                            ("IMAGE", "Image"),
+                            ("VIDEO", "Video"),
+                            ("FILE", "File"),
+                            ("CODE", "Code Exercise"),
+                            ("QUIZ", "Quiz"),
+                        ],
+                        max_length=10,
+                    ),
+                ),
+                ("max_score", models.IntegerField(default=1)),
+                (
+                    "lesson",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="contents",
+                        to="courses.lesson",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Контент урока',
-                'verbose_name_plural': 'Контент уроков',
-                'ordering': ['order'],
-                'abstract': False,
+                "verbose_name": "Контент урока",
+                "verbose_name_plural": "Контент уроков",
+                "ordering": ["order"],
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='Module',
+            name="Module",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=255)),
-                ('description', models.TextField(blank=True)),
-                ('order', models.PositiveIntegerField(default=0)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('course', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='modules', to='courses.course')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("title", models.CharField(max_length=255)),
+                ("description", models.TextField(blank=True)),
+                ("order", models.PositiveIntegerField(default=0)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "course",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="modules",
+                        to="courses.course",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Модуль',
-                'verbose_name_plural': 'Модули',
-                'ordering': ['order'],
-                'unique_together': {('course', 'title')},
+                "verbose_name": "Модуль",
+                "verbose_name_plural": "Модули",
+                "ordering": ["order"],
+                "unique_together": {("course", "title")},
             },
         ),
         migrations.AddField(
-            model_name='lesson',
-            name='module',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='lessons', to='courses.module'),
+            model_name="lesson",
+            name="module",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="lessons",
+                to="courses.module",
+            ),
         ),
         migrations.CreateModel(
-            name='CommentReaction',
+            name="CommentReaction",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('reaction_type', models.CharField(choices=[('LIKE', 'Нравится'), ('DISLIKE', 'Не нравится')], max_length=10)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('comment', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='reactions', to='courses.comment')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='comment_reactions', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "reaction_type",
+                    models.CharField(
+                        choices=[("LIKE", "Нравится"), ("DISLIKE", "Не нравится")],
+                        max_length=10,
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "comment",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="reactions",
+                        to="courses.comment",
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="comment_reactions",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Реакция на комментарий',
-                'verbose_name_plural': 'Реакции на комментарии',
-                'unique_together': {('comment', 'user')},
+                "verbose_name": "Реакция на комментарий",
+                "verbose_name_plural": "Реакции на комментарии",
+                "unique_together": {("comment", "user")},
             },
         ),
         migrations.AlterUniqueTogether(
-            name='lesson',
-            unique_together={('module', 'title')},
+            name="lesson",
+            unique_together={("module", "title")},
         ),
         migrations.CreateModel(
-            name='UserProgress',
+            name="UserProgress",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('completed', models.BooleanField(default=False)),
-                ('max_score', models.IntegerField(default=0)),
-                ('current_score', models.IntegerField(default=0)),
-                ('completed_at', models.DateTimeField(auto_now_add=True)),
-                ('content', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='user_progress', to='courses.lessoncontent')),
-                ('lesson', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='user_progress', to='courses.lesson')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='progress', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("completed", models.BooleanField(default=False)),
+                ("max_score", models.IntegerField(default=0)),
+                ("current_score", models.IntegerField(default=0)),
+                ("completed_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "content",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="user_progress",
+                        to="courses.lessoncontent",
+                    ),
+                ),
+                (
+                    "lesson",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="user_progress",
+                        to="courses.lesson",
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="progress",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'ordering': ['completed_at'],
-                'unique_together': {('user', 'lesson', 'content')},
+                "ordering": ["completed_at"],
+                "unique_together": {("user", "lesson", "content")},
             },
         ),
     ]

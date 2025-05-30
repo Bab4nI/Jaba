@@ -5,27 +5,41 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('courses', '0003_alter_lesson_unique_together_lesson_content_and_more'),
+        ("courses", "0003_alter_lesson_unique_together_lesson_content_and_more"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='CustomForm',
+            name="CustomForm",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=255)),
-                ('contents', models.JSONField(default=list)),
-                ('order', models.IntegerField(default=0)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('lesson', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='forms', to='courses.lesson')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("title", models.CharField(max_length=255)),
+                ("contents", models.JSONField(default=list)),
+                ("order", models.IntegerField(default=0)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "lesson",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="forms",
+                        to="courses.lesson",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Custom Form',
-                'verbose_name_plural': 'Custom Forms',
-                'ordering': ['order'],
+                "verbose_name": "Custom Form",
+                "verbose_name_plural": "Custom Forms",
+                "ordering": ["order"],
             },
         ),
     ]

@@ -1,8 +1,11 @@
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.contrib.auth.models import (
+    AbstractBaseUser,
+    BaseUserManager,
+    PermissionsMixin,
+)
 from django.db import models
-from django.utils import timezone
 import secrets
-from django.contrib.auth.hashers import make_password
+
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -18,12 +21,13 @@ class CustomUserManager(BaseUserManager):
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
-        
+
         return self.create_user(email, password, **extra_fields)
-    
+
     def generate_reset_code(self):
         """Генерирует случайный код для сброса пароля"""
         return secrets.token_urlsafe(32)
+
 
 class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
@@ -40,24 +44,23 @@ class User(AbstractBaseUser, PermissionsMixin):
     REQUIRED_FIELDS = []
 
     objects = CustomUserManager()
-    
+
     ROLE_CHOICES = [
-        ('admin', 'Admin'),
-        ('student', 'Student'),
+        ("admin", "Admin"),
+        ("student", "Student"),
     ]
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="student")
     avatar_base64 = models.TextField(null=True, blank=True)
-    
+
     def __str__(self):
         return f"{self.first_name} {self.last_name} {self.middle_name}"
 
     def save(self, *args, **kwargs):
         # Only set role based on is_staff if role wasn't explicitly provided
         # This allows setting the role directly when creating a user
-        if not hasattr(self, '_role_explicitly_set'):
-            self.role = 'admin' if self.is_staff else 'student'
+        if not hasattr(self, "_role_explicitly_set"):
+            self.role = "admin" if self.is_staff else "student"
         # If role is set to admin, ensure is_staff is also set
-        if self.role == 'admin':
+        if self.role == "admin":
             self.is_staff = True
         super().save(*args, **kwargs)
-
