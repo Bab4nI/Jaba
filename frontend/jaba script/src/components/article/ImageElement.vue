@@ -26,7 +26,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useThemeStore } from '@/stores/themeStore';
 import api from '@/api';
 
@@ -57,10 +57,20 @@ const emit = defineEmits(['update:content']);
 const themeStore = useThemeStore();
 const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-const localContent = ref({ 
-  image_path: '',
-  max_score: 1,
-  ...props.content 
+const getContentData = (content) => {
+  if (typeof content.content_data === 'string') {
+    try {
+      return JSON.parse(content.content_data);
+    } catch {
+      return {};
+    }
+  }
+  return content.content_data || {};
+};
+
+const localContent = ref({
+  ...props.content,
+  image_path: getContentData(props.content).image_path || props.content.image_path || ''
 });
 const fileInput = ref(null);
 
@@ -111,12 +121,16 @@ const imageUrl = computed(() => {
   return `${import.meta.env.VITE_API_URL}/media/${path}`;
 });
 
-watch(() => props.content, (newVal) => {
-  localContent.value = { 
-    ...newVal,
-    max_score: newVal.max_score || 1
+watch(() => props.content, (newContent) => {
+  localContent.value = {
+    ...newContent,
+    image_path: getContentData(newContent).image_path || newContent.image_path || ''
   };
 }, { deep: true });
+
+onMounted(() => {
+  localContent.value.image_path = getContentData(props.content).image_path || props.content.image_path || '';
+});
 
 const triggerFileInput = () => {
   if (props.readOnly) return;

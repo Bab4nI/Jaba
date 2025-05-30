@@ -7,7 +7,6 @@ from .views import (
     LessonViewSet,
     CodeExecutionView,
     MediaUploadView,
-    CustomFormViewSet,
 )
 
 # Use trailing_slash=True to match Django's default behavior
@@ -21,33 +20,11 @@ router.register(
     LessonViewSet,
     basename="lesson",
 )
-router.register(
-    r"courses/(?P<course_slug>[^/.]+)/modules/(?P<module_id>\d+)/lessons/(?P<lesson_id>\d+)/forms",
-    CustomFormViewSet,
-    basename="form",
-)
 
 urlpatterns = [
     # Include the router URLs
     path("", include(router.urls)),
     # Form-specific paths
-    path(
-        "courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/forms/",
-        CustomFormViewSet.as_view({"get": "list", "post": "create"}),
-        name="form-list",
-    ),
-    path(
-        "courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/forms/<int:pk>/",
-        CustomFormViewSet.as_view(
-            {
-                "get": "retrieve",
-                "put": "update",
-                "patch": "partial_update",
-                "delete": "destroy",
-            }
-        ),
-        name="form-detail",
-    ),
     path(
         "courses/",
         CourseViewSet.as_view({"get": "list", "post": "create"}),

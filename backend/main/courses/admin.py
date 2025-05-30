@@ -4,7 +4,7 @@ from django.contrib import admin
 from django.utils.safestring import mark_safe
 from django.utils.text import slugify
 from unidecode import unidecode
-from .models import Course, Module, Lesson, LessonContent
+from .models import Course, Module, Lesson
 
 
 class BaseAdmin(admin.ModelAdmin):
@@ -112,23 +112,3 @@ class LessonAdmin(BaseAdmin):
         return "—"
 
     thumbnail_list_preview.short_description = "Обложка"
-
-
-@admin.register(LessonContent)
-class LessonContentAdmin(admin.ModelAdmin):
-    list_display = ("title", "lesson", "content_type", "order")
-    list_filter = ("content_type", "lesson__module__course")
-    search_fields = ("title", "text")
-    ordering = ("lesson", "order")
-
-    # Для отображения изображений/GIF в админке
-    readonly_fields = ("content_preview",)
-
-    def content_preview(self, obj):
-        if obj.content_type == "IMAGE" and obj.image:
-            return mark_safe(f'<img src="{obj.image.url}" style="max-height: 200px;"/>')
-        elif obj.content_type == "GIF" and obj.gif:
-            return mark_safe(f'<img src="{obj.gif.url}" style="max-height: 200px;"/>')
-        return "Превью недоступно"
-
-    content_preview.short_description = "Превью контента"

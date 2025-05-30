@@ -237,13 +237,25 @@ const router = useRouter()
 const refreshStore = useRefreshStore()
 const themeStore = useThemeStore()
 
+const getContentData = (content) => {
+  if (typeof content.content_data === 'string') {
+    try {
+      return JSON.parse(content.content_data);
+    } catch {
+      return {};
+    }
+  }
+  return content.content_data || {};
+};
+
 const localContent = ref({
-  code: props.content.code || '',
-  language: props.content.language || 'javascript',
-  interpreter: props.content.interpreter || 'default',
-  max_score: props.content.max_score || 5,
-  taskDescription: props.content.taskDescription || '',
-  expectedResult: props.content.expectedResult || ''
+  ...props.content,
+  code: getContentData(props.content).code || props.content.code || '',
+  language: getContentData(props.content).language || props.content.language || '',
+  interpreter: getContentData(props.content).interpreter || props.content.interpreter || 'default',
+  max_score: getContentData(props.content).max_score || props.content.max_score || 5,
+  taskDescription: getContentData(props.content).taskDescription || props.content.taskDescription || '',
+  expectedResult: getContentData(props.content).expectedResult || props.content.expectedResult || ''
 })
 
 // For code submission scoring

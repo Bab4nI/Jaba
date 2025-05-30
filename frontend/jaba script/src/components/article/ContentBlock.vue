@@ -38,7 +38,7 @@
         :allow-preview-edit="props.allowPreviewEdit"
         :is-time-expired="props.isTimeExpired"
         :reset-key="props.resetKey"
-        @update:content="updateContent"
+        @update:content="onContentUpdate"
         @answer-submitted="handleAnswerSubmitted"
       />
     </div>
@@ -91,14 +91,16 @@ const blockRef = ref(null);
 
 const emit = defineEmits(['update:content', 'move-up', 'move-down', 'remove', 'answer-submitted']);
 
-const localContent = ref({ 
+const localContent = ref({
   ...props.content,
+  content_data: props.content.content_data || {},
   max_score: props.content.max_score || 1 // Set default score to 1 if not provided
 });
 
 watch(() => props.content, (newContent) => {
-  localContent.value = { 
+  localContent.value = {
     ...newContent,
+    content_data: newContent.content_data || {},
     max_score: newContent.max_score || 1 // Ensure max_score is always set
   };
 }, { deep: true });
@@ -137,13 +139,16 @@ const isScoreDisabled = computed(() => {
   return disabledTypes.includes(props.content.type);
 });
 
-const updateContent = (newContent) => {
-  // Preserve the max_score when updating content
-  const updatedContent = {
-    ...newContent,
-    max_score: newContent.max_score || localContent.value.max_score || 1
+const onContentUpdate = (updatedContent) => {
+  localContent.value = {
+    ...localContent.value,
+    ...updatedContent,
+    content_data: {
+      ...localContent.value.content_data,
+      ...updatedContent.content_data
+    }
   };
-  emit('update:content', updatedContent);
+  emit('update:content', localContent.value);
 };
 
 const handleAnswerSubmitted = (data) => {

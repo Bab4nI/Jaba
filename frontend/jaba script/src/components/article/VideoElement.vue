@@ -66,10 +66,20 @@ const props = defineProps({
 const emit = defineEmits(['update:content', 'answer-submitted']);
 const themeStore = useThemeStore();
 
+const getContentData = (content) => {
+  if (typeof content.content_data === 'string') {
+    try {
+      return JSON.parse(content.content_data);
+    } catch {
+      return {};
+    }
+  }
+  return content.content_data || {};
+};
+
 const localContent = ref({
-  video_url: '',
-  max_score: 5,
-  ...props.content
+  ...props.content,
+  video_url: getContentData(props.content).video_url || props.content.video_url || ''
 });
 const videoUrl = ref('');
 const videoWatched = ref(false);
@@ -134,11 +144,10 @@ onMounted(() => {
   }
 });
 
-watch(() => props.content, (newVal) => {
-  localContent.value = { 
-    video_url: '',
-    max_score: 1,
-    ...newVal 
+watch(() => props.content, (newContent) => {
+  localContent.value = {
+    ...newContent,
+    video_url: getContentData(newContent).video_url || newContent.video_url || ''
   };
 }, { deep: true });
 

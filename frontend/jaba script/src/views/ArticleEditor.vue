@@ -452,6 +452,10 @@ export default {
       contents.value[index] = {
         ...currentContent,
         ...updatedContent,
+        content_data: {
+          ...currentContent.content_data,
+          ...updatedContent.content_data
+        },
         updated_at: new Date().toISOString()
       };
       
@@ -1024,6 +1028,10 @@ export default {
               content.content_data = {};
             }
           }
+          // Ensure content_data is an object
+          if (!content.content_data || typeof content.content_data !== 'object') {
+            content.content_data = {};
+          }
           return content;
         };
 
@@ -1268,7 +1276,7 @@ export default {
         ...updatedContent,
         content_data: {
           ...currentContent.content_data,
-          ...updatedContent
+          ...updatedContent.content_data
         },
         updated_at: new Date().toISOString()
       };

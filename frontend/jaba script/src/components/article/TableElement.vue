@@ -58,7 +58,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 import { useThemeStore } from '@/stores/themeStore';
 
 const props = defineProps({
@@ -88,19 +88,35 @@ const props = defineProps({
 const emit = defineEmits(['update:content']);
 const themeStore = useThemeStore();
 
-const localContent = ref({ 
-  headers: ['Заголовок 1', 'Заголовок 2'],
-  data: [['', ''], ['', '']],
-  max_score: 1,
-  ...props.content 
+const getContentData = (content) => {
+  if (typeof content.content_data === 'string') {
+    try {
+      return JSON.parse(content.content_data);
+    } catch {
+      return {};
+    }
+  }
+  return content.content_data || {};
+};
+
+const localContent = ref({
+  ...props.content,
+  headers: getContentData(props.content).headers || props.content.headers || [],
+  data: getContentData(props.content).data || props.content.data || []
 });
 
-watch(() => props.content, (newVal) => {
-  localContent.value = { 
-    ...newVal,
-    max_score: newVal.max_score || 1
+watch(() => props.content, (newContent) => {
+  localContent.value = {
+    ...newContent,
+    headers: getContentData(newContent).headers || newContent.headers || [],
+    data: getContentData(newContent).data || newContent.data || []
   };
 }, { deep: true });
+
+onMounted(() => {
+  localContent.value.headers = getContentData(props.content).headers || props.content.headers || [];
+  localContent.value.data = getContentData(props.content).data || props.content.data || [];
+});
 
 const emitUpdate = () => {
   if (props.readOnly) return;

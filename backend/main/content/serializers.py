@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Content, CustomForm
 from progress.models import ContentProgress
+import json
 
 class ContentSerializer(serializers.ModelSerializer):
     user_score = serializers.SerializerMethodField()
@@ -11,6 +12,15 @@ class ContentSerializer(serializers.ModelSerializer):
         fields = ['id', 'type', 'order', 'max_score', 'content_data', 
                  'user_score', 'user_answer', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if isinstance(data['content_data'], str):
+            try:
+                data['content_data'] = json.loads(data['content_data'])
+            except json.JSONDecodeError:
+                data['content_data'] = {}
+        return data
 
     def get_user_score(self, obj):
         request = self.context.get('request')

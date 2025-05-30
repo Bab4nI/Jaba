@@ -101,11 +101,21 @@ const props = defineProps({
 const emit = defineEmits(['update:content', 'answer-submitted']);
 const themeStore = useThemeStore();
 
+const getContentData = (content) => {
+  if (typeof content.content_data === 'string') {
+    try {
+      return JSON.parse(content.content_data);
+    } catch {
+      return {};
+    }
+  }
+  return content.content_data || {};
+};
+
 const localContent = ref({
-  text: '',
-  answers: [],
-  max_score: 1,
-  ...props.content
+  ...props.content,
+  text: getContentData(props.content).text || props.content.text || '',
+  answers: getContentData(props.content).answers || props.content.answers || []
 });
 
 // User interaction state
@@ -240,12 +250,11 @@ const resetQuiz = () => {
   });
 };
 
-watch(() => props.content, (newVal) => {
+watch(() => props.content, (newContent) => {
   localContent.value = {
-    text: '',
-    answers: [],
-    max_score: 1,
-    ...newVal
+    ...newContent,
+    text: getContentData(newContent).text || newContent.text || '',
+    answers: getContentData(newContent).answers || newContent.answers || []
   };
 }, { deep: true });
 

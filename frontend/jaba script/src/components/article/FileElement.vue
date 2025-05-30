@@ -28,7 +28,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useThemeStore } from '@/stores/themeStore';
 import api from '@/api';
 
@@ -59,11 +59,21 @@ const props = defineProps({
 const emit = defineEmits(['update:content']);
 const themeStore = useThemeStore();
 
-const localContent = ref({ 
-  file: null, 
-  filename: null,
-  max_score: 1,
-  ...props.content 
+const getContentData = (content) => {
+  if (typeof content.content_data === 'string') {
+    try {
+      return JSON.parse(content.content_data);
+    } catch {
+      return {};
+    }
+  }
+  return content.content_data || {};
+};
+
+const localContent = ref({
+  ...props.content,
+  file: getContentData(props.content).file || props.content.file || '',
+  filename: getContentData(props.content).filename || props.content.filename || ''
 });
 const fileInput = ref(null);
 
@@ -166,12 +176,18 @@ const fileSize = computed(() => {
   return `${(size / (1024 * 1024)).toFixed(1)} МБ`;
 });
 
-watch(() => props.content, (newVal) => {
-  localContent.value = { 
-    ...newVal,
-    max_score: newVal.max_score || 1
+watch(() => props.content, (newContent) => {
+  localContent.value = {
+    ...newContent,
+    file: getContentData(newContent).file || newContent.file || '',
+    filename: getContentData(newContent).filename || newContent.filename || ''
   };
 }, { deep: true });
+
+onMounted(() => {
+  localContent.value.file = getContentData(props.content).file || props.content.file || '';
+  localContent.value.filename = getContentData(props.content).filename || props.content.filename || '';
+});
 
 const triggerFileInput = () => {
   if (props.readOnly) return;

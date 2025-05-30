@@ -48,6 +48,17 @@
 <script>
 import { ref, onMounted, watch } from 'vue'
 
+const getContentData = (content) => {
+  if (typeof content.content_data === 'string') {
+    try {
+      return JSON.parse(content.content_data);
+    } catch {
+      return {};
+    }
+  }
+  return content.content_data || {};
+};
+
 export default {
   name: 'TextElement',
   props: {
@@ -71,25 +82,21 @@ export default {
     const localContent = ref({
       text: '',
       max_score: 1,
-      ...props.content
+      ...props.content,
+      text: getContentData(props.content).text || props.content.text || ''
     })
 
     const onInput = () => {
       if (!editor.value) return
-      
-      // Save cursor position
       const selection = window.getSelection();
       let savedRange = null;
-      
       if (selection.rangeCount > 0) {
         savedRange = selection.getRangeAt(0).cloneRange();
       }
-      
       const html = editor.value.innerHTML
       localContent.value.text = html
+      localContent.value.content_data = { text: html }
       emit('update:content', { ...localContent.value })
-      
-      // Restore cursor position after a short delay to ensure DOM updates
       if (savedRange) {
         setTimeout(() => {
           try {
@@ -223,35 +230,28 @@ export default {
     }
 
     watch(() => props.content, (newContent) => {
+      const text = getContentData(newContent).text || newContent.text || '';
       localContent.value = {
         text: '',
         max_score: 1,
-        ...newContent
+        ...newContent,
+        text: text
       }
-      
       if (editor.value && localContent.value.text) {
-        // Only update the innerHTML if it's different to avoid cursor reset
         if (editor.value.innerHTML !== localContent.value.text) {
-          // Save cursor position
           const selection = window.getSelection();
           let savedRange = null;
           let isEditorFocused = document.activeElement === editor.value;
-          
           if (isEditorFocused && selection.rangeCount > 0) {
             savedRange = selection.getRangeAt(0).cloneRange();
           }
-          
-          // Update content
           editor.value.innerHTML = localContent.value.text;
-          
-          // Restore cursor position if editor was focused
           if (isEditorFocused && savedRange) {
-            // Try to restore the cursor position
             try {
               selection.removeAllRanges();
               selection.addRange(savedRange);
             } catch (e) {
-              console.error('Failed to restore cursor position:', e);
+              console.error('Failed to restore cursor position after content update:', e);
             }
           }
         }
@@ -260,7 +260,7 @@ export default {
 
     onMounted(() => {
       if (editor.value) {
-        editor.value.innerHTML = props.content.text || ''
+        editor.value.innerHTML = getContentData(props.content).text || props.content.text || ''
       }
     })
 

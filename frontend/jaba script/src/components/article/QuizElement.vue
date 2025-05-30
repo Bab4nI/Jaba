@@ -142,12 +142,23 @@ const uniqueId = ref(`quiz-${props.content.id || 'new'}-${Date.now()}-${Math.flo
 // Add a computed property to generate storage key based only on content ID
 const storageKey = computed(() => `quiz_${props.content.id}`);
 
+const getContentData = (content) => {
+  if (typeof content.content_data === 'string') {
+    try {
+      return JSON.parse(content.content_data);
+    } catch {
+      return {};
+    }
+  }
+  return content.content_data || {};
+};
+
 const localContent = ref({
-  question: '',
-  answers: ['', ''],
-  correct_answers: [],
-  max_score: 2,
-  ...props.content
+  ...props.content,
+  question: getContentData(props.content).question || props.content.question || '',
+  answers: getContentData(props.content).answers || props.content.answers || [],
+  correct_answers: getContentData(props.content).correct_answers || props.content.correct_answers || [],
+  max_score: getContentData(props.content).max_score || props.content.max_score || 1
 });
 
 // User interaction state
@@ -191,15 +202,19 @@ onMounted(() => {
       }
     }
   }
+  localContent.value.question = getContentData(props.content).question || props.content.question || '';
+  localContent.value.answers = getContentData(props.content).answers || props.content.answers || [];
+  localContent.value.correct_answers = getContentData(props.content).correct_answers || props.content.correct_answers || [];
+  localContent.value.max_score = getContentData(props.content).max_score || props.content.max_score || 1;
 });
 
-watch(() => props.content, (newVal) => {
-  localContent.value = { 
-    question: '',
-    answers: ['', ''],
-    correct_answers: [],
-    max_score: 1,
-    ...newVal 
+watch(() => props.content, (newContent) => {
+  localContent.value = {
+    ...newContent,
+    question: getContentData(newContent).question || newContent.question || '',
+    answers: getContentData(newContent).answers || newContent.answers || [],
+    correct_answers: getContentData(newContent).correct_answers || newContent.correct_answers || [],
+    max_score: getContentData(newContent).max_score || newContent.max_score || 1
   };
 }, { deep: true });
 
