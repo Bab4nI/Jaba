@@ -38,6 +38,8 @@ INSTALLED_APPS = [
     "news",
     "Ai",
     "comments",
+    "content",
+    "progress",
 ]
 
 MIDDLEWARE = [
