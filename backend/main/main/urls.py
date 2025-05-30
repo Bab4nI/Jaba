@@ -30,6 +30,7 @@ urlpatterns = [
     path("api/", include("user_profile.urls")),
     path("api/", include("courses.urls")),
     path("api/", include("Ai.urls")),
+    path("api/", include("comments.urls")),
     path("api/", include(router.urls)),
     path(
         "swagger<format>/", schema_view.without_ui(cache_timeout=0), name="schema-json"

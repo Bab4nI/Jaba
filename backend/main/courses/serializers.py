@@ -4,10 +4,9 @@ from .models import (
     Module,
     Lesson,
     LessonContent,
-    Comment,
-    CommentReaction,
     CustomForm,
 )
+from comments.models import Comment, CommentReaction
 from rest_framework.exceptions import ValidationError
 import logging
 from django.shortcuts import get_object_or_404
