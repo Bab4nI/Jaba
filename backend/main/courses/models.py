@@ -336,36 +336,6 @@ class CommentReaction(models.Model):
     def __str__(self):
         return f"{self.user.username} {self.reaction_type} → {self.comment}"
 
-
-class UserProgress(models.Model):
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="progress"
-    )
-    lesson = models.ForeignKey(
-        "Lesson", on_delete=models.CASCADE, related_name="user_progress"
-    )
-    content = models.ForeignKey(
-        "LessonContent",
-        on_delete=models.CASCADE,
-        related_name="user_progress",
-        null=True,
-        blank=True,
-    )
-    completed = models.BooleanField(default=False)
-    max_score = models.IntegerField(
-        default=0
-    )  # Maximum possible score for this content
-    current_score = models.IntegerField(default=0)  # Current score achieved by the user
-    completed_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        unique_together = ("user", "lesson", "content")
-        ordering = ["completed_at"]
-
-    def __str__(self):
-        return f"{self.user.username} - {self.lesson.title}"
-
-
 class AIChatState(models.Model):
     lesson = models.ForeignKey(
         "Lesson", on_delete=models.CASCADE, related_name="ai_chat_states"

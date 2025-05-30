@@ -11,7 +11,6 @@ from .views import (
     CodeExecutionView,
     AIChatView,
     MediaUploadView,
-    UserProgressViewSet,
     CustomFormViewSet,
     AIChatStateViewSet,
 )
@@ -47,7 +46,6 @@ router.register(
     CustomFormViewSet,
     basename="form",
 )
-router.register(r"progress", UserProgressViewSet, basename="progress")
 router.register(
     r"lessons/(?P<lesson_id>\d+)/ai-chat-state",
     AIChatStateViewSet,
@@ -216,37 +214,6 @@ urlpatterns = [
     path("ai-chat/", AIChatView.as_view(), name="ai-chat"),
     path("upload-media/", MediaUploadView.as_view(), name="upload-media"),
     # Add progress-specific paths
-    path(
-        "courses/<slug:course_slug>/progress/",
-        UserProgressViewSet.as_view({"get": "course_progress"}),
-        name="course-progress",
-    ),
-    path(
-        "student-progress/",
-        UserProgressViewSet.as_view({"get": "student_progress"}),
-        name="student-progress",
-    ),
-    path(
-        "lessons/<int:lesson_id>/progress/",
-        UserProgressViewSet.as_view({"get": "lesson_progress"}),
-        name="lesson-progress",
-    ),
-    path(
-        "lessons/<int:lesson_id>/mark-completed/",
-        UserProgressViewSet.as_view({"post": "mark_completed"}),
-        name="mark-lesson-completed",
-    ),
-    path(
-        "lessons/<int:lesson_id>/reset-progress/",
-        UserProgressViewSet.as_view({"post": "reset_progress"}),
-        name="reset-lesson-progress",
-    ),
-    path("groups/", UserProgressViewSet.as_view({"get": "groups"}), name="groups-list"),
-    path(
-        "group-statistics/",
-        UserProgressViewSet.as_view({"get": "group_statistics"}),
-        name="group-statistics",
-    ),
     path(
         "lesson-contents/<int:pk>/submit-answer/",
         LessonContentViewSet.as_view({"post": "submit_answer"}),

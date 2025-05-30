@@ -741,24 +741,8 @@ export default {
 
     // Function to save the current score to server or local storage
     const saveScoreToServer = async () => {
-      try {
-        const lessonId = route.params.lessonId
-
-        await api.post(`/lessons/${lessonId}/mark-completed/`, {
-          lesson_id: lessonId,
-          max_score: maxScore.value,
-          current_score: totalScore.value
-        })
-
-        console.log(`Saved score to server: ${totalScore.value}/${maxScore.value}`)
-      } catch (error) {
-        console.warn('Error saving score to server, using local storage:', error)
-        // Fallback to local storage
-        localStorage.setItem(`lesson_score_${lessonId}`, JSON.stringify({
-          total: totalScore.value,
-          max: maxScore.value
-        }))
-      }
+      // Remove server-side score saving since backend functionality is removed
+      console.log('Score saving to server is disabled')
     }
 
     const goBack = async () => {
@@ -1021,11 +1005,8 @@ export default {
       try {
         isSaving.value = true
         const lessonId = route.params.lessonId
-        // Reset progress on server
-        await api.post(`/lessons/${lessonId}/reset-progress/`, {
-          lesson_id: lessonId
-        })
         isLessonCompleted.value = false
+        
         // Reset all form content answers and localStorage
         customForms.value.forEach(form => {
           form.contents.forEach(content => {
@@ -1169,7 +1150,7 @@ export default {
 
         // Load all required data in parallel
         try {
-          const [lessonResponse, contentResponse, formsResponse, progressResponse] = await Promise.all([
+          const [lessonResponse, contentResponse, formsResponse] = await Promise.all([
             // Get lesson details including end time
             api.get(`/courses/${courseSlug}/modules/${moduleId}/lessons/${lessonId}/`),
             // Load lesson content
@@ -1179,9 +1160,7 @@ export default {
               console.warn('Error loading forms:', error);
               // Return empty array as fallback
               return { data: [] };
-            }),
-            // Check lesson progress
-            api.get(`/lessons/${lessonId}/progress/`)
+            })
           ])
 
           // Process lesson response
@@ -1223,9 +1202,6 @@ export default {
               customForms.value = []
             }
           }
-          
-          // Process progress response
-          isLessonCompleted.value = progressResponse.data.completed
           
           // Set up interval to refresh time every minute
           timeRefreshInterval = setInterval(refreshTime, 60000)

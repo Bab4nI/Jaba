@@ -6,7 +6,6 @@ from .models import (
     LessonContent,
     Comment,
     CommentReaction,
-    UserProgress,
     CustomForm,
     AIChatState,
 )
@@ -446,26 +445,6 @@ class CommentSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data["author"] = self.context["request"].user
-        return super().create(validated_data)
-
-
-class UserProgressSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UserProgress
-        fields = [
-            "id",
-            "user",
-            "lesson",
-            "content",
-            "completed",
-            "max_score",
-            "current_score",
-            "completed_at",
-        ]
-        read_only_fields = ["user", "completed_at"]
-
-    def create(self, validated_data):
-        validated_data["user"] = self.context["request"].user
         return super().create(validated_data)
 
 
