@@ -1048,7 +1048,14 @@ export default {
           const progress = progressResponse.data.find(p => p.content_id === content.id);
           if (progress) {
             content.user_score = progress.score;
-            content.user_answer = progress.user_answer;
+            try {
+              content.user_answer = typeof progress.user_answer === 'string' 
+                ? JSON.parse(progress.user_answer) 
+                : progress.user_answer;
+            } catch (e) {
+              console.error('Error parsing user_answer:', e);
+              content.user_answer = {};
+            }
           }
 
           return content;

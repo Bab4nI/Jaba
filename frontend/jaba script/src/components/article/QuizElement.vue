@@ -176,17 +176,14 @@ onMounted(() => {
         const progressData = typeof props.content.user_answer === 'string' 
           ? JSON.parse(props.content.user_answer) 
           : props.content.user_answer;
-        
-        selectedAnswers.value = progressData.selectedAnswers || [];
-        quizSubmitted.value = true;
-        userScore.value = props.content.user_score || 0;
-        
-        console.log(`Loaded progress data for quiz ${props.content.id}:`, { 
-          selectedAnswers: selectedAnswers.value, 
-          quizSubmitted: quizSubmitted.value, 
-          userScore: userScore.value 
-        });
-        
+        // Only set as submitted if there are real answers
+        if (progressData.selectedAnswers && Array.isArray(progressData.selectedAnswers) && progressData.selectedAnswers.length > 0) {
+          selectedAnswers.value = progressData.selectedAnswers;
+          quizSubmitted.value = true;
+          userScore.value = props.content.user_score || 0;
+        } else {
+          resetQuiz();
+        }
         // Emit the loaded state to update parent score
         emit('answer-submitted', {
           contentId: props.content.id,
@@ -197,21 +194,14 @@ onMounted(() => {
       } catch (e) {
         console.error('Error loading quiz progress:', e);
       }
-    } else {
       // Fallback to localStorage if no progress data
       const savedData = localStorage.getItem(storageKey.value);
       if (savedData) {
         try {
           const data = JSON.parse(savedData);
           selectedAnswers.value = Array.isArray(data.selectedAnswers) ? data.selectedAnswers : [];
-          quizSubmitted.value = data.quizSubmitted;
+          quizSubmitted.value = data.quizSubmitted && selectedAnswers.value.length > 0;
           userScore.value = data.userScore;
-          console.log(`Loaded saved state for quiz ${props.content.id}:`, { 
-            selectedAnswers: selectedAnswers.value, 
-            quizSubmitted: quizSubmitted.value, 
-            userScore: userScore.value 
-          });
-          
           // If we have a saved answer, emit it to update the parent score
           if (quizSubmitted.value && selectedAnswers.value.length > 0) {
             const correctSet = new Set(localContent.value.correct_answers);
@@ -370,6 +360,32 @@ watch(() => props.resetKey, () => {
   quizSubmitted.value = false;
   userScore.value = null;
 });
+
+// Watch for readOnly changes
+watch(() => props.readOnly, (newReadOnly) => {
+  if (newReadOnly) {
+    // Load saved state from props if available
+    if (props.content.user_answer) {
+      try {
+        const savedState = typeof props.content.user_answer === 'string' 
+          ? JSON.parse(props.content.user_answer) 
+          : props.content.user_answer;
+        if (savedState.selectedAnswers && Array.isArray(savedState.selectedAnswers) && savedState.selectedAnswers.length > 0) {
+          selectedAnswers.value = savedState.selectedAnswers;
+          quizSubmitted.value = true;
+          userScore.value = props.content.user_score || 0;
+        } else {
+          resetQuiz();
+        }
+      } catch (e) {
+        console.error('Error loading quiz state:', e);
+        resetQuiz();
+      }
+    } else {
+      resetQuiz();
+    }
+  }
+}, { immediate: true });
 </script>
 
 <style scoped>

@@ -305,6 +305,61 @@ onUnmounted(() => {
   }
   window.removeEventListener('message', handleVideoProgress);
 });
+
+// Add watch for user_answer changes
+watch(() => props.content.user_answer, (newUserAnswer) => {
+  if (newUserAnswer) {
+    try {
+      const progressData = typeof newUserAnswer === 'string' 
+        ? JSON.parse(newUserAnswer) 
+        : newUserAnswer;
+      
+      if (progressData.videoWatched) {
+        isWatched.value = true;
+        watchProgress.value = progressData.watchProgress || 0;
+      }
+    } catch (e) {
+      console.error('Error loading video progress:', e);
+    }
+  }
+}, { immediate: true });
+
+// Update onVideoEnd to emit proper format
+const onVideoEnd = () => {
+  isWatched.value = true;
+  watchProgress.value = 100;
+  
+  emit('answer-submitted', {
+    contentId: props.content.id,
+    score: props.content.max_score || 0,
+    userAnswer: {
+      maxScore: props.content.max_score || 0,
+      videoWatched: true,
+      watchProgress: 100
+    }
+  });
+};
+
+// Update onTimeUpdate to emit proper format
+const onTimeUpdate = () => {
+  if (!videoFrame.value) return;
+  
+  const progress = (videoFrame.value.currentTime / videoFrame.value.duration) * 100;
+  watchProgress.value = Math.round(progress);
+  
+  if (progress >= 90) {
+    isWatched.value = true;
+    emit('answer-submitted', {
+      contentId: props.content.id,
+      score: props.content.max_score || 0,
+      userAnswer: {
+        maxScore: props.content.max_score || 0,
+        videoWatched: true,
+        watchProgress: 100
+      }
+    });
+  }
+};
 </script>
 
 <style scoped>

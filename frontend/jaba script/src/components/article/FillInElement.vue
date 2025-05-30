@@ -135,17 +135,14 @@ onMounted(() => {
         const progressData = typeof props.content.user_answer === 'string' 
           ? JSON.parse(props.content.user_answer) 
           : props.content.user_answer;
-        
-        userAnswers.value = progressData.userAnswers || [];
-        isSubmitted.value = true;
-        userScore.value = props.content.user_score || 0;
-        
-        console.log(`Loaded progress data for fillin ${props.content.id}:`, { 
-          userAnswers: userAnswers.value, 
-          isSubmitted: isSubmitted.value, 
-          userScore: userScore.value 
-        });
-        
+        // Only set as submitted if there are real answers
+        if (progressData.userAnswers && Array.isArray(progressData.userAnswers) && progressData.userAnswers.length > 0) {
+          userAnswers.value = progressData.userAnswers;
+          isSubmitted.value = true;
+          userScore.value = props.content.user_score || 0;
+        } else {
+          resetQuiz();
+        }
         // Emit the loaded state to update parent score
         emit('answer-submitted', {
           contentId: props.content.id,
@@ -258,10 +255,13 @@ watch(() => props.content.user_answer, (newUserAnswer) => {
       const progressData = typeof newUserAnswer === 'string' 
         ? JSON.parse(newUserAnswer) 
         : newUserAnswer;
-      
-      userAnswers.value = progressData.userAnswers || [];
-      isSubmitted.value = true;
-      userScore.value = props.content.user_score || 0;
+      if (progressData.userAnswers && Array.isArray(progressData.userAnswers) && progressData.userAnswers.length > 0) {
+        userAnswers.value = progressData.userAnswers;
+        isSubmitted.value = true;
+        userScore.value = props.content.user_score || 0;
+      } else {
+        resetQuiz();
+      }
     } catch (e) {
       console.error('Error loading fillin progress:', e);
       resetQuiz();
