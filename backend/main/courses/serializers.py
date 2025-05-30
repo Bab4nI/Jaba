@@ -7,7 +7,6 @@ from .models import (
     Comment,
     CommentReaction,
     CustomForm,
-    AIChatState,
 )
 from rest_framework.exceptions import ValidationError
 import logging
@@ -506,10 +505,3 @@ class CustomFormSerializer(serializers.ModelSerializer):
             except json.JSONDecodeError:
                 raise serializers.ValidationError({"contents": "Invalid JSON format"})
         return super().to_internal_value(data)
-
-
-class AIChatStateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AIChatState
-        fields = ["id", "lesson", "is_enabled", "updated_at"]
-        read_only_fields = ["updated_at"]

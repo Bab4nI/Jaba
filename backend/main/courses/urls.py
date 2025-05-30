@@ -9,10 +9,8 @@ from .views import (
     CommentViewSet,
     CommentReactionViewSet,
     CodeExecutionView,
-    AIChatView,
     MediaUploadView,
     CustomFormViewSet,
-    AIChatStateViewSet,
 )
 
 # Use trailing_slash=True to match Django's default behavior
@@ -45,11 +43,6 @@ router.register(
     r"courses/(?P<course_slug>[^/.]+)/modules/(?P<module_id>\d+)/lessons/(?P<lesson_id>\d+)/forms",
     CustomFormViewSet,
     basename="form",
-)
-router.register(
-    r"lessons/(?P<lesson_id>\d+)/ai-chat-state",
-    AIChatStateViewSet,
-    basename="ai-chat-state",
 )
 
 urlpatterns = [
@@ -211,7 +204,6 @@ urlpatterns = [
         name="delete-user-reaction",
     ),
     path("execute-code/", CodeExecutionView.as_view(), name="execute-code"),
-    path("ai-chat/", AIChatView.as_view(), name="ai-chat"),
     path("upload-media/", MediaUploadView.as_view(), name="upload-media"),
     # Add progress-specific paths
     path(
